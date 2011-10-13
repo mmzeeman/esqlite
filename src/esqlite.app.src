@@ -1,0 +1,12 @@
+{application, esqlite,
+ [
+  {description, "sqlite nif interface"},
+  {vsn, "1"},
+  {modules, [esqlite]},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {env, []}
+ ]}.
