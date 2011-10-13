@@ -5,7 +5,7 @@
 -module(esqlite).
 -author("Maas-Maarten Zeeman <mmzeeman@xs4all.nl>").
 
--export([open/1]).
+-export([open/1, prepare/2]).
 
 -on_load(init/0).
 
@@ -15,5 +15,8 @@ init() ->
 %% @doc Open a new database connection
 %%
 open(_Filename) ->
+    exit(nif_library_not_loaded).
+
+prepare(_Db, _Sql) ->
     exit(nif_library_not_loaded).
 
