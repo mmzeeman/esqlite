@@ -6,6 +6,13 @@
 
 #include "sqlite3.h"
 
+
+static int on_load(ErlNifEnv* env, void** priv, ERL_NIF_TERM info)
+{
+  return 0;
+}
+
+
 static ErlNifFunc nif_funcs[] = {
 };
 
