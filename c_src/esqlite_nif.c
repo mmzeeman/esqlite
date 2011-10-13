@@ -31,13 +31,12 @@ static ERL_NIF_TERM esqlite_open_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
       fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
       sqlite3_close(db);
       /* maak een error tuple */
+      return enif_make_tuple2(env, _atom_error, _atom_error); /* todo add error message */
     }
 
     /* and wrap it in an erlang resource */
     fprintf(stderr, "The database is open.\n");
-
     sqlite3_close(db);
-
     fprintf(stderr, "And closed\n");
     
     return enif_make_tuple2(env, _atom_ok, _atom_ok);
