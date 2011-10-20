@@ -1,8 +1,9 @@
 /*
- * esqlite -- an erlang sqlite nif.
+ * Esqlite -- an erlang sqlite nif.
 */
 
 #include <stdio.h> /* for debugging */
+#include <assert.h>
 #include <erl_nif.h>
 
 #include "queue.h"
@@ -70,6 +71,8 @@ command_create()
 
   cmd->type = cmd_unknown;
   cmd->ref = 0;
+
+  return cmd;
 }
 
 /*
@@ -98,18 +101,17 @@ esqlite_db_run(void *arg)
 
   db->alive = 1;
 
-  /* Wait for incoming commands and execute them */
   while(1) {
-    cmd = get_command(db);
+    cmd = queue_pop(db->commands);
 
     /* We are stopping... */
-    if(cmd_stop == command->type) {
-      command_destroy(command);
+    if(cmd_stop == cmd->type) {
+      command_destroy(cmd);
       break;
     }
 
     /* Evaluate the command */
-    switch(command->type) {
+    switch(cmd->type) {
     cmd_open:
       /* do open */
       break;
@@ -123,11 +125,12 @@ esqlite_db_run(void *arg)
       assert(0 && "Invalid command");
     }
 
-    enif_send(NULL, &(command->pid), command->env, _atom_ok);
-    command_destroy(command);
+    enif_send(NULL, &(cmd->pid), cmd->env, _atom_ok);
+    command_destroy(cmd);
   }
 
   db->alive = 0;
+  return NULL;
 }
 
 /*
@@ -147,18 +150,17 @@ start_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   /* initialize the resource */
   esqldb = enif_alloc_resource(esqlite_sqlite3_type, sizeof(esqlite_db));
   esqldb->db = NULL;
-  esqldb->alive = 0;
 
   /* Start the command processing thread */
   esqldb->opts = enif_thread_opts_create("esqldb_thread_opts");
   if(enif_thread_create("", &esqldb->tid, esqlite_db_run, esqldb, esqldb->opts) != 0) {
-    goto error;
+    enif_release_resource(esqldb);
+    return enif_make_tuple2(env, _atom_error, _atom_ok);
   }
 
-  /* */
+  /* We got the resource... now return it */
   esqlite_db = enif_make_resource(env, esqldb);
   enif_release_resource(esqldb);
-
   return enif_make_tuple2(env, _atom_ok, esqlite_db);
 }
 
