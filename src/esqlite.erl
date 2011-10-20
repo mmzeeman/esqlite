@@ -22,10 +22,10 @@ open(Filename) ->
 %% @doc Open a database connection
 %%
 open(Filename, Timeout) ->
-    Db = esqlite_start(),
+    {ok, Db} = esqlite_start(),
 
     Ref = make_ref(),
-    ok = esqlite_open(Db, Ref, Filename, self()),
+    ok = esqlite_open(Db, Ref, self(), Filename),
     case receive_answer(Ref, Timeout) of
 	ok ->
 	    {ok, Db};

@@ -2,19 +2,17 @@
  * Esqlite -- an erlang sqlite nif.
 */
 
-#include <stdio.h> /* for debugging */
 #include <assert.h>
 #include <erl_nif.h>
+
+#include <stdio.h> /* for debugging */
 
 #include "queue.h"
 #include "sqlite3.h"
 
 #define MAX_PATHNAME 512 /* unfortunately not in sqlite.h. */
 
-static ErlNifResourceType *esqlite_sqlite3_type = NULL;
-
-static ERL_NIF_TERM _atom_ok;
-static ERL_NIF_TERM _atom_error;
+static ErlNifResourceType *esqlite_db_type = NULL;
 
 /* database connection context */
 typedef struct {
@@ -26,6 +24,9 @@ typedef struct {
 
   int alive;
 } esqlite_db;
+
+static ERL_NIF_TERM _atom_ok;
+static ERL_NIF_TERM _atom_error;
 
 typedef enum {
   cmd_unknown,
@@ -45,6 +46,29 @@ typedef struct {
   /* Args */
 
 } esqlite_command;
+
+static ERL_NIF_TERM 
+make_atom(ErlNifEnv *env, const char *atom_name) 
+{
+  ERL_NIF_TERM atom;
+  
+  if(enif_make_existing_atom(env, atom_name, &atom, ERL_NIF_LATIN1)) 
+    return atom;
+
+  return enif_make_atom(env, atom_name);
+}
+
+static ERL_NIF_TERM 
+make_ok_tuple(ErlNifEnv *env, ERL_NIF_TERM value) 
+{
+  return enif_make_tuple2(env, _atom_ok, value);
+}
+
+static ERL_NIF_TERM 
+make_error_tuple(ErlNifEnv *env, const char *reason) 
+{
+  return enif_make_tuple2(env, _atom_error, make_atom(env, reason));
+}
 
 static void
 command_destroy(void *obj) 
@@ -82,8 +106,8 @@ descruct_esqlite_db(ErlNifEnv *env, void *arg)
 {
   esqlite_db *db = (esqlite_db *) arg;
   esqlite_command *cmd = command_create();
-
-  /* send the stop command */
+  
+  /* Send the stop command */
   cmd->type = cmd_stop;
   queue_push(db->commands, cmd);
   queue_send(db->commands, cmd);
@@ -104,28 +128,29 @@ esqlite_db_run(void *arg)
   while(1) {
     cmd = queue_pop(db->commands);
 
-    /* We are stopping... */
     if(cmd_stop == cmd->type) {
+      fprintf(stderr, "received stop\n");
       command_destroy(cmd);
       break;
     }
 
     /* Evaluate the command */
     switch(cmd->type) {
-    cmd_open:
-      /* do open */
+    case cmd_open:
+      fprintf(stderr, "received open\n");
       break;
-    cmd_exec:
-      /* do exec */
+    case cmd_exec:
+      fprintf(stderr, "received exec\n");
       break;
-    cmd_close:
-      /* do close */
+    case cmd_close:
+      fprintf(stderr, "received close\n");
       break;
     default:
       assert(0 && "Invalid command");
     }
 
-    enif_send(NULL, &(cmd->pid), cmd->env, _atom_ok);
+    /* TODO: A real implementation for a command */
+    enif_send(NULL, &cmd->pid, cmd->env, enif_make_tuple2(cmd->env, cmd->ref, _atom_ok));
     command_destroy(cmd);
   }
 
@@ -133,55 +158,98 @@ esqlite_db_run(void *arg)
   return NULL;
 }
 
-/*
- * Open database. Expects utf-8 input
- *
- * Note the database is opened in a thread. New commands are send to
- * the thread and when it finishes the result is send back. The reason
- * for this is that we don't want to block the erlang scheduler of the
- * calling function.
+/* 
+ * Start the processing thread
  */
 static ERL_NIF_TERM 
 start_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
   esqlite_db *esqldb;
-  ERL_NIF_TERM esqlite_db;
+  ERL_NIF_TERM db;
 
-  /* initialize the resource */
-  esqldb = enif_alloc_resource(esqlite_sqlite3_type, sizeof(esqlite_db));
+  /* Initialize the resource */
+  esqldb = enif_alloc_resource(esqlite_db_type, sizeof(esqlite_db));
   esqldb->db = NULL;
 
-  /* Start the command processing thread */
+  /* Create command queue */
+  esqldb->commands = queue_create();
+  if(!esqldb->commands) {
+    enif_release_resource(esqldb);
+    return make_error_tuple(env, "command_queue_create_failed");
+  }
+
+  /* Start command processing thread */
   esqldb->opts = enif_thread_opts_create("esqldb_thread_opts");
   if(enif_thread_create("", &esqldb->tid, esqlite_db_run, esqldb, esqldb->opts) != 0) {
     enif_release_resource(esqldb);
-    return enif_make_tuple2(env, _atom_error, _atom_ok);
+    return make_error_tuple(env, "thread_create_failed");
   }
 
-  /* We got the resource... now return it */
-  esqlite_db = enif_make_resource(env, esqldb);
+  db = enif_make_resource(env, esqldb);
   enif_release_resource(esqldb);
-  return enif_make_tuple2(env, _atom_ok, esqlite_db);
+
+  return make_ok_tuple(env, db);
 }
 
+/* 
+ * Open the database
+ */
 static ERL_NIF_TERM
 esqlite_open_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
+  esqlite_db *db;
+  esqlite_command *cmd = NULL;
+  ErlNifPid pid;
+
+  if(argc != 4) 
+    return enif_make_badarg(env);
+
+  if(!enif_get_resource(env, argv[0], esqlite_db_type, (void **) &db))
+    return enif_make_badarg(env);
+
+  if(!enif_is_ref(env, argv[1])) 
+    return make_error_tuple(env, "invalid_ref");
+
+  if(!enif_get_local_pid(env, argv[2], &pid)) 
+    return make_error_tuple(env, "invalid_pid");
+
+  cmd = command_create();
+  if(!cmd) 
+    return make_error_tuple(env, "command_create_failed");
+
+  /* command */
+  cmd->type = cmd_open;
+  cmd->ref = enif_make_copy(cmd->env, argv[1]);
+  cmd->pid = pid;
+  /* todo add the filename */
+
+  if(!queue_push(db->commands, cmd)) 
+    return make_error_tuple(env, "command_push_failed");
+  
   return _atom_ok;
 }
 
+/*
+ * Execute the sql statement
+ */
 static ERL_NIF_TERM 
 esqlite_exec_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
   return _atom_ok;
 }
 
+/*
+ * Close the database
+ */
 static ERL_NIF_TERM
 esqlite_close_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
   return _atom_ok;
 }
 
+/*
+ * Load the nif. Initialize some stuff and such
+ */
 static int 
 on_load(ErlNifEnv* env, void** priv, ERL_NIF_TERM info)
 {
@@ -190,18 +258,17 @@ on_load(ErlNifEnv* env, void** priv, ERL_NIF_TERM info)
   if(!rt) 
     return -1;
 
-  esqlite_sqlite3_type = rt;
+  esqlite_db_type = rt;
 
-  _atom_ok = enif_make_atom(env, "ok");
-  _atom_error = enif_make_atom(env, "error");
+  _atom_ok = make_atom(env, "ok");
+  _atom_error = make_atom(env, "error");
 
   return 0;
 }
 
-
 static ErlNifFunc nif_funcs[] = {
   {"esqlite_start", 0, start_nif},
-  {"esqlite_open", 2, esqlite_open_nif},
+  {"esqlite_open", 4, esqlite_open_nif},
   {"esqlite_exec", 4, esqlite_exec_nif}, 
   {"esqlite_close", 3, esqlite_close_nif}
 };
