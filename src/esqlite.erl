@@ -35,10 +35,10 @@ open(Filename, Timeout) ->
 
 %% @doc Execute Sql statement
 %%
-exec(Sql, Db) ->
-    exec(Sql, Db, ?DEFAULT_TIMEOUT).
+exec(Db, Sql) ->
+    exec(Db, Sql, ?DEFAULT_TIMEOUT).
 
-exec(Sql, Db, Timeout) ->
+exec(Db, Sql, Timeout) ->
     Ref = make_ref(),
     ok = esqlite_exec(Db, Ref, self(), Sql),
     receive_answer(Ref, Timeout).

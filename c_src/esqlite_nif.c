@@ -159,7 +159,6 @@ esqlite_db_run(void *arg)
 {
   esqlite_db *db = (esqlite_db *) arg;
   esqlite_command *cmd;
-  ERL_NIF_TERM answer;
   int continue_running = 1;
   
   db->alive = 1;
@@ -170,10 +169,11 @@ esqlite_db_run(void *arg)
     if(cmd->type == cmd_stop) {
       continue_running = 0;
     } else {
-      answer = evaluate_command(cmd->env, cmd->type, db, NULL);
-      enif_send(NULL, &cmd->pid, cmd->env, enif_make_tuple2(cmd->env, cmd->ref, answer));
+      enif_send(NULL, &cmd->pid, cmd->env, 
+		enif_make_tuple2(cmd->env, cmd->ref, 
+				 evaluate_command(cmd->env, cmd->type, db, NULL)));
     }
-
+    
     command_destroy(cmd);    
   }
 
@@ -252,15 +252,42 @@ esqlite_open_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
   return _atom_ok;
 }
 
-
-
 /*
  * Execute the sql statement
  */
 static ERL_NIF_TERM 
 esqlite_exec_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
-  return _atom_ok;
+  esqlite_db *db;
+  esqlite_command *cmd = NULL;
+  ErlNifPid pid;
+  
+  if(argc != 4) 
+    return enif_make_badarg(env);
+
+  if(!enif_get_resource(env, argv[0], esqlite_db_type, (void **) &db))
+    return enif_make_badarg(env);
+
+  if(!enif_is_ref(env, argv[1])) 
+    return make_error_tuple(env, "invalid_ref");
+
+  if(!enif_get_local_pid(env, argv[2], &pid)) 
+    return make_error_tuple(env, "invalid_pid"); 
+
+  cmd = command_create();
+  if(!cmd) 
+    return make_error_tuple(env, "command_create_failed");
+
+  /* command */
+  cmd->type = cmd_exec;
+  cmd->ref = enif_make_copy(cmd->env, argv[1]);
+  cmd->pid = pid;
+  /* TODO add the query as an argument */
+
+  if(!queue_push(db->commands, cmd)) 
+    return make_error_tuple(env, "command_push_failed");
+  
+  return _atom_ok;  
 }
 
 /*
@@ -278,7 +305,7 @@ esqlite_close_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 static int 
 on_load(ErlNifEnv* env, void** priv, ERL_NIF_TERM info)
 {
-  ErlNifResourceType *rt = enif_open_resource_type(env, "esqlite", "esqlite_sqlite3_type", 
+  ErlNifResourceType *rt = enif_open_resource_type(env, "esqlite", "esqlite_sqlite3_db", 
 						   descruct_esqlite_db, ERL_NIF_RT_CREATE, NULL);
   if(!rt) 
     return -1;
