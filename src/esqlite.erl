@@ -40,7 +40,9 @@ exec(Db, Sql) ->
 
 exec(Db, Sql, Timeout) ->
     Ref = make_ref(),
-    ok = esqlite_exec(Db, Ref, self(), Sql),
+    %% sqlite doesn't support length parameters for queries... add the
+    %% end of string here.
+    ok = esqlite_exec(Db, Ref, self(), [Sql, 0]),
     receive_answer(Ref, Timeout).
 
 %% @doc Close the database

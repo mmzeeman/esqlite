@@ -21,9 +21,10 @@ open_multiple_different_databases_test() ->
     ok.
 
 simple_query_test() ->
-    {ok, Db} = esqlite:open("test.db"),
-    esqlite:exec(Db, "create table test_table(one varchar(10), two, smallint);"),
-    esqlite:exec(Db, ["insert into test_table values(", "hello", ",", "10" ");"]),
+    {ok, Db} = esqlite:open(":memory:"),
+    esqlite:exec(Db, "create table test_table(one varchar(10), two int);"),
+    esqlite:exec(Db, ["insert into test_table values(", "\"hello\"", ",", "10" ");"]),
+    esqlite:exec(Db, "select * from test_table;"),
     ok.
 
     
