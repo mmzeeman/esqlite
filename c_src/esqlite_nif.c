@@ -100,6 +100,7 @@ command_create()
 }
 
 /*
+ *
  */
 static void 
 descruct_esqlite_db(ErlNifEnv *env, void *arg)
@@ -117,41 +118,63 @@ descruct_esqlite_db(ErlNifEnv *env, void *arg)
   enif_thread_opts_destroy(db->opts);
 }
 
+static ERL_NIF_TERM
+do_open(ErlNifEnv *env, esqlite_db *db, const ERL_NIF_TERM argv[]) 
+{
+  fprintf(stderr, "do_open\n");
+  return _atom_ok;
+}
+
+static ERL_NIF_TERM
+do_exec(ErlNifEnv *env, esqlite_db *db, const ERL_NIF_TERM argv[])
+{
+  fprintf(stderr, "do_exec\n");
+  return _atom_ok;
+}
+
+static ERL_NIF_TERM
+do_close(ErlNifEnv *env, esqlite_db *db, const ERL_NIF_TERM argv[])
+{
+  fprintf(stderr, "do_close\n");
+  return _atom_ok;
+}
+
+static ERL_NIF_TERM
+evaluate_command(ErlNifEnv *env, command_type type, esqlite_db *db, const ERL_NIF_TERM argv[])
+{
+  switch(type) {
+  case cmd_open:
+    return do_open(env, db, NULL);
+  case cmd_exec:
+    return do_exec(env, db, NULL);
+  case cmd_close:
+    return do_close(env, db, NULL);
+  default:
+    return make_error_tuple(env, "invalid_command");
+  }
+}
+
 static void *
 esqlite_db_run(void *arg)
 {
   esqlite_db *db = (esqlite_db *) arg;
   esqlite_command *cmd;
-
+  ERL_NIF_TERM answer;
+  int continue_running = 1;
+  
   db->alive = 1;
 
-  while(1) {
+  while(continue_running) {
     cmd = queue_pop(db->commands);
 
-    if(cmd_stop == cmd->type) {
-      fprintf(stderr, "received stop\n");
-      command_destroy(cmd);
-      break;
+    if(cmd->type == cmd_stop) {
+      continue_running = 0;
+    } else {
+      answer = evaluate_command(cmd->env, cmd->type, db, NULL);
+      enif_send(NULL, &cmd->pid, cmd->env, enif_make_tuple2(cmd->env, cmd->ref, answer));
     }
 
-    /* Evaluate the command */
-    switch(cmd->type) {
-    case cmd_open:
-      fprintf(stderr, "received open\n");
-      break;
-    case cmd_exec:
-      fprintf(stderr, "received exec\n");
-      break;
-    case cmd_close:
-      fprintf(stderr, "received close\n");
-      break;
-    default:
-      assert(0 && "Invalid command");
-    }
-
-    /* TODO: A real implementation for a command */
-    enif_send(NULL, &cmd->pid, cmd->env, enif_make_tuple2(cmd->env, cmd->ref, _atom_ok));
-    command_destroy(cmd);
+    command_destroy(cmd);    
   }
 
   db->alive = 0;
@@ -221,13 +244,15 @@ esqlite_open_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
   cmd->type = cmd_open;
   cmd->ref = enif_make_copy(cmd->env, argv[1]);
   cmd->pid = pid;
-  /* todo add the filename */
+  /* TODO add the filename as an argument */
 
   if(!queue_push(db->commands, cmd)) 
     return make_error_tuple(env, "command_push_failed");
   
   return _atom_ok;
 }
+
+
 
 /*
  * Execute the sql statement
