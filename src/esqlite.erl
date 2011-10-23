@@ -54,7 +54,6 @@ close(Db, Timeout) ->
     Ref = make_ref(),
     ok = esqlite_close(Db, Ref, self()),
     receive_answer(Ref, Timeout).
-    
 
 %% ---- Internal ----
 esqlite_start() ->

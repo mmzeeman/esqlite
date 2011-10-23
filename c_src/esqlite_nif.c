@@ -32,6 +32,8 @@ typedef enum {
      cmd_unknown,
      cmd_open,
      cmd_exec,
+     cmd_prepare,
+     cmd_step,
      cmd_close,
      cmd_stop
 } command_type;
@@ -108,16 +110,20 @@ descruct_esqlite_db(ErlNifEnv *env, void *arg)
      esqlite_db *db = (esqlite_db *) arg;
      esqlite_command *cmd = command_create();
   
-     /* Send the stop command */
+     /* Send the stop command 
+      */
      cmd->type = cmd_stop;
      queue_push(db->commands, cmd);
      queue_send(db->commands, cmd);
      
-     /* wait for the thread to finish */
+     /* Wait for the thread to finish 
+      */
      enif_thread_join(db->tid, NULL);
      enif_thread_opts_destroy(db->opts);
      
-     /* the thread is finished... remove the command queue, and close the datbase. */
+     /* The thread has finished... now remove the command queue, and close
+      * the datbase (if it was still open).
+      */
      queue_destroy(db->commands);
 
      if(db->db)
@@ -139,30 +145,37 @@ do_open(ErlNifEnv *env, esqlite_db *db, const ERL_NIF_TERM arg)
      if(size <= 0) 
 	  return make_error_tuple(env, "invalid_filename");
 
+     /* Open the database. 
+      */
      rc = sqlite3_open(filename, &db->db);
-     if(rc == SQLITE_OK) {
-	  fprintf(stderr, "opened %s\n", filename);
-	  return _atom_ok;
-     }
-
-     error = make_error_tuple(env, sqlite3_errmsg(db->db));
-     sqlite3_close(db->db);
-     db->db = NULL;
+     if(rc != SQLITE_OK) {
+	  error = make_error_tuple(env, sqlite3_errmsg(db->db));
+	  sqlite3_close(db->db);
+	  db->db = NULL;
      
-     return error;
+	  return error;
+     }
+	  
+     return _atom_ok;
 }
 
 static int 
 the_callback(void *a_param, int argc, char **argv, char **column)
 {
+     /* This only returns null terminated strings... */
      int i;
-     fprintf(stderr, "record::::\n");
      for (i = 0; i < argc; i++)
 	  fprintf(stderr, "%s,\t", argv[i]);
      fprintf(stderr, "\n");
      return 0;
 }
 
+
+/* 
+ * The limit of sqlite3_exec is that it can only return null
+ * terminated string values. If you need different datatypes you
+ * should use the prepare, bind, step interface.
+ */
 static ERL_NIF_TERM
 do_exec(ErlNifEnv *env, esqlite_db *db, const ERL_NIF_TERM arg)
 {
@@ -175,16 +188,54 @@ do_exec(ErlNifEnv *env, esqlite_db *db, const ERL_NIF_TERM arg)
      /* Get the query as a binary -- and the end of string -- */
      enif_inspect_iolist_as_binary(env, arg, &bin);
      
-     rc = sqlite3_exec(db->db, bin.data, the_callback, NULL, NULL);
-     
-     fprintf(stderr, "do_exec %s: %d\n", bin.data, rc);
+     rc = sqlite3_exec(db->db, (char *) bin.data, the_callback, NULL, NULL);
+
+     /* TODO: check rc*/
+
      return _atom_ok;
 }
 
 static ERL_NIF_TERM
-do_close(ErlNifEnv *env, esqlite_db *db, const ERL_NIF_TERM arg)
+do_prepare(ErlNifEnv *env, esqlite_db *conn, const ERL_NIF_TERM arg)
 {
-     fprintf(stderr, "do_close\n");
+     ErlNifBinary bin;
+     int rc;
+     
+     if(!conn->db)
+	  return make_error_tuple(env, "database_not_open");
+
+     /* Get the query as binary -- and the included end of string -- */
+     enif_inspect_iolist_as_binary(env, arg, &bin);
+
+     fprintf(stderr, "do_prepare\n");
+
+     /* return the prepared statement. */
+
+     
+
+     return _atom_ok;
+}
+
+static ERL_NIF_TERM
+do_step(ErlNifEnv *env, esqlite_db *db, const ERL_NIF_TERM arg)
+{
+     fprintf(stderr, "do_prepare\n");
+     return _atom_ok;
+}
+
+static ERL_NIF_TERM
+do_close(ErlNifEnv *env, esqlite_db *conn, const ERL_NIF_TERM arg)
+{
+     int rc;
+
+     if(!conn->db)
+	  return make_error_tuple(env, "database_not_open");
+
+     rc = sqlite3_close(conn->db);
+     if(rc != SQLITE_OK) 
+	  return make_error_tuple(env, sqlite3_errmsg(conn->db));
+
+     conn->db = NULL;
      return _atom_ok;
 }
 
@@ -196,6 +247,10 @@ evaluate_command(ErlNifEnv *env, command_type type, esqlite_db *db, const ERL_NI
 	  return do_open(env, db, arg);
      case cmd_exec:
 	  return do_exec(env, db, arg);
+     case cmd_prepare:
+	  return do_prepare(env, db, arg);
+     case cmd_step:
+	  return do_step(env, db, arg);
      case cmd_close:
 	  return do_close(env, db, arg);
      default:
@@ -372,7 +427,10 @@ on_load(ErlNifEnv* env, void** priv, ERL_NIF_TERM info)
 static ErlNifFunc nif_funcs[] = {
      {"esqlite_start", 0, start_nif},
      {"esqlite_open", 4, esqlite_open_nif},
-     {"esqlite_exec", 4, esqlite_exec_nif}, 
+     {"esqlite_exec", 4, esqlite_exec_nif},
+     {"esqlite_prepare", 4, esqlite_prepare_nif},
+     {"esqlite_bind", 3, esqlite_bind_named},
+     {"esqlite_bind", 2, esqlite_bind},
      {"esqlite_close", 3, esqlite_close_nif}
 };
 
