@@ -5,7 +5,7 @@
 -module(esqlite).
 -author("Maas-Maarten Zeeman <mmzeeman@xs4all.nl>").
 
--export([open/1, open/2, exec/2, exec/3, close/1, close/2]).
+-export([open/1, open/2, exec/2, prepare/2, prepare/3, exec/3, close/1, close/2]).
 
 -on_load(init/0).
 
@@ -45,6 +45,16 @@ exec(Db, Sql, Timeout) ->
     ok = esqlite_exec(Db, Ref, self(), [Sql, 0]),
     receive_answer(Ref, Timeout).
 
+%% @doc Prepare a statement
+%%
+prepare(Db, Sql) ->
+    prepare(Db, Sql, ?DEFAULT_TIMEOUT).
+
+prepare(Db, Sql, Timeout) ->
+    Ref = make_ref(),
+    ok = esqlite_prepare(Db, Ref, self(), [Sql, 0]),
+    receive_answer(Ref, Timeout).
+
 %% @doc Close the database
 %%
 close(Db) ->
@@ -63,6 +73,9 @@ esqlite_open(_Db, _Ref, _Dest, _Filename) ->
     exit(nif_library_not_loaded).
 
 esqlite_exec(_Db, _Ref, _Dest, _Sql) ->
+    exit(nif_library_not_loaded).
+
+esqlite_prepare(_Db, _Ref, _Dest, _Sql) ->
     exit(nif_library_not_loaded).
 
 esqlite_close(_Db, _Ref, _Dest) ->
