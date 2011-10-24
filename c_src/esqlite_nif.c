@@ -141,7 +141,7 @@ static void
 destruct_esqlite_statement(ErlNifEnv *env, void *arg)
 {
      esqlite_statement *stmt = (esqlite_statement *) arg;
-     
+
      if(stmt->statement) {
 	  /* the statement was not finalized */
 	  sqlite3_finalize(stmt->statement);
@@ -221,6 +221,7 @@ do_prepare(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
      ErlNifBinary bin;
      esqlite_statement *stmt;
      ERL_NIF_TERM esqlite_stmt;
+     const char *tail;
      int rc;
 
      if(!conn->db) 
@@ -234,11 +235,14 @@ do_prepare(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
      if(!stmt) 
 	  return make_error_tuple(env, "no_memory");
 
+     rc = sqlite3_prepare_v2(conn->db, (char *) bin.data, bin.size, &(stmt->statement), &tail);
+     if(rc != SQLITE_OK)
+	  return make_error_tuple(env, sqlite3_errmsg(conn->db));
+
      /* Keep a reference to the connection */
      enif_keep_resource(conn);
      stmt->connection = conn;
      stmt->statement = NULL;
-     // sqlite3_prepare_v2(conn->db, (char *) bin.data, &(stmt->statement), NULL);
 
      esqlite_stmt = enif_make_resource(env, stmt);
      enif_release_resource(stmt);
@@ -428,7 +432,7 @@ esqlite_exec_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 }
 
 /*
- * Execute the sql statement
+ * Prepare the sql statement
  */
 static ERL_NIF_TERM 
 esqlite_prepare_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
@@ -437,8 +441,6 @@ esqlite_prepare_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
      esqlite_command *cmd = NULL;
      ErlNifPid pid;
 
-     fprintf(stderr, "prepare\n");
-     
      if(argc != 4) 
 	  return enif_make_badarg(env);
      if(!enif_get_resource(env, argv[0], esqlite_connection_type, (void **) &conn))
@@ -459,8 +461,6 @@ esqlite_prepare_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
      if(!queue_push(conn->commands, cmd)) 
 	  return make_error_tuple(env, "command_push_failed");
-
-     fprintf(stderr, "command pushed");
 
      return _atom_ok;
 }

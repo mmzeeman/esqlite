@@ -36,7 +36,7 @@ prepare_test() ->
     {ok, Db} = esqlite:open(":memory:"),
     esqlite:exec(Db, "begin;"),
     esqlite:exec(Db, "create table test_table(one varchar(10), two int);"),
-    {ok, Statement} = esqlite:prepare(Db, "insert into_test_table(:one, :two)").
+    {ok, Statement} = esqlite:prepare(Db, "insert into test_table values(:one, :two)").
 
 %%    esqlite:bind(Statement, ":one", "hello"),
 %%     esqlite:bind(Statement, ":two", 11),
