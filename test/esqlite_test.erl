@@ -38,10 +38,28 @@ prepare_test() ->
     esqlite:exec(Db, "create table test_table(one varchar(10), two int);"),
     {ok, Statement} = esqlite:prepare(Db, "insert into test_table values(\"one\", 2)"),
     
-    esqlite:step(Statement),
-    
+    '$done' = esqlite:step(Statement),
+ 
     {ok, St2} = esqlite:prepare(Db, "select * from test_table"),
-    esqlite:step(St2).
+
+    [ok] = exec(St2),
+    ok.
+
+exec(Statement) ->
+    exec(Statement, [], 0).
+
+exec(_Statement, _Acc, Tries) when Tries > 5 ->
+    throw(too_many_tries);
+exec(Statement, Acc, Tries) ->
+    case esqlite:step(Statement) of
+	'$done' ->
+	    lists:reverse(Acc);
+	'$busy' ->
+	    timer:sleep(100),
+	    exec(Statement, Acc, Tries + 1);
+	V ->
+	    exec(Statement, [V | Acc], 0)
+    end.
 
 %%    esqlite:bind(Statement, ":one", "hello"),
 %%     esqlite:bind(Statement, ":two", 11),

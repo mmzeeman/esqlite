@@ -252,8 +252,14 @@ do_step(ErlNifEnv *env, esqlite_connection *conn, sqlite3_stmt *stmt)
      
      rc = sqlite3_step(stmt);
 
+     if(rc == SQLITE_DONE) 
+	  return make_atom(env, "$done");
+     if(rc == SQLITE_BUSY)
+	  return make_atom(env, "$busy");
+
+     /* Now prepare the output...  */
      fprintf(stderr, "step returned: %d\n", rc);
-     fprintf(stderr, "nu columns: %d\n", sqlite3_column_count(stmt));
+     fprintf(stderr, "# columns:     %d\n", sqlite3_column_count(stmt));
 
      return _atom_ok;
 }
