@@ -40,11 +40,12 @@ prepare_test() ->
     
     '$done' = esqlite:step(Statement),
 
-    ok = esqlite:exec(Db, ["insert into test_table values(", "\"hello4\"", ",", "13" ");"]),
- 
+    ok = esqlite:exec(Db, ["insert into test_table values(", "\"hello4\"", ",", "13" ");"]), 
     {ok, St2} = esqlite:prepare(Db, "select * from test_table order by two"),
-
     [{"one", 2}, {"hello4", 13}] = exec(St2),
+    esqlite:exec(Db, "commit;"),
+    esqlite:close(Db),
+
     ok.
 
 exec(Statement) ->
@@ -59,7 +60,7 @@ exec(Statement, Acc, Tries) ->
 	'$busy' ->
 	    timer:sleep(100),
 	    exec(Statement, Acc, Tries + 1);
-	V ->
+	V when is_tuple(V) ->
 	    exec(Statement, [V | Acc], 0)
     end.
 
