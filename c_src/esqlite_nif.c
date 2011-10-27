@@ -244,6 +244,29 @@ do_prepare(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
 }
 
 static ERL_NIF_TERM
+make_row(ErlNifEnv *env, sqlite3_stmt *statement) 
+{
+     int i, size;
+     ERL_NIF_TERM *array;
+     ERL_NIF_TERM row;
+     
+     size = sqlite3_column_count(statement);
+     array = (ERL_NIF_TERM *) malloc(sizeof(ERL_NIF_TERM)*size);
+
+     if(!array) 
+	  return make_error_tuple(env, "no_memory");
+
+     for(i = 0; i < size; i++) {
+	  /* todo get the value, and transform it */
+	  array[i] = _atom_ok;
+     };
+
+     row = enif_make_tuple_from_array(env, array, size);
+     free(array);
+     return row;
+}
+
+static ERL_NIF_TERM
 do_step(ErlNifEnv *env, esqlite_connection *conn, sqlite3_stmt *stmt)
 {
      int rc;
@@ -251,15 +274,15 @@ do_step(ErlNifEnv *env, esqlite_connection *conn, sqlite3_stmt *stmt)
      fprintf(stderr, "step\n");
      
      rc = sqlite3_step(stmt);
+     fprintf(stderr, "step returned: %d\n", rc);
 
      if(rc == SQLITE_DONE) 
 	  return make_atom(env, "$done");
      if(rc == SQLITE_BUSY)
 	  return make_atom(env, "$busy");
 
-     /* Now prepare the output...  */
-     fprintf(stderr, "step returned: %d\n", rc);
-     fprintf(stderr, "# columns:     %d\n", sqlite3_column_count(stmt));
+     if(rc == SQLITE_ROW) 
+	  return make_row(env, stmt);
 
      return _atom_ok;
 }

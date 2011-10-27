@@ -42,7 +42,7 @@ prepare_test() ->
  
     {ok, St2} = esqlite:prepare(Db, "select * from test_table"),
 
-    [ok] = exec(St2),
+    [{ok, ok}] = exec(St2),
     ok.
 
 exec(Statement) ->
