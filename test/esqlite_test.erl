@@ -39,10 +39,12 @@ prepare_test() ->
     {ok, Statement} = esqlite:prepare(Db, "insert into test_table values(\"one\", 2)"),
     
     '$done' = esqlite:step(Statement),
- 
-    {ok, St2} = esqlite:prepare(Db, "select * from test_table"),
 
-    [{ok, ok}] = exec(St2),
+    ok = esqlite:exec(Db, ["insert into test_table values(", "\"hello4\"", ",", "13" ");"]),
+ 
+    {ok, St2} = esqlite:prepare(Db, "select * from test_table order by two"),
+
+    [{"one", 2}, {"hello4", 13}] = exec(St2),
     ok.
 
 exec(Statement) ->

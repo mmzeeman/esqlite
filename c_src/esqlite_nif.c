@@ -2,8 +2,9 @@
  * Esqlite -- an erlang sqlite nif.
 */
 
-#include <assert.h>
+
 #include <erl_nif.h>
+#include <string.h>
 
 #include <stdio.h> /* for debugging */
 
@@ -244,6 +245,46 @@ do_prepare(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
 }
 
 static ERL_NIF_TERM
+make_binary(ErlNifEnv *env, const void *bytes, unsigned int size) 
+{
+     ErlNifBinary blob;
+     ERL_NIF_TERM term;
+
+     if(!enif_alloc_binary(size, &blob)) {
+	  /* TODO: fix this */
+	  return _atom_error;
+     }
+
+     memcpy(blob.data, bytes, size);
+     term = enif_make_binary(env, &blob);
+     enif_release_binary(&blob);
+
+     return term;
+}
+
+static ERL_NIF_TERM
+make_cell(ErlNifEnv *env, sqlite3_stmt *statement, unsigned int i)
+{
+     int type = sqlite3_column_type(statement, i);
+     
+     switch(type) {
+     case SQLITE_INTEGER:
+	  return enif_make_int(env, sqlite3_column_int(statement, i));
+     case SQLITE_FLOAT:
+	  return enif_make_double(env, sqlite3_column_double(statement, i));
+     case SQLITE_BLOB:
+	  return make_binary(env, sqlite3_column_blob(statement, i), sqlite3_column_bytes(statement, i));
+     case SQLITE_NULL:
+	  return make_atom(env, "undefined");
+     case SQLITE_TEXT:
+	  /* TODO, make some tests to see what happens when you insert a utf-8 string */
+	  return enif_make_string(env, (char *) sqlite3_column_text(statement, i), ERL_NIF_LATIN1);
+     default:
+	  return make_atom(env, "should_not_happen");
+     }
+}
+
+static ERL_NIF_TERM
 make_row(ErlNifEnv *env, sqlite3_stmt *statement) 
 {
      int i, size;
@@ -256,10 +297,8 @@ make_row(ErlNifEnv *env, sqlite3_stmt *statement)
      if(!array) 
 	  return make_error_tuple(env, "no_memory");
 
-     for(i = 0; i < size; i++) {
-	  /* todo get the value, and transform it */
-	  array[i] = _atom_ok;
-     };
+     for(i = 0; i < size; i++) 
+	  array[i] = make_cell(env, statement, i);
 
      row = enif_make_tuple_from_array(env, array, size);
      free(array);
@@ -269,18 +308,12 @@ make_row(ErlNifEnv *env, sqlite3_stmt *statement)
 static ERL_NIF_TERM
 do_step(ErlNifEnv *env, esqlite_connection *conn, sqlite3_stmt *stmt)
 {
-     int rc;
-
-     fprintf(stderr, "step\n");
-     
-     rc = sqlite3_step(stmt);
-     fprintf(stderr, "step returned: %d\n", rc);
+     int rc = sqlite3_step(stmt);
 
      if(rc == SQLITE_DONE) 
 	  return make_atom(env, "$done");
      if(rc == SQLITE_BUSY)
 	  return make_atom(env, "$busy");
-
      if(rc == SQLITE_ROW) 
 	  return make_row(env, stmt);
 
