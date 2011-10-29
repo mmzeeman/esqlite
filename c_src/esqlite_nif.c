@@ -181,21 +181,7 @@ do_open(ErlNifEnv *env, esqlite_connection *db, const ERL_NIF_TERM arg)
      return _atom_ok;
 }
 
-static int 
-the_callback(void *a_param, int argc, char **argv, char **column)
-{
-     /* This only returns null terminated strings... */
-     int i;
-     for (i = 0; i < argc; i++)
-	  fprintf(stderr, "%s,\t", argv[i]);
-     fprintf(stderr, "\n");
-     return 0;
-}
-
 /* 
- * The limit of sqlite3_exec is that it can only return null
- * terminated string values. If you need different datatypes you
- * should use the prepare, bind, step interface.
  */
 static ERL_NIF_TERM
 do_exec(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
@@ -203,16 +189,17 @@ do_exec(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
      ErlNifBinary bin;
      int rc;
 
-     /* Get the query as a binary -- and the end of string -- */
      enif_inspect_iolist_as_binary(env, arg, &bin);
-     
-     rc = sqlite3_exec(conn->db, (char *) bin.data, the_callback, NULL, NULL);
 
-     /* TODO: check rc*/
+     rc = sqlite3_exec(conn->db, (char *) bin.data, NULL, NULL, NULL);
+     if(rc != SQLITE_OK)
+	  return make_error_tuple(env, sqlite3_errmsg(conn->db));
 
      return _atom_ok;
 }
 
+/*
+ */
 static ERL_NIF_TERM
 do_prepare(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
 {
@@ -222,10 +209,8 @@ do_prepare(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
      const char *tail;
      int rc;
 
-     /* Get the query as a binary -- and the end of string -- */
      enif_inspect_iolist_as_binary(env, arg, &bin);
 
-     /* create a resource ... */
      stmt = enif_alloc_resource(esqlite_statement_type, sizeof(esqlite_statement));
      if(!stmt) 
 	  return make_error_tuple(env, "no_memory");
@@ -234,7 +219,6 @@ do_prepare(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
      if(rc != SQLITE_OK)
 	  return make_error_tuple(env, sqlite3_errmsg(conn->db));
 
-     /* Keep a reference to the connection */
      enif_keep_resource(conn);
      stmt->connection = conn;
 
@@ -334,25 +318,31 @@ do_close(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
 }
 
 static ERL_NIF_TERM
-evaluate_command(ErlNifEnv *env, command_type type, esqlite_connection *conn, sqlite3_stmt *stmt, const ERL_NIF_TERM arg)
+evaluate_command(esqlite_command *cmd, esqlite_connection *conn)
 {
      if(!conn->db) 
-	  make_error_tuple(env, "database_not_open");
+	  make_error_tuple(cmd->env, "database_not_open");
 	  
-     switch(type) {
+     switch(cmd->type) {
      case cmd_open:
-	  return do_open(env, conn, arg);
+	  return do_open(cmd->env, conn, cmd->arg);
      case cmd_exec:
-	  return do_exec(env, conn, arg);
+	  return do_exec(cmd->env, conn, cmd->arg);
      case cmd_prepare:
-	  return do_prepare(env, conn, arg);
+	  return do_prepare(cmd->env, conn, cmd->arg);
      case cmd_step:
-	  return do_step(env, conn, stmt);
+	  return do_step(cmd->env, conn, cmd->stmt);
      case cmd_close:
-	  return do_close(env, conn, arg);
+	  return do_close(cmd->env, conn, cmd->arg);
      default:
-	  return make_error_tuple(env, "invalid_command");
+	  return make_error_tuple(cmd->env, "invalid_command");
      }
+}
+
+static ERL_NIF_TERM
+make_answer(esqlite_command *cmd, ERL_NIF_TERM answer)
+{
+     return enif_make_tuple2(cmd->env, cmd->ref, answer);
 }
 
 static void *
@@ -367,13 +357,10 @@ esqlite_connection_run(void *arg)
      while(continue_running) {
 	  cmd = queue_pop(db->commands);
     
-	  if(cmd->type == cmd_stop) {
+	  if(cmd->type == cmd_stop) 
 	       continue_running = 0;
-	  } else {
-	       enif_send(NULL, &cmd->pid, cmd->env, 
-			 enif_make_tuple2(cmd->env, cmd->ref, 
-					  evaluate_command(cmd->env, cmd->type, db, cmd->stmt, cmd->arg)));
-	  }
+	  else 
+	       enif_send(NULL, &cmd->pid, cmd->env, make_answer(cmd, evaluate_command(cmd, db)));
     
 	  command_destroy(cmd);    
      }

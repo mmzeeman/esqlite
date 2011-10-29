@@ -74,6 +74,35 @@ exec(Statement, Acc, Tries) ->
 
 %%     esqlite:exec(Db, "commit;"),
     
+%%
+
+% api...
+
+q(Sql, Connection) ->
+    ok.
+
+q(Sql, Args, Connection) ->
+    ok.
+
+
+%% 
+%% options --
+%%   [{sync, bool()} 
+%%          -- asynchronous or synchronous. Default true
+%%    {receiver, (pid()|function/1|{M, F, A}}, 
+%%          -- for asynchronous requests, to send the result to.
+%%    {stream, pid()}, 
+%%          -- instead of receiving all rows at once, send them one by one.
+%%    {..},
+%%   ]
+%%
+%% return
+%%   {ok, Result} -- result kan dan headers, rows of request-id (voor async)
+%%   {error, ...
+q(Sql, Args, Options, Connection) ->
+    ok.
+
+
 
     
 	 
