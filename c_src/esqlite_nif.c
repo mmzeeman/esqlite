@@ -229,6 +229,33 @@ do_prepare(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
 }
 
 static ERL_NIF_TERM
+do_bind(ErlNifEnv *env, sqlite3_stmt *stmt, const ERL_NIF_TERM arg)
+{
+     int parameter_count = sqlite3_bind_parameter_count(stmt);
+     int i, is_list;
+     ERL_NIF_TERM list, head, tail;
+     unsigned int list_length;
+
+     is_list = enif_get_list_length(env, arg, &list_length);
+     if(!is_list) 
+	  return make_error_tuple(env, "bad_arg_list");
+     if(parameter_count != list_length) 
+	  return make_error_tuple(env, "args_wrong_length");
+     
+     
+     list = arg;
+     for(i = 0; i < list_length; i++) {
+	  enif_get_list_cell(env, list, &head, &tail);
+
+	  /* TODO: do a bind, based on the type of erlang parameter received */
+	  sqlite3_bind_int(stmt, i, i);
+	  list = tail;
+     }
+     
+     return _atom_ok;
+}
+
+static ERL_NIF_TERM
 make_binary(ErlNifEnv *env, const void *bytes, unsigned int size) 
 {
      ErlNifBinary blob;
@@ -290,7 +317,7 @@ make_row(ErlNifEnv *env, sqlite3_stmt *statement)
 }
 
 static ERL_NIF_TERM
-do_step(ErlNifEnv *env, esqlite_connection *conn, sqlite3_stmt *stmt)
+do_step(ErlNifEnv *env, sqlite3_stmt *stmt)
 {
      int rc = sqlite3_step(stmt);
 
@@ -331,7 +358,9 @@ evaluate_command(esqlite_command *cmd, esqlite_connection *conn)
      case cmd_prepare:
 	  return do_prepare(cmd->env, conn, cmd->arg);
      case cmd_step:
-	  return do_step(cmd->env, conn, cmd->stmt);
+	  return do_step(cmd->env, cmd->stmt);
+     case cmd_bind:
+	  return do_bind(cmd->env, cmd->stmt, cmd->arg);
      case cmd_close:
 	  return do_close(cmd->env, conn, cmd->arg);
      default:
@@ -373,7 +402,7 @@ esqlite_connection_run(void *arg)
  * Start the processing thread
  */
 static ERL_NIF_TERM 
-start_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+esqlite_start(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
      esqlite_connection *conn;
      ERL_NIF_TERM db_conn;
@@ -409,7 +438,7 @@ start_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
  * Open the database
  */
 static ERL_NIF_TERM
-esqlite_open_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+esqlite_open(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
      esqlite_connection *db;
      esqlite_command *cmd = NULL;
@@ -448,7 +477,7 @@ esqlite_open_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
  * Execute the sql statement
  */
 static ERL_NIF_TERM 
-esqlite_exec_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+esqlite_exec(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
      esqlite_connection *db;
      esqlite_command *cmd = NULL;
@@ -482,11 +511,13 @@ esqlite_exec_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
      return _atom_ok;  
 }
 
+
+
 /*
  * Prepare the sql statement
  */
 static ERL_NIF_TERM 
-esqlite_prepare_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+esqlite_prepare(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
      esqlite_connection *conn;
      esqlite_command *cmd = NULL;
@@ -520,7 +551,7 @@ esqlite_prepare_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
  * Bind a variable to a prepared statement
  */
 static ERL_NIF_TERM 
-esqlite_bind_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+esqlite_bind(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
      esqlite_statement *stmt;
      esqlite_command *cmd = NULL;
@@ -542,6 +573,7 @@ esqlite_bind_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
      cmd->type = cmd_bind;
      cmd->ref = enif_make_copy(cmd->env, argv[1]);
      cmd->pid = pid;
+     cmd->stmt = stmt->statement;
      cmd->arg = enif_make_copy(cmd->env, argv[3]);
 
      if(!stmt->connection) 
@@ -559,7 +591,7 @@ esqlite_bind_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
  * Step to a prepared statement
  */
 static ERL_NIF_TERM 
-esqlite_step_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+esqlite_step(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
      esqlite_statement *stmt;
      esqlite_command *cmd = NULL;
@@ -601,7 +633,7 @@ esqlite_step_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
  * Close the database
  */
 static ERL_NIF_TERM
-esqlite_close_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+esqlite_close(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
      esqlite_connection *conn;
      esqlite_command *cmd = NULL;
@@ -658,14 +690,14 @@ on_load(ErlNifEnv* env, void** priv, ERL_NIF_TERM info)
 }
 
 static ErlNifFunc nif_funcs[] = {
-     {"esqlite_start", 0, start_nif},
-     {"esqlite_open", 4, esqlite_open_nif},
-     {"esqlite_exec", 4, esqlite_exec_nif},
-     {"esqlite_prepare", 4, esqlite_prepare_nif},
-     {"esqlite_step", 3, esqlite_step_nif},
+     {"esqlite_start", 0, esqlite_start},
+     {"esqlite_open", 4, esqlite_open},
+     {"esqlite_exec", 4, esqlite_exec},
+     {"esqlite_prepare", 4, esqlite_prepare},
+     {"esqlite_step", 3, esqlite_step},
      // {"esqlite_bind", 3, esqlite_bind_named},
-     // {"esqlite_bind", 2, esqlite_bind},
-     {"esqlite_close", 3, esqlite_close_nif}
+     {"esqlite_bind", 4, esqlite_bind},
+     {"esqlite_close", 3, esqlite_close}
 };
 
 ERL_NIF_INIT(esqlite, nif_funcs, on_load, NULL, NULL, NULL);
