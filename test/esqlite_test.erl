@@ -59,15 +59,27 @@ bind_test() ->
     ok = esqlite:exec(Db, "commit;"),
 
     %% Create a prepared statement
-    {ok, Statement} = esqlite:prepare(Db, "insert into test_table values(?, ?)"),
-    esqlite:bind(Statement, ["one", 2]),
+    {ok, Statement} = esqlite:prepare(Db, "insert into test_table values(?1, ?2)"),
+    esqlite:bind(Statement, [one, 2]),
     esqlite:step(Statement),
-    esqlite:bind(Statement, ["three", 4]),
+    esqlite:bind(Statement, [three, 4]),
     esqlite:step(Statement),
 
-    {ok, S1} = esqlite:prepare(Db, "select * from test_table where one = 'one'"),
-    [{"one", 2}] = esqlite:step(S1),
+    [{"one", 2}] = q(Db, "select * from test_table where two = 2"),
+    [{"three", 4}] = q(Db, "select * from test_table where two = 4"),
     ok.
+
+
+%% Handy functions...
+%%
+
+q(Db, Sql) when is_list(Sql) ->
+    {ok, Statement} = esqlite:prepare(Db, Sql),
+    exec(Statement).
+q(Db, Sql, Args) when is_list(Sql) ->
+    {ok, Statement} = esqlite:prepare(Db, Sql),
+    esqlite:bind(Statement, Args),
+    exec(Statement).
 
 exec(Statement) ->
     exec(Statement, [], 0).

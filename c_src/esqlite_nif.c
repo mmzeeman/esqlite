@@ -10,6 +10,7 @@
 #include "queue.h"
 #include "sqlite3.h"
 
+#define MAX_ATOM_LENGTH 255 /* from atom.h, not exposed in erlang include */
 #define MAX_PATHNAME 512 /* unfortunately not in sqlite.h. */
 
 static ErlNifResourceType *esqlite_connection_type = NULL;
@@ -232,9 +233,12 @@ bind_cell(ErlNifEnv *env, const ERL_NIF_TERM cell, sqlite3_stmt *stmt, unsigned 
 {
      int the_int;
      double the_double;
+     char the_atom[MAX_ATOM_LENGTH+1];
+     ErlNifBinary the_blob;
 
      /* 
 	erlang atom undefined -> sqlite null
+	erlang atom (not undefined) -> sqlite text 
 	erlang int -> sqlite int
 	erlang double -> sqlite double
 	erlang iolist -> sqlite blob
@@ -244,7 +248,6 @@ bind_cell(ErlNifEnv *env, const ERL_NIF_TERM cell, sqlite3_stmt *stmt, unsigned 
      /* TODO: check the error codes! */
 
      /* TODO check for atom undefined */
-
      if(enif_get_int(env, cell, &the_int)) {
 	  sqlite3_bind_int(stmt, i, the_int);
 	  return;
@@ -255,7 +258,22 @@ bind_cell(ErlNifEnv *env, const ERL_NIF_TERM cell, sqlite3_stmt *stmt, unsigned 
 	  return;
      }
 
-     /* 
+     if(enif_get_atom(env, cell, the_atom, sizeof(the_atom), ERL_NIF_LATIN1)) {
+	  if(strcmp("undefined", the_atom) == 0) {
+	       sqlite3_bind_null(stmt, i);
+	       return;
+	  }
+	  
+	  sqlite3_bind_text(stmt, i, the_atom, strlen(the_atom), SQLITE_TRANSIENT);
+	  return;
+     }
+
+     if(enif_inspect_iolist_as_binary(env, cell, &the_blob)) {
+	  sqlite3_bind_blob(stmt, i, the_blob.data, the_blob.size, SQLITE_TRANSIENT);
+	  return;
+     }
+
+     /*  */
      
      sqlite3_bind_int(stmt, i, i);
 }
@@ -273,11 +291,13 @@ do_bind(ErlNifEnv *env, sqlite3_stmt *stmt, const ERL_NIF_TERM arg)
 	  return make_error_tuple(env, "bad_arg_list");
      if(parameter_count != list_length) 
 	  return make_error_tuple(env, "args_wrong_length");
+
+     sqlite3_reset(stmt);
      
      list = arg;
-     for(i = 0; i < list_length; i++) {
+     for(i=0; i < list_length; i++) {
 	  enif_get_list_cell(env, list, &head, &tail);
-	  bind_cell(env, head, stmt, i); 
+	  bind_cell(env, head, stmt, i+1); 
 	  list = tail;
      }
      
