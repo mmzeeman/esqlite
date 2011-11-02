@@ -2,7 +2,6 @@
  * Esqlite -- an erlang sqlite nif.
 */
 
-
 #include <erl_nif.h>
 #include <string.h>
 
@@ -228,6 +227,39 @@ do_prepare(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
      return make_ok_tuple(env, esqlite_stmt);
 }
 
+static void
+bind_cell(ErlNifEnv *env, const ERL_NIF_TERM cell, sqlite3_stmt *stmt, unsigned int i)
+{
+     int the_int;
+     double the_double;
+
+     /* 
+	erlang atom undefined -> sqlite null
+	erlang int -> sqlite int
+	erlang double -> sqlite double
+	erlang iolist -> sqlite blob
+	erlang list -> sqlite text
+     */
+
+     /* TODO: check the error codes! */
+
+     /* TODO check for atom undefined */
+
+     if(enif_get_int(env, cell, &the_int)) {
+	  sqlite3_bind_int(stmt, i, the_int);
+	  return;
+     }
+
+     if(enif_get_double(env, cell, &the_double)) {
+	  sqlite3_bind_double(stmt, i, the_double);
+	  return;
+     }
+
+     /* 
+     
+     sqlite3_bind_int(stmt, i, i);
+}
+
 static ERL_NIF_TERM
 do_bind(ErlNifEnv *env, sqlite3_stmt *stmt, const ERL_NIF_TERM arg)
 {
@@ -242,13 +274,10 @@ do_bind(ErlNifEnv *env, sqlite3_stmt *stmt, const ERL_NIF_TERM arg)
      if(parameter_count != list_length) 
 	  return make_error_tuple(env, "args_wrong_length");
      
-     
      list = arg;
      for(i = 0; i < list_length; i++) {
 	  enif_get_list_cell(env, list, &head, &tail);
-
-	  /* TODO: do a bind, based on the type of erlang parameter received */
-	  sqlite3_bind_int(stmt, i, i);
+	  bind_cell(env, head, stmt, i); 
 	  list = tail;
      }
      
