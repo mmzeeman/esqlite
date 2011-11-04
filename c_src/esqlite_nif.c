@@ -236,18 +236,8 @@ bind_cell(ErlNifEnv *env, const ERL_NIF_TERM cell, sqlite3_stmt *stmt, unsigned 
      char the_atom[MAX_ATOM_LENGTH+1];
      ErlNifBinary the_blob;
 
-     /* 
-	erlang atom undefined -> sqlite null
-	erlang atom (not undefined) -> sqlite text 
-	erlang int -> sqlite int
-	erlang double -> sqlite double
-	erlang iolist -> sqlite blob
-	erlang list -> sqlite text
-     */
-
      /* TODO: check the error codes! */
 
-     /* TODO check for atom undefined */
      if(enif_get_int(env, cell, &the_int)) {
 	  sqlite3_bind_int(stmt, i, the_int);
 	  return;
@@ -269,13 +259,15 @@ bind_cell(ErlNifEnv *env, const ERL_NIF_TERM cell, sqlite3_stmt *stmt, unsigned 
      }
 
      if(enif_inspect_iolist_as_binary(env, cell, &the_blob)) {
+	  /* Bind lists which have the same length as the binary as text */
+	  if(enif_is_list(env, cell) && (strlen((char *) the_blob.data) == the_blob.size)) {
+	       sqlite3_bind_text(stmt, i, (char *) the_blob.data, the_blob.size, SQLITE_TRANSIENT);
+	       return;
+	  }
+	  
 	  sqlite3_bind_blob(stmt, i, the_blob.data, the_blob.size, SQLITE_TRANSIENT);
 	  return;
      }
-
-     /*  */
-     
-     sqlite3_bind_int(stmt, i, i);
 }
 
 static ERL_NIF_TERM
