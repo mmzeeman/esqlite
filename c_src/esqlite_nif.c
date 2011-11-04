@@ -236,15 +236,11 @@ bind_cell(ErlNifEnv *env, const ERL_NIF_TERM cell, sqlite3_stmt *stmt, unsigned 
      char the_atom[MAX_ATOM_LENGTH+1];
      ErlNifBinary the_blob;
 
-     /* TODO: check the error codes! */
-
-     if(enif_get_int(env, cell, &the_int)) {
+     if(enif_get_int(env, cell, &the_int)) 
 	  return sqlite3_bind_int(stmt, i, the_int);
-     }
 
-     if(enif_get_double(env, cell, &the_double)) {
+     if(enif_get_double(env, cell, &the_double)) 
 	  return sqlite3_bind_double(stmt, i, the_double);
-     }
 
      if(enif_get_atom(env, cell, the_atom, sizeof(the_atom), ERL_NIF_LATIN1)) {
 	  if(strcmp("undefined", the_atom) == 0) {
@@ -262,13 +258,15 @@ bind_cell(ErlNifEnv *env, const ERL_NIF_TERM cell, sqlite3_stmt *stmt, unsigned 
 	  
 	  return sqlite3_bind_blob(stmt, i, the_blob.data, the_blob.size, SQLITE_TRANSIENT);
      }
+
+     return -1;
 }
 
 static ERL_NIF_TERM
 do_bind(ErlNifEnv *env, sqlite3 *db, sqlite3_stmt *stmt, const ERL_NIF_TERM arg)
 {
      int parameter_count = sqlite3_bind_parameter_count(stmt);
-     int i, is_list;
+     int i, is_list, r;
      ERL_NIF_TERM list, head, tail;
      unsigned int list_length;
 
@@ -283,8 +281,11 @@ do_bind(ErlNifEnv *env, sqlite3 *db, sqlite3_stmt *stmt, const ERL_NIF_TERM arg)
      list = arg;
      for(i=0; i < list_length; i++) {
 	  enif_get_list_cell(env, list, &head, &tail);
-	  if(bind_cell(env, head, stmt, i+1) != SQLITE_OK) 
-	       return make_error_tuple(sqlite3_errmsg());
+	  r = bind_cell(env, head, stmt, i+1);
+	  if(r == -1) 
+	       return make_error_tuple(env, "wrong_type");
+	  if(r != SQLITE_OK)
+	       return make_error_tuple(env, sqlite3_errmsg(db));
 	  list = tail;
      }
      
