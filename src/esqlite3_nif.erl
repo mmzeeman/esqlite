@@ -37,32 +37,42 @@ init() ->
 
 %% @doc Start a low level thread which will can handle sqlite3 calls. 
 %%
-%% @spec 
+%% @spec start() -> {ok, connection()} | {error, msg()}
 start() ->
     exit(nif_library_not_loaded).
 
 %% @doc Open a connection to 
 %%
+%%  @spec open(connection(), reference(), pid(), string()) -> ok 
 open(_Db, _Ref, _Dest, _Filename) ->
     exit(nif_library_not_loaded).
 
 %% @doc
+%%
+%%  @spec exec(connection(), reference(), pid(), string()) -> ok 
 exec(_Db, _Ref, _Dest, _Sql) ->
     exit(nif_library_not_loaded).
 
 %% @doc
+%%
+%% @spec prepare(connection(), reference(), pid(), string()) -> ok 
 prepare(_Db, _Ref, _Dest, _Sql) ->
     exit(nif_library_not_loaded).
 
 %% @doc
+%%
+%% @spec step(connection(), reference(), pid()) -> ok 
 step(_Stmt, _Ref, _Dest) ->
     exit(nif_library_not_loaded).
 
 %% @doc
+%% @spec bind(connection(), reference(), pid(), []) -> ok 
 bind(_Stmt, _Ref, _Dest, _Args) ->
     exit(nif_library_not_loaded).
 
 %% @doc
+%%
+%% @spec close(connection(), reference(), pid()) -> ok 
 close(_Db, _Ref, _Dest) ->
     exit(nif_library_not_loaded).
 

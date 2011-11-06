@@ -38,7 +38,7 @@ open(Filename) ->
 
 %% @doc Open a database connection
 %%
-%% @spec open(string(), integer()) -> {ok, connection()} | {error, error_message()}
+%% @spec open(string(), timeout()) -> {ok, connection()} | {error, error_message()}
 open(Filename, Timeout) ->
     {ok, Db} = esqlite3_nif:start(),
 
@@ -59,7 +59,7 @@ exec(Db, Sql) ->
 
 %% @doc Execute 
 %%
-%% @spec exec(connection(), iolist(), integer()) -> integer() | {error, error_message()}
+%% @spec exec(connection(), iolist(), timeout()) -> integer() | {error, error_message()}
 exec(Db, Sql, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:exec(Db, Ref, self(), add_eos(Sql)),
@@ -73,7 +73,7 @@ prepare(Db, Sql) ->
 
 %% @doc
 %%
-%% @spec(connection(), iolist()) -> {ok, prepared_statement()} | {error, error_message()}
+%% @spec(connection(), iolist(), timeout()) -> {ok, prepared_statement()} | {error, error_message()}
 prepare(Db, Sql, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:prepare(Db, Ref, self(), add_eos(Sql)),
@@ -87,7 +87,7 @@ step(Stmt) ->
 
 %% @doc 
 %%
-%% @spec step(prepared_statement(), integer()) -> tuple()
+%% @spec step(prepared_statement(), timeout()) -> tuple()
 step(Stmt, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:step(Stmt, Ref, self()),
@@ -101,7 +101,7 @@ bind(Stmt, Args) ->
 
 %% @doc Bind values to prepared statements
 %%
-%% @spec bind(prepared_statement()) -> ok | {error, error_message()}
+%% @spec bind(prepared_statement(), [], timeout()) -> ok | {error, error_message()}
 bind(Stmt, Args, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:bind(Stmt, Ref, self(), Args),
