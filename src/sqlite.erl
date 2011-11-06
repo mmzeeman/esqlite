@@ -1,3 +1,7 @@
+%%
+%% Exploring making a database driver for the generic gen_db interface
+%%
+
 -module(sqlite).
 
 -behaviour(gen_db).

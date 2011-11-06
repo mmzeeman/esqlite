@@ -73,6 +73,13 @@ bind_test() ->
 
     ok.
 
+gen_db_test() ->
+    {ok, Conn} = gen_db:open(sqlite, ":memory:"),
+    [] = gen_db:execute("create table some_shit(hole_one varchar(10), hole_two int);", [], Conn),
+    [] = gen_db:execute("insert into some_shit values('dung', 100);", Conn),
+    [] = gen_db:execute("insert into some_shit values(?, ?);", ["manure", 1000], Conn),
+    ok.
+
 
 %% Handy functions...
 %%
