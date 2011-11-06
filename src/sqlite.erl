@@ -11,13 +11,13 @@
 %% @doc Open a database connection
 %%
 handle_open(DatabaseName) ->
-    esqlite:open(DatabaseName).
+    esqlite3:open(DatabaseName).
 
 %% @doc Execute a query and return the results
 %%
 handle_execute(Operation, Args, Connection) ->
-    {ok, Stmt} = esqlite:prepare(Connection, Operation),
-    ok = esqlite:bind(Stmt, Args),
+    {ok, Stmt} = esqlite3:prepare(Connection, Operation),
+    ok = esqlite3:bind(Stmt, Args),
     Answer = execute(Stmt),
     %% TODO Finalize the statement.
     Answer.
@@ -38,7 +38,7 @@ execute(Statement) ->
 execute(_Statement, _Acc, Tries) when Tries > 5 ->
     throw(too_many_tries);
 execute(Statement, Acc, Tries) ->
-    case esqlite:step(Statement) of
+    case esqlite3:step(Statement) of
 	'$done' ->
 	    lists:reverse(Acc);
 	'$busy' ->

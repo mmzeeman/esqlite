@@ -1,5 +1,5 @@
 /*
- * Esqlite -- an erlang sqlite nif.
+ * sqlite3_nif -- an erlang sqlite nif.
 */
 
 #include <erl_nif.h>
@@ -708,13 +708,13 @@ on_load(ErlNifEnv* env, void** priv, ERL_NIF_TERM info)
 {
      ErlNifResourceType *rt;
      
-     rt = enif_open_resource_type(env, "esqlite", "esqlite_connection_type", 
+     rt = enif_open_resource_type(env, "esqlite3_nif", "esqlite_connection_type", 
 				  destruct_esqlite_connection, ERL_NIF_RT_CREATE, NULL);
      if(!rt) 
 	  return -1;
      esqlite_connection_type = rt;
 
-     rt =  enif_open_resource_type(env, "esqlite", "esqlite_statement_type",
+     rt =  enif_open_resource_type(env, "esqlite3_nif", "esqlite_statement_type",
 				   destruct_esqlite_statement, ERL_NIF_RT_CREATE, NULL);
      if(!rt) 
 	  return -1;
@@ -727,14 +727,14 @@ on_load(ErlNifEnv* env, void** priv, ERL_NIF_TERM info)
 }
 
 static ErlNifFunc nif_funcs[] = {
-     {"esqlite_start", 0, esqlite_start},
-     {"esqlite_open", 4, esqlite_open},
-     {"esqlite_exec", 4, esqlite_exec},
-     {"esqlite_prepare", 4, esqlite_prepare},
-     {"esqlite_step", 3, esqlite_step},
+     {"start", 0, esqlite_start},
+     {"open", 4, esqlite_open},
+     {"exec", 4, esqlite_exec},
+     {"prepare", 4, esqlite_prepare},
+     {"step", 3, esqlite_step},
      // {"esqlite_bind", 3, esqlite_bind_named},
-     {"esqlite_bind", 4, esqlite_bind},
-     {"esqlite_close", 3, esqlite_close}
+     {"bind", 4, esqlite_bind},
+     {"close", 3, esqlite_close}
 };
 
-ERL_NIF_INIT(esqlite, nif_funcs, on_load, NULL, NULL, NULL);
+ERL_NIF_INIT(esqlite3_nif, nif_funcs, on_load, NULL, NULL, NULL);

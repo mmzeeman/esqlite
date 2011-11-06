@@ -2,7 +2,7 @@
 %%
 %%
 
--module(esqlite).
+-module(esqlite3).
 -author("Maas-Maarten Zeeman <mmzeeman@xs4all.nl>").
 
 %% higher-level export
@@ -13,22 +13,7 @@
 	 bind/2, bind/3, 
 	 close/1, close/2]).
 
-%% low-level exports
--export([esqlite_start/0, 
-	 esqlite_open/4, 
-	 esqlite_exec/4, 
-	 esqlite_prepare/4,
-	 esqlite_step/3,
-	 esqlite_bind/4,
-	 esqlite_close/3
-]).
-
--on_load(init/0).
-
 -define(DEFAULT_TIMEOUT, infinity).
-
-init() ->
-    ok = erlang:load_nif(code:priv_dir(esqlite) ++ "/esqlite_nif", 0).
 
 %% @doc Opens a sqlite3 database mentioned in Filename.
 %%
@@ -40,10 +25,10 @@ open(Filename) ->
 %%
 %% @spec open(string(), integer()) -> {ok, connection()} | {error, error_message()}
 open(Filename, Timeout) ->
-    {ok, Db} = esqlite_start(),
+    {ok, Db} = esqlite3_nif:start(),
 
     Ref = make_ref(),
-    ok = esqlite_open(Db, Ref, self(), Filename),
+    ok = esqlite3_nif:open(Db, Ref, self(), Filename),
     case receive_answer(Ref, Timeout) of
 	ok ->
 	    {ok, Db};
@@ -62,7 +47,7 @@ exec(Db, Sql) ->
 %% @spec exec(connection(), iolist(), integer()) -> integer() | {error, error_message()}
 exec(Db, Sql, Timeout) ->
     Ref = make_ref(),
-    ok = esqlite_exec(Db, Ref, self(), add_eos(Sql)),
+    ok = esqlite3_nif:exec(Db, Ref, self(), add_eos(Sql)),
     receive_answer(Ref, Timeout).
 
 %% @doc Prepare a statement
@@ -76,7 +61,7 @@ prepare(Db, Sql) ->
 %% @spec(connection(), iolist()) -> {ok, prepared_statement()} | {error, error_message()}
 prepare(Db, Sql, Timeout) ->
     Ref = make_ref(),
-    ok = esqlite_prepare(Db, Ref, self(), add_eos(Sql)),
+    ok = esqlite3_nif:prepare(Db, Ref, self(), add_eos(Sql)),
     receive_answer(Ref, Timeout).
 
 %% @doc Step
@@ -90,7 +75,7 @@ step(Stmt) ->
 %% @spec step(prepared_statement(), integer()) -> tuple()
 step(Stmt, Timeout) ->
     Ref = make_ref(),
-    ok = esqlite_step(Stmt, Ref, self()),
+    ok = esqlite3_nif:step(Stmt, Ref, self()),
     receive_answer(Ref, Timeout).
 
 %% @doc Bind values to prepared statements
@@ -104,7 +89,7 @@ bind(Stmt, Args) ->
 %% @spec bind(prepared_statement()) -> ok | {error, error_message()}
 bind(Stmt, Args, Timeout) ->
     Ref = make_ref(),
-    ok = esqlite_bind(Stmt, Ref, self(), Args),
+    ok = esqlite3_nif:bind(Stmt, Ref, self(), Args),
     receive_answer(Ref, Timeout).
 
 %% @doc Close the database
@@ -118,37 +103,8 @@ close(Db) ->
 %% @spec close(connection(), integer()) -> ok | {error, error_message()}
 close(Db, Timeout) ->
     Ref = make_ref(),
-    ok = esqlite_close(Db, Ref, self()),
+    ok = esqlite3_nif:close(Db, Ref, self()),
     receive_answer(Ref, Timeout).
-
-%% @doc
-%%
-esqlite_start() ->
-    exit(nif_library_not_loaded).
-
-%% @doc
-esqlite_open(_Db, _Ref, _Dest, _Filename) ->
-    exit(nif_library_not_loaded).
-
-%% @doc
-esqlite_exec(_Db, _Ref, _Dest, _Sql) ->
-    exit(nif_library_not_loaded).
-
-%% @doc
-esqlite_prepare(_Db, _Ref, _Dest, _Sql) ->
-    exit(nif_library_not_loaded).
-
-%% @doc
-esqlite_step(_Stmt, _Ref, _Dest) ->
-    exit(nif_library_not_loaded).
-
-%% @doc
-esqlite_bind(_Stmt, _Ref, _Dest, _Args) ->
-    exit(nif_library_not_loaded).
-
-%% @doc
-esqlite_close(_Db, _Ref, _Dest) ->
-    exit(nif_library_not_loaded).
 
 %% Internal functions
 

@@ -7,65 +7,65 @@
 -include_lib("eunit/include/eunit.hrl").
 
 open_single_database_test() ->
-    {ok, _C1} = esqlite:open("test.db"),
+    {ok, _C1} = esqlite3:open("test.db"),
     ok.
 
 open_multiple_same_databases_test() ->
-    {ok, _C1} = esqlite:open("test.db"),
-    {ok, _C2} = esqlite:open("test.db"),
+    {ok, _C1} = esqlite3:open("test.db"),
+    {ok, _C2} = esqlite3:open("test.db"),
     ok.
 
 open_multiple_different_databases_test() ->
-    {ok, _C1} = esqlite:open("test1.db"),
-    {ok, _C2} = esqlite:open("test2.db"),
+    {ok, _C1} = esqlite3:open("test1.db"),
+    {ok, _C2} = esqlite3:open("test2.db"),
     ok.
 
 simple_query_test() ->
-    {ok, Db} = esqlite:open(":memory:"),
-    ok = esqlite:exec(Db, "begin;"),
-    ok = esqlite:exec(Db, "create table test_table(one varchar(10), two int);"),
-    ok = esqlite:exec(Db, ["insert into test_table values(", "\"hello1\"", ",", "10" ");"]),
-    ok = esqlite:exec(Db, ["insert into test_table values(", "\"hello2\"", ",", "11" ");"]),
-    ok = esqlite:exec(Db, ["insert into test_table values(", "\"hello3\"", ",", "12" ");"]),
-    ok = esqlite:exec(Db, ["insert into test_table values(", "\"hello4\"", ",", "13" ");"]),
-    ok = esqlite:exec(Db, "commit;"),
-    ok = esqlite:exec(Db, "select * from test_table;"),
+    {ok, Db} = esqlite3:open(":memory:"),
+    ok = esqlite3:exec(Db, "begin;"),
+    ok = esqlite3:exec(Db, "create table test_table(one varchar(10), two int);"),
+    ok = esqlite3:exec(Db, ["insert into test_table values(", "\"hello1\"", ",", "10" ");"]),
+    ok = esqlite3:exec(Db, ["insert into test_table values(", "\"hello2\"", ",", "11" ");"]),
+    ok = esqlite3:exec(Db, ["insert into test_table values(", "\"hello3\"", ",", "12" ");"]),
+    ok = esqlite3:exec(Db, ["insert into test_table values(", "\"hello4\"", ",", "13" ");"]),
+    ok = esqlite3:exec(Db, "commit;"),
+    ok = esqlite3:exec(Db, "select * from test_table;"),
     ok.
 
 prepare_test() ->
-    {ok, Db} = esqlite:open(":memory:"),
-    esqlite:exec(Db, "begin;"),
-    esqlite:exec(Db, "create table test_table(one varchar(10), two int);"),
-    {ok, Statement} = esqlite:prepare(Db, "insert into test_table values(\"one\", 2)"),
+    {ok, Db} = esqlite3:open(":memory:"),
+    esqlite3:exec(Db, "begin;"),
+    esqlite3:exec(Db, "create table test_table(one varchar(10), two int);"),
+    {ok, Statement} = esqlite3:prepare(Db, "insert into test_table values(\"one\", 2)"),
     
-    '$done' = esqlite:step(Statement),
+    '$done' = esqlite3:step(Statement),
 
-    ok = esqlite:exec(Db, ["insert into test_table values(", "\"hello4\"", ",", "13" ");"]), 
-    {ok, St2} = esqlite:prepare(Db, "select * from test_table order by two"),
+    ok = esqlite3:exec(Db, ["insert into test_table values(", "\"hello4\"", ",", "13" ");"]), 
+    {ok, St2} = esqlite3:prepare(Db, "select * from test_table order by two"),
     [{"one", 2}, {"hello4", 13}] = exec(St2),
-    esqlite:exec(Db, "commit;"),
-    esqlite:close(Db),
+    esqlite3:exec(Db, "commit;"),
+    esqlite3:close(Db),
 
     ok.
 
 bind_test() ->
-    {ok, Db} = esqlite:open(":memory:"),
-    ok = esqlite:exec(Db, "begin;"),
-    ok = esqlite:exec(Db, "create table test_table(one varchar(10), two int);"),
-    ok = esqlite:exec(Db, ["insert into test_table values(", "\"hello1\"", ",", "10" ");"]),
-    ok = esqlite:exec(Db, ["insert into test_table values(", "\"hello2\"", ",", "11" ");"]),
-    ok = esqlite:exec(Db, ["insert into test_table values(", "\"hello3\"", ",", "12" ");"]),
-    ok = esqlite:exec(Db, ["insert into test_table values(", "\"hello4\"", ",", "13" ");"]),
-    ok = esqlite:exec(Db, "commit;"),
+    {ok, Db} = esqlite3:open(":memory:"),
+    ok = esqlite3:exec(Db, "begin;"),
+    ok = esqlite3:exec(Db, "create table test_table(one varchar(10), two int);"),
+    ok = esqlite3:exec(Db, ["insert into test_table values(", "\"hello1\"", ",", "10" ");"]),
+    ok = esqlite3:exec(Db, ["insert into test_table values(", "\"hello2\"", ",", "11" ");"]),
+    ok = esqlite3:exec(Db, ["insert into test_table values(", "\"hello3\"", ",", "12" ");"]),
+    ok = esqlite3:exec(Db, ["insert into test_table values(", "\"hello4\"", ",", "13" ");"]),
+    ok = esqlite3:exec(Db, "commit;"),
 
     %% Create a prepared statement
-    {ok, Statement} = esqlite:prepare(Db, "insert into test_table values(?1, ?2)"),
-    esqlite:bind(Statement, [one, 2]),
-    esqlite:step(Statement),
-    esqlite:bind(Statement, ["three", 4]),
-    esqlite:step(Statement),
-    esqlite:bind(Statement, [<<"five">>, 6]),
-    esqlite:step(Statement),
+    {ok, Statement} = esqlite3:prepare(Db, "insert into test_table values(?1, ?2)"),
+    esqlite3:bind(Statement, [one, 2]),
+    esqlite3:step(Statement),
+    esqlite3:bind(Statement, ["three", 4]),
+    esqlite3:step(Statement),
+    esqlite3:bind(Statement, [<<"five">>, 6]),
+    esqlite3:step(Statement),
 
     [{"one", 2}] = q(Db, "select * from test_table where two = '2'"),
     [{"three", 4}] = q(Db, "select * from test_table where two = 4"),
@@ -84,14 +84,14 @@ gen_db_test() ->
 %% Handy functions...
 %%
 q(Connection, Sql) ->
-    {ok, Statement} = esqlite:prepare(Connection, Sql),
+    {ok, Statement} = esqlite3:prepare(Connection, Sql),
     exec(Statement).
 
 q(Connection, Sql, []) ->
     q(Connection, Sql);
 q(Connection, Sql, Args) ->
-    {ok, Statement} = esqlite:prepare(Connection, Sql),
-    esqlite:bind(Statement, Args),
+    {ok, Statement} = esqlite3:prepare(Connection, Sql),
+    esqlite3:bind(Statement, Args),
     exec(Statement).
 	 
 
@@ -101,7 +101,7 @@ exec(Statement) ->
 exec(_Statement, _Acc, Tries) when Tries > 5 ->
     throw(too_many_tries);
 exec(Statement, Acc, Tries) ->
-    case esqlite:step(Statement) of
+    case esqlite3:step(Statement) of
 	'$done' ->
 	    lists:reverse(Acc);
 	'$busy' ->
