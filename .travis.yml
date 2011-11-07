@@ -1,0 +1,2 @@
+language: erlang
+script: "rebar compile eunit"

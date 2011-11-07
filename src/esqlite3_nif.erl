@@ -41,38 +41,48 @@ init() ->
 start() ->
     exit(nif_library_not_loaded).
 
-%% @doc Open a connection to 
+%% @doc Open the specified sqlite3 database.
+%% 
+%% Sends an asynchronous open command over the connection and returns
+%% ok immediately. When the database is opened 
 %%
-%%  @spec open(connection(), reference(), pid(), string()) -> ok 
+%%  @spec open(connection(), reference(), pid(), string()) -> ok | {error, message()}
 open(_Db, _Ref, _Dest, _Filename) ->
     exit(nif_library_not_loaded).
 
-%% @doc
+%% @doc Exec the query.
+%% 
+%% Sends an asynchronous exec command over the connection and returns
+%% ok immediately.
 %%
-%%  @spec exec(connection(), reference(), pid(), string()) -> ok 
+%% When the statement is executed Dest will receive message {Ref, answer()}
+%% with answer() integer | {error, reason()}
+%%
+%%  @spec exec(connection(), Ref::reference(), Dest::pid(), string()) -> ok | {error, message()}
 exec(_Db, _Ref, _Dest, _Sql) ->
     exit(nif_library_not_loaded).
 
 %% @doc
 %%
-%% @spec prepare(connection(), reference(), pid(), string()) -> ok 
+%% @spec prepare(connection(), reference(), pid(), string()) -> ok | {error, message()}
 prepare(_Db, _Ref, _Dest, _Sql) ->
     exit(nif_library_not_loaded).
 
 %% @doc
 %%
-%% @spec step(connection(), reference(), pid()) -> ok 
+%% @spec step(connection(), reference(), pid()) -> ok | {error, message()}
 step(_Stmt, _Ref, _Dest) ->
     exit(nif_library_not_loaded).
 
-%% @doc
-%% @spec bind(connection(), reference(), pid(), []) -> ok 
+%% @doc Bind parameters to a prepared statement. 
+%%
+%% @spec bind(connection(), reference(), pid(), []) -> ok | {error, message()} 
 bind(_Stmt, _Ref, _Dest, _Args) ->
     exit(nif_library_not_loaded).
 
-%% @doc
+%% @doc Close the connection.
 %%
-%% @spec close(connection(), reference(), pid()) -> ok 
+%% @spec close(connection(), reference(), pid()) -> ok | {error, message()}
 close(_Db, _Ref, _Dest) ->
     exit(nif_library_not_loaded).
 
