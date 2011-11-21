@@ -95,9 +95,10 @@ foreach_test() ->
     
     esqlite3:foreach(F, "select * from test_table", Db),
     
-    2 = get("one"),
-    4 = get("three"),
-    6 = get(<<"five">>),
+    10 = get("hello1"),
+    11 = get("hello2"),
+    12 = get("hello3"), 
+    13 = get("hello4"),
     
     ok.
 
@@ -111,11 +112,9 @@ map_test() ->
     ok = esqlite3:exec(["insert into test_table values(", "\"hello4\"", ",", "13" ");"], Db),
     ok = esqlite3:exec("commit;", Db),
 
-    F = fun(Row) ->
-		Row
-	end,
+    F = fun(Row) -> Row end,
     
-    ok = esqlite3:map(F, "select * from test_table", Db),
+    [{"hello1",10},{"hello2",11},{"hello3",12},{"hello4",13}] = esqlite3:map(F, "select * from test_table", Db),
     
     ok.
     
