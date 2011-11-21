@@ -59,6 +59,7 @@ typedef enum {
      cmd_prepare,
      cmd_bind,
      cmd_step,
+     cmd_column_names,
      cmd_close,
      cmd_stop
 } command_type;
@@ -381,6 +382,13 @@ do_step(ErlNifEnv *env, sqlite3_stmt *stmt)
      if(rc == SQLITE_ROW) 
 	  return make_row(env, stmt);
 
+     return make_error_tuple(env, "unexpected_return_value");
+}
+
+static ERL_NIF_TERM
+do_column_names(ErlNifEnv *env, sqlite3_stmt *stmt)
+{
+     fprintf(stderr, "Called column names\n");
      return _atom_ok;
 }
 
@@ -414,6 +422,8 @@ evaluate_command(esqlite_command *cmd, esqlite_connection *conn)
 	  return do_step(cmd->env, cmd->stmt);
      case cmd_bind:
 	  return do_bind(cmd->env, conn->db, cmd->stmt, cmd->arg);
+     case cmd_column_names:
+	  return do_column_names(cmd->env, cmd->stmt);
      case cmd_close:
 	  return do_close(cmd->env, conn, cmd->arg);
      default:
@@ -683,6 +693,48 @@ esqlite_step(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 }
 
 /*
+ * Step to a prepared statement
+ */
+static ERL_NIF_TERM 
+esqlite_column_names(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+     esqlite_statement *stmt;
+     esqlite_command *cmd = NULL;
+     ErlNifPid pid;
+
+     if(argc != 3) 
+	  return enif_make_badarg(env);
+     if(!enif_get_resource(env, argv[0], esqlite_statement_type, (void **) &stmt))
+	  return enif_make_badarg(env);
+     if(!enif_is_ref(env, argv[1])) 
+	  return make_error_tuple(env, "invalid_ref");
+     if(!enif_get_local_pid(env, argv[2], &pid)) 
+	  return make_error_tuple(env, "invalid_pid"); 
+
+     if(!stmt->statement) 
+	  return make_error_tuple(env, "no_prepared_statement");
+
+     cmd = command_create();
+     if(!cmd) 
+	  return make_error_tuple(env, "command_create_failed");
+
+     cmd->type = cmd_column_names;
+     cmd->ref = enif_make_copy(cmd->env, argv[1]);
+     cmd->pid = pid;
+     cmd->stmt = stmt->statement;
+
+     if(!stmt->connection) 
+	  return make_error_tuple(env, "no_connection");
+     if(!stmt->connection->commands)
+	  return make_error_tuple(env, "no_command_queue");
+
+     if(!queue_push(stmt->connection->commands, cmd)) 
+	  return make_error_tuple(env, "command_push_failed");
+
+     return _atom_ok;
+}
+
+/*
  * Close the database
  */
 static ERL_NIF_TERM
@@ -750,6 +802,7 @@ static ErlNifFunc nif_funcs[] = {
      {"step", 3, esqlite_step},
      // {"esqlite_bind", 3, esqlite_bind_named},
      {"bind", 4, esqlite_bind},
+     {"column_names", 3, esqlite_column_names},
      {"close", 3, esqlite_close}
 };
 

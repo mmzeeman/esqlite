@@ -74,6 +74,21 @@ bind_test() ->
 
     ok.
 
+column_names_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+    ok = esqlite3:exec("begin;", Db),
+    ok = esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
+    ok = esqlite3:exec(["insert into test_table values(", "\"hello1\"", ",", "10" ");"], Db),
+    ok = esqlite3:exec("commit;", Db),
+
+    {ok, Stmt} = esqlite3:prepare("select * from test_table", Db),
+    
+    test = esqlite3:column_names(Stmt),
+    
+    ok.
+
+    
+
 foreach_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
     ok = esqlite3:exec("begin;", Db),
@@ -93,7 +108,7 @@ foreach_test() ->
 		end
 	end,
     
-    esqlite3:foreach(F, "select * from test_table", Db),
+    esqlite3:foreach(F, "select * from test_table;", Db),
     
     10 = get("hello1"),
     11 = get("hello2"),

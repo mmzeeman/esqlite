@@ -71,7 +71,8 @@ foreach(F, Sql, Connection) ->
 %%
 foreach_s(F, Statement) ->    
     case try_step(Statement, 0) of
-	'$done' -> ok;
+	'$done' -> 
+	    ok;
 	Row when is_tuple(Row) ->
 	    F(Row),
 	    foreach_s(F, Statement)
@@ -82,7 +83,7 @@ map_s(F, Statement) ->
     case try_step(Statement, 0) of
 	'$done' ->
 	    [];
-	Row -> 
+	Row when is_tuple(Row) -> 
 	    [F(Row) | map_s(F, Statement)]
     end.
 
@@ -95,11 +96,13 @@ do_steps(Statement) ->
 	    [Row | do_steps(Statement)]
     end.  
 
+%% Try the step, when the database is busy, 
 try_step(_Statement, Tries) when Tries > 5 ->
     throw(too_many_tries);
 try_step(Statement, Tries) ->
     case esqlite3:step(Statement) of
 	'$busy' -> 
+	    timer:sleep(100 * Tries),
 	    try_step(Statement, Tries + 1);
 	Something -> 
 	    Something

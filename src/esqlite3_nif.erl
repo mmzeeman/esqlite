@@ -27,6 +27,7 @@
 	 prepare/4,
 	 step/3,
 	 bind/4,
+	 column_names/3,
 	 close/3
 ]).
 
@@ -70,14 +71,20 @@ prepare(_Db, _Ref, _Dest, _Sql) ->
 
 %% @doc
 %%
-%% @spec step(connection(), reference(), pid()) -> ok | {error, message()}
+%% @spec step(statement(), reference(), pid()) -> ok | {error, message()}
 step(_Stmt, _Ref, _Dest) ->
     exit(nif_library_not_loaded).
 
 %% @doc Bind parameters to a prepared statement. 
 %%
-%% @spec bind(connection(), reference(), pid(), []) -> ok | {error, message()} 
+%% @spec bind(statement(), reference(), pid(), []) -> ok | {error, message()} 
 bind(_Stmt, _Ref, _Dest, _Args) ->
+    exit(nif_library_not_loaded).
+
+%% @doc Retrieve the column names of the prepared statement
+%%
+%% @spec column_names(statement(), reference(), pid()) -> {ok, tuple()} | {error, message()} 
+column_names(_Stmt, _Ref, _Dest) ->
     exit(nif_library_not_loaded).
 
 %% @doc Close the connection.
