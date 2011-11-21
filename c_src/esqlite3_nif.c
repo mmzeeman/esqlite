@@ -49,8 +49,6 @@ typedef struct {
     sqlite3_stmt *statement;
 } esqlite_statement;
 
-static ERL_NIF_TERM _atom_ok;
-static ERL_NIF_TERM _atom_error;
 
 typedef enum {
      cmd_unknown,
@@ -88,13 +86,13 @@ make_atom(ErlNifEnv *env, const char *atom_name)
 static ERL_NIF_TERM 
 make_ok_tuple(ErlNifEnv *env, ERL_NIF_TERM value) 
 {
-     return enif_make_tuple2(env, _atom_ok, value);
+     return enif_make_tuple2(env, make_atom(env, "ok"), value);
 }
 
 static ERL_NIF_TERM 
 make_error_tuple(ErlNifEnv *env, const char *reason) 
 {
-     return enif_make_tuple2(env, _atom_error, make_atom(env, reason));
+     return enif_make_tuple2(env, make_atom(env, "error"), make_atom(env, reason));
 }
 
 static void
@@ -164,7 +162,6 @@ destruct_esqlite_statement(ErlNifEnv *env, void *arg)
      esqlite_statement *stmt = (esqlite_statement *) arg;
 
      if(stmt->statement) {
-	  /* the statement was not finalized */
 	  sqlite3_finalize(stmt->statement);
 	  stmt->statement = NULL;
      }
@@ -195,7 +192,7 @@ do_open(ErlNifEnv *env, esqlite_connection *db, const ERL_NIF_TERM arg)
 	  return error;
      }
 	  
-     return _atom_ok;
+     return make_atom(env, "ok");
 }
 
 /* 
@@ -212,7 +209,7 @@ do_exec(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
      if(rc != SQLITE_OK)
 	  return make_error_tuple(env, sqlite3_errmsg(conn->db));
 
-     return _atom_ok;
+     return make_atom(env, "ok");
 }
 
 /*
@@ -306,7 +303,7 @@ do_bind(ErlNifEnv *env, sqlite3 *db, sqlite3_stmt *stmt, const ERL_NIF_TERM arg)
 	  list = tail;
      }
      
-     return _atom_ok;
+     return make_atom(env, "ok");
 }
 
 static ERL_NIF_TERM
@@ -317,7 +314,7 @@ make_binary(ErlNifEnv *env, const void *bytes, unsigned int size)
 
      if(!enif_alloc_binary(size, &blob)) {
 	  /* TODO: fix this */
-	  return _atom_error;
+	  return make_atom(env, "error");
      }
 
      memcpy(blob.data, bytes, size);
@@ -419,7 +416,7 @@ do_close(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
 	  return make_error_tuple(env, sqlite3_errmsg(conn->db));
 
      conn->db = NULL;
-     return _atom_ok;
+     return make_atom(env, "ok");
 }
 
 static ERL_NIF_TERM
@@ -550,7 +547,7 @@ esqlite_open(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
      if(!queue_push(db->commands, cmd)) 
 	  return make_error_tuple(env, "command_push_failed");
   
-     return _atom_ok;
+     return make_atom(env, "ok");
 }
 
 /*
@@ -588,9 +585,8 @@ esqlite_exec(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
      if(!queue_push(db->commands, cmd)) 
 	  return make_error_tuple(env, "command_push_failed");
   
-     return _atom_ok;  
+     return make_atom(env, "ok");
 }
-
 
 
 /*
@@ -624,7 +620,7 @@ esqlite_prepare(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
      if(!queue_push(conn->commands, cmd)) 
 	  return make_error_tuple(env, "command_push_failed");
 
-     return _atom_ok;
+     return make_atom(env, "ok");
 }
 
 /*
@@ -664,7 +660,7 @@ esqlite_bind(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
      if(!queue_push(stmt->connection->commands, cmd)) 
 	  return make_error_tuple(env, "command_push_failed");
 
-     return _atom_ok;
+     return make_atom(env, "ok");
 }
 
 /*
@@ -706,7 +702,7 @@ esqlite_step(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
      if(!queue_push(stmt->connection->commands, cmd)) 
 	  return make_error_tuple(env, "command_push_failed");
 
-     return _atom_ok;
+     return make_atom(env, "ok");
 }
 
 /*
@@ -748,7 +744,7 @@ esqlite_column_names(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
      if(!queue_push(stmt->connection->commands, cmd)) 
 	  return make_error_tuple(env, "command_push_failed");
 
-     return _atom_ok;
+     return make_atom(env, "ok");
 }
 
 /*
@@ -782,7 +778,7 @@ esqlite_close(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
      if(!queue_push(conn->commands, cmd)) 
 	  return make_error_tuple(env, "command_push_failed");
 
-     return _atom_ok;
+     return make_atom(env, "ok");
 }
 
 /*
@@ -804,9 +800,6 @@ on_load(ErlNifEnv* env, void** priv, ERL_NIF_TERM info)
      if(!rt) 
 	  return -1;
      esqlite_statement_type = rt;
-
-     _atom_ok = make_atom(env, "ok");
-     _atom_error = make_atom(env, "error");
 
      return 0;
 }
