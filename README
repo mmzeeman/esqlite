@@ -1,1 +1,5 @@
-Work in progress....
+Esqlite
+=====
+
+An Erlang nif library for sqlite3.
+
