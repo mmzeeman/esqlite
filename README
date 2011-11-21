@@ -1,5 +1,7 @@
 Esqlite
-=====
+-------
 
 An Erlang nif library for sqlite3.
 
+Introduction
+-------------
