@@ -388,8 +388,25 @@ do_step(ErlNifEnv *env, sqlite3_stmt *stmt)
 static ERL_NIF_TERM
 do_column_names(ErlNifEnv *env, sqlite3_stmt *stmt)
 {
-     fprintf(stderr, "Called column names\n");
-     return _atom_ok;
+     int i, size;
+     const char *name;
+     ERL_NIF_TERM *array;
+     ERL_NIF_TERM column_names;
+     
+     size = sqlite3_column_count(stmt);
+     array = (ERL_NIF_TERM *) malloc(sizeof(ERL_NIF_TERM) * size);
+     
+     if(!array)
+	  return make_error_tuple(env, "no_memory");
+
+     for(i = 0; i < size; i++) {
+	  name = sqlite3_column_name(stmt, i);
+	  array[i] = make_atom(env, name);
+     }
+
+     column_names = enif_make_tuple_from_array(env, array, size);
+     free(array);
+     return column_names;
 }
 
 static ERL_NIF_TERM

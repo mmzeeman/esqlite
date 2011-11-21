@@ -26,6 +26,7 @@
 	 prepare/2, prepare/3, 
 	 step/1, step/2, 
 	 bind/2, bind/3, 
+	 column_names/1, column_names/2,
 	 close/1, close/2]).
 
 -export([q/2, map/3, foreach/3]).
@@ -162,6 +163,16 @@ bind(Stmt, Args) ->
 bind(Stmt, Args, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:bind(Stmt, Ref, self(), Args),
+    receive_answer(Ref, Timeout).
+
+%% @doc Return the column names of the prepared statement.
+%%
+column_names(Stmt) ->
+    column_names(Stmt, ?DEFAULT_TIMEOUT).
+
+column_names(Stmt, Timeout) ->
+    Ref = make_ref(),
+    ok = esqlite3_nif:column_names(Stmt, Ref, self()),
     receive_answer(Ref, Timeout).
 
 %% @doc Close the database

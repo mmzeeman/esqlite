@@ -83,7 +83,7 @@ column_names_test() ->
 
     {ok, Stmt} = esqlite3:prepare("select * from test_table", Db),
     
-    test = esqlite3:column_names(Stmt),
+    {one, two} = esqlite3:column_names(Stmt),
     
     ok.
 
