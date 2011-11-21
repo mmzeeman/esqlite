@@ -87,8 +87,6 @@ column_names_test() ->
     
     ok.
 
-    
-
 foreach_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
     ok = esqlite3:exec("begin;", Db),
@@ -130,6 +128,16 @@ map_test() ->
     F = fun(Row) -> Row end,
     
     [{"hello1",10},{"hello2",11},{"hello3",12},{"hello4",13}] = esqlite3:map(F, "select * from test_table", Db),
+
+    %% Test that when the row-names are added..
+    Assoc = fun(Names, Row) -> 
+		    lists:zip(tuple_to_list(Names), tuple_to_list(Row))
+	    end,
+
+    [[{one,"hello1"},{two,10}],
+     [{one,"hello2"},{two,11}],
+     [{one,"hello3"},{two,12}],
+     [{one,"hello4"},{two,13}]]  = esqlite3:map(Assoc, "select * from test_table", Db),
     
     ok.
     
