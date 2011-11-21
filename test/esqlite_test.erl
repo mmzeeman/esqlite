@@ -74,6 +74,32 @@ bind_test() ->
 
     ok.
 
+foreach_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+    ok = esqlite3:exec("begin;", Db),
+    ok = esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
+    ok = esqlite3:exec(["insert into test_table values(", "\"hello1\"", ",", "10" ");"], Db),
+    ok = esqlite3:exec(["insert into test_table values(", "\"hello2\"", ",", "11" ");"], Db),
+    ok = esqlite3:exec(["insert into test_table values(", "\"hello3\"", ",", "12" ");"], Db),
+    ok = esqlite3:exec(["insert into test_table values(", "\"hello4\"", ",", "13" ");"], Db),
+    ok = esqlite3:exec("commit;", Db),
+
+    F = fun(Row) ->
+		case Row of 
+		    {Key, Value} ->
+			put(Key, Value)
+		end
+	end,
+    
+    esqlite3:foreach(F, "select * from test_table", Db),
+    
+    2 = get("one"),
+    4 = get("three"),
+    6 = get(<<"five">>),
+    
+    ok.
+    
+
 %%gen_db_test() ->
  %%   {ok, Conn} = gen_db:open(sqlite, ":memory:"),
  %%   [] = gen_db:execute("create table some_shit(hole_one varchar(10), hole_two int);", [], Conn),
