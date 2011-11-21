@@ -87,7 +87,9 @@ foreach_test() ->
     F = fun(Row) ->
 		case Row of 
 		    {Key, Value} ->
-			put(Key, Value)
+			put(Key, Value);
+		    _ ->
+			ok
 		end
 	end,
     
