@@ -26,6 +26,7 @@
 	 exec/4, 
 	 prepare/4,
 	 step/3,
+	 finalize/3,
 	 bind/4,
 	 column_names/3,
 	 close/3
@@ -73,6 +74,12 @@ prepare(_Db, _Ref, _Dest, _Sql) ->
 %%
 %% @spec step(statement(), reference(), pid()) -> ok | {error, message()}
 step(_Stmt, _Ref, _Dest) ->
+    exit(nif_library_not_loaded).
+
+%% @doc
+%%
+%%
+finalize(_Stmt, _Ref, _Dest) ->
     exit(nif_library_not_loaded).
 
 %% @doc Bind parameters to a prepared statement. 

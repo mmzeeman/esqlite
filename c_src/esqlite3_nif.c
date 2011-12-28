@@ -90,9 +90,17 @@ make_ok_tuple(ErlNifEnv *env, ERL_NIF_TERM value)
 }
 
 static ERL_NIF_TERM 
-make_error_tuple(ErlNifEnv *env, const char *reason) 
+make_error_tuple(ErlNifEnv *env, const char *reason)
 {
      return enif_make_tuple2(env, make_atom(env, "error"), make_atom(env, reason));
+}
+
+static ERL_NIF_TERM
+make_sqlite3_error_tuple(ErlNifEnv *env, const char *msg) 
+{
+     return enif_make_tuple2(env, make_atom(env, "error"), 
+			     enif_make_tuple2(env, make_atom(env, "sqlite3_error"), 
+					      enif_make_string(env, msg, ERL_NIF_LATIN1)));
 }
 
 static void
@@ -185,7 +193,7 @@ do_open(ErlNifEnv *env, esqlite_connection *db, const ERL_NIF_TERM arg)
       */
      rc = sqlite3_open(filename, &db->db);
      if(rc != SQLITE_OK) {
-	  error = make_error_tuple(env, sqlite3_errmsg(db->db));
+	  error = make_sqlite3_error_tuple(env, sqlite3_errmsg(db->db));
 	  sqlite3_close(db->db);
 	  db->db = NULL;
      
@@ -207,7 +215,7 @@ do_exec(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
 
      rc = sqlite3_exec(conn->db, (char *) bin.data, NULL, NULL, NULL);
      if(rc != SQLITE_OK)
-	  return make_error_tuple(env, sqlite3_errmsg(conn->db));
+	  return make_sqlite3_error_tuple(env, sqlite3_errmsg(conn->db));
 
      return make_atom(env, "ok");
 }
@@ -231,7 +239,7 @@ do_prepare(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
 
      rc = sqlite3_prepare_v2(conn->db, (char *) bin.data, bin.size, &(stmt->statement), &tail);
      if(rc != SQLITE_OK)
-	  return make_error_tuple(env, sqlite3_errmsg(conn->db));
+	  return make_sqlite3_error_tuple(env, sqlite3_errmsg(conn->db));
 
      enif_keep_resource(conn);
      stmt->connection = conn;
@@ -299,7 +307,7 @@ do_bind(ErlNifEnv *env, sqlite3 *db, sqlite3_stmt *stmt, const ERL_NIF_TERM arg)
 	  if(r == -1) 
 	       return make_error_tuple(env, "wrong_type");
 	  if(r != SQLITE_OK)
-	       return make_error_tuple(env, sqlite3_errmsg(db));
+	       return make_sqlite3_error_tuple(env, sqlite3_errmsg(db));
 	  list = tail;
      }
      
@@ -413,7 +421,7 @@ do_close(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
      
      rc = sqlite3_close(conn->db);
      if(rc != SQLITE_OK) 
-	  return make_error_tuple(env, sqlite3_errmsg(conn->db));
+	  return make_sqlite3_error_tuple(env, sqlite3_errmsg(conn->db));
 
      conn->db = NULL;
      return make_atom(env, "ok");

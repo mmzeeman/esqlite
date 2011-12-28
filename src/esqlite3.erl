@@ -26,10 +26,12 @@
 	 prepare/2, prepare/3, 
 	 step/1, step/2, 
 	 bind/2, bind/3, 
+	 fetchone/1,
+	 fetchall/1,
 	 column_names/1, column_names/2,
 	 close/1, close/2]).
 
--export([q/2, map/3, foreach/3]).
+-export([q/2, q/3, map/3, foreach/3]).
 
 -define(DEFAULT_TIMEOUT, infinity).
 
@@ -56,8 +58,16 @@ open(Filename, Timeout) ->
 
 %% @doc Execute a sql statement, returns a list with tuples. 
 q(Sql, Connection) ->
+    q(Sql, [], Connection).
+
+%% @doc Execute statement, bind args and return a list with tuples as result.
+q(Sql, [], Connection) ->
     {ok, Statement} = prepare(Sql, Connection),
-    do_steps(Statement).
+    fetchall(Statement);
+q(Sql, Args, Connection) ->
+    {ok, Statement} = prepare(Sql, Connection),
+    ok = bind(Statement, Args),
+    fetchall(Statement).
 
 %% 
 map(F, Sql, Connection) ->
@@ -101,13 +111,21 @@ map_s(F, Statement) when is_function(F, 2) ->
 	    [F(ColumnNames, Row) | map_s(F, Statement)]
     end.
 
+%%
+fetchone(Statement) ->
+    case try_step(Statement, 0) of
+	'$done' -> ok;
+	Row when is_tuple(Row) -> 
+	    Row
+    end.
+
 %%    
-do_steps(Statement) ->
+fetchall(Statement) ->
     case try_step(Statement, 0) of
 	'$done' -> 
 	    [];
 	Row when is_tuple(Row) ->
-	    [Row | do_steps(Statement)]
+	    [Row | fetchall(Statement)]
     end.  
 
 %% Try the step, when the database is busy, 
