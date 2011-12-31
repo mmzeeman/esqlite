@@ -3,7 +3,7 @@ REBAR=./rebar
 all: compile
 
 rebar:
-	wget https://bitbucket.org/basho/rebar/downloads/rebar -O $(REBAR)
+	wget https://github.com/downloads/basho/rebar/rebar -O $(REBAR)
 	chmod u+x $(REBAR)
 
 compile: rebar
