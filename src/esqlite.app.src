@@ -2,7 +2,7 @@
  [
   {description, "sqlite nif interface"},
   {vsn, "1"},
-  {modules, [esqlite]},
+  {modules, [esqlite, esqlite_nif]},
   {registered, []},
   {applications, [
                   kernel,
