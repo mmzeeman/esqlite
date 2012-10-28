@@ -22,14 +22,14 @@
 
 %% higher-level export
 -export([open/1, open/2, 
-	 exec/2, exec/3,
-	 prepare/2, prepare/3, 
-	 step/1, step/2, 
-	 bind/2, bind/3, 
-	 fetchone/1,
-	 fetchall/1,
-	 column_names/1, column_names/2,
-	 close/1, close/2]).
+         exec/2, exec/3,
+         prepare/2, prepare/3, 
+         step/1, step/2, 
+         bind/2, bind/3, 
+         fetchone/1,
+         fetchall/1,
+         column_names/1, column_names/2,
+         close/1, close/2]).
 
 -export([q/2, q/3, map/3, foreach/3]).
 
@@ -50,10 +50,10 @@ open(Filename, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:open(Connection, Ref, self(), Filename),
     case receive_answer(Ref, Timeout) of
-	ok ->
-	    {ok, Connection};
-	Other ->
-	    {error, Other}
+        ok ->
+            {ok, Connection};
+        Other ->
+            {error, Other}
     end.
 
 %% @doc Execute a sql statement, returns a list with tuples. 
@@ -82,50 +82,50 @@ foreach(F, Sql, Connection) ->
 %%
 foreach_s(F, Statement) when is_function(F, 1) -> 
     case try_step(Statement, 0) of
-	'$done' -> ok;
-	Row when is_tuple(Row) ->
-	    F(Row),
-	    foreach_s(F, Statement)
+        '$done' -> ok;
+        Row when is_tuple(Row) ->
+            F(Row),
+            foreach_s(F, Statement)
     end;
 foreach_s(F, Statement) when is_function(F, 2) ->
     ColumnNames = column_names(Statement),
     case try_step(Statement, 0) of
-	'$done' -> ok;
-	Row when is_tuple(Row) -> 
-	    F(ColumnNames, Row),
-	    foreach_s(F, Statement)
+        '$done' -> ok;
+        Row when is_tuple(Row) -> 
+            F(ColumnNames, Row),
+            foreach_s(F, Statement)
     end.
 
 %%
 map_s(F, Statement) when is_function(F, 1) ->
     case try_step(Statement, 0) of
-	'$done' -> [];
-	Row when is_tuple(Row) -> 
-	    [F(Row) | map_s(F, Statement)]
+        '$done' -> [];
+        Row when is_tuple(Row) -> 
+            [F(Row) | map_s(F, Statement)]
     end;
 map_s(F, Statement) when is_function(F, 2) ->
     ColumnNames = column_names(Statement),
     case try_step(Statement, 0) of
-	'$done' -> [];
-	Row when is_tuple(Row) -> 
-	    [F(ColumnNames, Row) | map_s(F, Statement)]
+        '$done' -> [];
+        Row when is_tuple(Row) -> 
+            [F(ColumnNames, Row) | map_s(F, Statement)]
     end.
 
 %%
 fetchone(Statement) ->
     case try_step(Statement, 0) of
-	'$done' -> ok;
-	Row when is_tuple(Row) -> 
-	    Row
+        '$done' -> ok;
+        Row when is_tuple(Row) -> 
+            Row
     end.
 
 %%    
 fetchall(Statement) ->
     case try_step(Statement, 0) of
-	'$done' -> 
-	    [];
-	Row when is_tuple(Row) ->
-	    [Row | fetchall(Statement)]
+        '$done' -> 
+            [];
+        Row when is_tuple(Row) ->
+            [Row | fetchall(Statement)]
     end.  
 
 %% Try the step, when the database is busy, 
@@ -133,13 +133,13 @@ try_step(_Statement, Tries) when Tries > 5 ->
     throw(too_many_tries);
 try_step(Statement, Tries) ->
     case esqlite3:step(Statement) of
-	'$busy' -> 
-	    timer:sleep(100 * Tries),
-	    try_step(Statement, Tries + 1);
-	Something -> 
-	    Something
+        '$busy' -> 
+            timer:sleep(100 * Tries),
+            try_step(Statement, Tries + 1);
+        Something -> 
+            Something
     end.
-	    
+            
 %% @doc Execute Sql statement, returns the number of affected rows.
 %%
 %% @spec exec(iolist(), connection()) -> integer() |  {error, error_message()}
@@ -226,12 +226,12 @@ add_eos(IoList) ->
 
 receive_answer(Ref, Timeout) ->
     receive 
-	{Ref, Resp} ->
-	    Resp;
-	Other ->
-	    throw(Other)
+        {Ref, Resp} ->
+            Resp;
+        Other ->
+            throw(Other)
     after Timeout ->
-	    throw({error, timeout, Ref})
+            throw({error, timeout, Ref})
     end.
 
     

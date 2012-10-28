@@ -10,8 +10,8 @@
 
 struct qitem_t
 {
-    struct qitem_t*     next;
-    void*               data;
+    struct qitem_t* next;
+    void* data;
 };
 
 typedef struct qitem_t qitem;
@@ -32,8 +32,7 @@ queue_create()
     queue *ret;
 
     ret = (queue *) enif_alloc(sizeof(struct queue_t));
-    if(ret == NULL) 
-      goto error;
+    if(ret == NULL) goto error;
 
     ret->lock = NULL;
     ret->cond = NULL;
@@ -43,22 +42,20 @@ queue_create()
     ret->length = 0;
 
     ret->lock = enif_mutex_create("queue_lock");
-    if(ret->lock == NULL) 
-      goto error;
+    if(ret->lock == NULL) goto error;
     
     ret->cond = enif_cond_create("queue_cond");
-    if(ret->cond == NULL) 
-      goto error;
+    if(ret->cond == NULL) goto error;
 
     return ret;
 
 error:
     if(ret->lock != NULL) 
-      enif_mutex_destroy(ret->lock);
+        enif_mutex_destroy(ret->lock);
     if(ret->cond != NULL) 
-      enif_cond_destroy(ret->cond);
+        enif_cond_destroy(ret->cond);
     if(ret != NULL) 
-      enif_free(ret);
+        enif_free(ret);
     return NULL;
 }
 
@@ -104,7 +101,7 @@ queue_push(queue *queue, void *item)
 {
     qitem * entry = (qitem *) enif_alloc(sizeof(struct qitem_t));
     if(entry == NULL) 
-      return 0;
+        return 0;
 
     entry->data = item;
     entry->next = NULL;
@@ -114,16 +111,12 @@ queue_push(queue *queue, void *item)
     assert(queue->length >= 0 && "Invalid queue size at push");
     
     if(queue->tail != NULL)
-    {
         queue->tail->next = entry;
-    }
 
     queue->tail = entry;
 
     if(queue->head == NULL)
-    {
         queue->head = queue->tail;
-    }
 
     queue->length += 1;
 
@@ -144,9 +137,7 @@ queue_pop(queue *queue)
     /* Wait for an item to become available.
      */
     while(queue->head == NULL)
-    {
         enif_cond_wait(queue->cond, queue->lock);
-    }
     
     assert(queue->length >= 0 && "Invalid queue size at pop.");
 
@@ -157,8 +148,7 @@ queue_pop(queue *queue)
     queue->head = entry->next;
     entry->next = NULL;
 
-    if(queue->head == NULL)
-    {
+    if(queue->head == NULL) {
         assert(queue->tail == entry && "Invalid queue state: Bad tail.");
         queue->tail = NULL;
     }
@@ -194,9 +184,7 @@ queue_receive(queue *queue)
     /* Wait for an item to become available.
      */
     while(queue->message == NULL)
-    {
         enif_cond_wait(queue->cond, queue->lock);
-    }
 
     item = queue->message;
     queue->message = NULL;

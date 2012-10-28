@@ -22,14 +22,14 @@
 
 %% low-level exports
 -export([start/0, 
-	 open/4, 
-	 exec/4, 
-	 prepare/4,
-	 step/3,
-	 finalize/3,
-	 bind/4,
-	 column_names/3,
-	 close/3
+         open/4, 
+         exec/4, 
+         prepare/4,
+         step/3,
+         finalize/3,
+         bind/4,
+         column_names/3,
+         close/3
 ]).
 
 -on_load(init/0).
