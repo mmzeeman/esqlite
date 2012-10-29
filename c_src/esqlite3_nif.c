@@ -95,11 +95,60 @@ make_error_tuple(ErlNifEnv *env, const char *reason)
     return enif_make_tuple2(env, make_atom(env, "error"), make_atom(env, reason));
 }
 
-static ERL_NIF_TERM
-make_sqlite3_error_tuple(ErlNifEnv *env, const char *msg) 
+static const char *
+get_sqlite3_return_code_msg(int r)
 {
+    switch(r) {
+    case SQLITE_OK: return "ok";
+    case SQLITE_ERROR : return "error";
+    case SQLITE_INTERNAL: return "internal";
+    case SQLITE_PERM: return "perm"; 
+    case SQLITE_ABORT: return "abort"; 
+    case SQLITE_BUSY: return "busy";
+    case SQLITE_LOCKED: return  "locked";
+    case SQLITE_NOMEM: return  "nomem";
+    case SQLITE_READONLY: return  "readonly";
+    case SQLITE_INTERRUPT: return  "interrupt";
+    case SQLITE_IOERR: return  "ioerror";
+    case SQLITE_CORRUPT: return  "corrupt";
+    case SQLITE_NOTFOUND: return  "notfound";
+    case SQLITE_FULL: return  "full";
+    case SQLITE_CANTOPEN: return  "cantopen";
+    case SQLITE_PROTOCOL: return  "protocol";
+    case SQLITE_EMPTY: return  "empty";
+    case SQLITE_SCHEMA: return  "schema";
+    case SQLITE_TOOBIG: return  "toobig";
+    case SQLITE_CONSTRAINT: return  "constraint";
+    case SQLITE_MISMATCH: return  "mismatch";
+    case SQLITE_MISUSE: return  "misuse";
+    case SQLITE_NOLFS: return  "nolfs";
+    case SQLITE_AUTH: return  "auth";
+    case SQLITE_FORMAT: return  "format";
+    case SQLITE_RANGE: return  "range";
+    case SQLITE_NOTADB: return  "notadb";
+    case SQLITE_ROW: return  "row";
+    case SQLITE_DONE: return  "done";
+    }
+    return  "unknown";
+}
+
+static const char *
+get_sqlite3_error_msg(int error_code, sqlite3 *db)
+{
+    if(error_code == SQLITE_MISUSE) 
+        return "Sqlite3 was invoked incorrectly.";
+
+    return sqlite3_errmsg(db); 
+}
+
+static ERL_NIF_TERM
+make_sqlite3_error_tuple(ErlNifEnv *env, int error_code, sqlite3 *db) 
+{
+    const char *error_code_msg = get_sqlite3_return_code_msg(error_code);
+    const char *msg = get_sqlite3_error_msg(error_code, db);
+    
     return enif_make_tuple2(env, make_atom(env, "error"), 
-        enif_make_tuple2(env, make_atom(env, "sqlite3_error"), 
+        enif_make_tuple2(env, make_atom(env, error_code_msg), 
             enif_make_string(env, msg, ERL_NIF_LATIN1)));
 }
 
@@ -193,7 +242,7 @@ do_open(ErlNifEnv *env, esqlite_connection *db, const ERL_NIF_TERM arg)
      */
     rc = sqlite3_open(filename, &db->db);
     if(rc != SQLITE_OK) {
-	    error = make_sqlite3_error_tuple(env, sqlite3_errmsg(db->db));
+	    error = make_sqlite3_error_tuple(env, rc, db->db);
 	    sqlite3_close(db->db);
 	    db->db = NULL;
      
@@ -215,7 +264,7 @@ do_exec(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
 
     rc = sqlite3_exec(conn->db, (char *) bin.data, NULL, NULL, NULL);
     if(rc != SQLITE_OK)
-	    return make_sqlite3_error_tuple(env, sqlite3_errmsg(conn->db));
+	    return make_sqlite3_error_tuple(env, rc, conn->db);
 
     return make_atom(env, "ok");
 }
@@ -239,7 +288,7 @@ do_prepare(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
 
     rc = sqlite3_prepare_v2(conn->db, (char *) bin.data, bin.size, &(stmt->statement), &tail);
     if(rc != SQLITE_OK)
-	    return make_sqlite3_error_tuple(env, sqlite3_errmsg(conn->db));
+	    return make_sqlite3_error_tuple(env, rc, conn->db);
 
     enif_keep_resource(conn);
     stmt->connection = conn;
@@ -307,7 +356,7 @@ do_bind(ErlNifEnv *env, sqlite3 *db, sqlite3_stmt *stmt, const ERL_NIF_TERM arg)
 	    if(r == -1) 
 	        return make_error_tuple(env, "wrong_type");
 	    if(r != SQLITE_OK)
-	        return make_sqlite3_error_tuple(env, sqlite3_errmsg(db));
+	        return make_sqlite3_error_tuple(env, r, db);
 	    list = tail;
     }
      
@@ -421,7 +470,7 @@ do_close(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
      
     rc = sqlite3_close(conn->db);
     if(rc != SQLITE_OK) 
-	    return make_sqlite3_error_tuple(env, sqlite3_errmsg(conn->db));
+	    return make_sqlite3_error_tuple(env, rc, conn->db);
 
     conn->db = NULL;
     return make_atom(env, "ok");

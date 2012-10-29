@@ -140,15 +140,13 @@ map_test() ->
      [{one,"hello4"},{two,13}]]  = esqlite3:map(Assoc, "select * from test_table", Db),
     
     ok.
+
+error1_msg_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+    {error, {error, _Msg1}} = esqlite3:exec("dit is geen sql", Db),
+    {error, {cantopen, _Msg2}} = esqlite3:open("/dit/bestaat/niet"),
+    ok.
     
-
-%%gen_db_test() ->
- %%   {ok, Conn} = gen_db:open(sqlite, ":memory:"),
- %%   [] = gen_db:execute("create table some_shit(hole_one varchar(10), hole_two int);", [], Conn),
- %%   [] = gen_db:execute("insert into some_shit values('dung', 100);", Conn),
- %%   [] = gen_db:execute("insert into some_shit values(?, ?);", ["manure", 1000], Conn),
- %%   ok.
-
 
 
 

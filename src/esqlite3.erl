@@ -52,8 +52,8 @@ open(Filename, Timeout) ->
     case receive_answer(Ref, Timeout) of
         ok ->
             {ok, Connection};
-        Other ->
-            {error, Other}
+        {error, _Msg}=Error ->
+            Error
     end.
 
 %% @doc Execute a sql statement, returns a list with tuples. 
