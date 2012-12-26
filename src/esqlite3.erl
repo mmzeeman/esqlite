@@ -62,28 +62,44 @@ q(Sql, Connection) ->
 
 %% @doc Execute statement, bind args and return a list with tuples as result.
 q(Sql, [], Connection) ->
-    {ok, Statement} = prepare(Sql, Connection),
-    fetchall(Statement);
+    case prepare(Sql, Connection) of
+        {ok, Statement} -> 
+            fetchall(Statement);
+        {error, _Msg}=E -> 
+            throw(E)
+    end;
 q(Sql, Args, Connection) ->
-    {ok, Statement} = prepare(Sql, Connection),
-    ok = bind(Statement, Args),
-    fetchall(Statement).
+    case prepare(Sql, Connection) of
+        {ok, Statement} ->
+            ok = bind(Statement, Args),
+            fetchall(Statement);
+        {error, _Msg}=E -> 
+            throw(E)
+    end.
 
 %% 
 map(F, Sql, Connection) ->
-    {ok, Statement} = prepare(Sql, Connection),
-    map_s(F, Statement).
+    case prepare(Sql, Connection) of
+        {ok, Statement} ->
+            map_s(F, Statement);
+        {error, _Msg}=E -> 
+            throw(E)
+    end.
 
 %% 
 foreach(F, Sql, Connection) ->
-    {ok, Statement} = prepare(Sql, Connection),
-    foreach_s(F, Statement).
+    case prepare(Sql, Connection) of
+        {ok, Statement} ->
+            foreach_s(F, Statement);
+        {error, _Msg}=E ->
+            throw(E)
+    end.
 
 %%
 foreach_s(F, Statement) when is_function(F, 1) -> 
     case try_step(Statement, 0) of
         '$done' -> ok;
-        Row when is_tuple(Row) ->
+        {row, Row} ->
             F(Row),
             foreach_s(F, Statement)
     end;
@@ -91,7 +107,7 @@ foreach_s(F, Statement) when is_function(F, 2) ->
     ColumnNames = column_names(Statement),
     case try_step(Statement, 0) of
         '$done' -> ok;
-        Row when is_tuple(Row) -> 
+        {row, Row} -> 
             F(ColumnNames, Row),
             foreach_s(F, Statement)
     end.
@@ -100,14 +116,14 @@ foreach_s(F, Statement) when is_function(F, 2) ->
 map_s(F, Statement) when is_function(F, 1) ->
     case try_step(Statement, 0) of
         '$done' -> [];
-        Row when is_tuple(Row) -> 
+        {row, Row} -> 
             [F(Row) | map_s(F, Statement)]
     end;
 map_s(F, Statement) when is_function(F, 2) ->
     ColumnNames = column_names(Statement),
     case try_step(Statement, 0) of
         '$done' -> [];
-        Row when is_tuple(Row) -> 
+        {row, Row} -> 
             [F(ColumnNames, Row) | map_s(F, Statement)]
     end.
 
@@ -115,8 +131,7 @@ map_s(F, Statement) when is_function(F, 2) ->
 fetchone(Statement) ->
     case try_step(Statement, 0) of
         '$done' -> ok;
-        Row when is_tuple(Row) -> 
-            Row
+        {row, Row} -> Row
     end.
 
 %%    
@@ -124,7 +139,7 @@ fetchall(Statement) ->
     case try_step(Statement, 0) of
         '$done' -> 
             [];
-        Row when is_tuple(Row) ->
+        {row, Row} ->
             [Row | fetchall(Statement)]
     end.  
 
@@ -156,7 +171,7 @@ exec(Sql, Connection, Timeout) ->
 
 %% @doc Prepare a statement
 %%
-%% @spec prepare(iolost(), connection()) -> {ok, prepared_statement()} | {error, error_message()}
+%% @spec prepare(iolist(), connection()) -> {ok, prepared_statement()} | {error, error_message()}
 prepare(Sql, Connection) ->
     prepare(Sql, Connection, ?DEFAULT_TIMEOUT).
 
@@ -226,12 +241,10 @@ add_eos(IoList) ->
 
 receive_answer(Ref, Timeout) ->
     receive 
-        {Ref, Resp} ->
-            Resp;
-        Other ->
-            throw(Other)
+        {Ref, Resp} -> Resp;
+        Other -> throw(Other)
     after Timeout ->
-            throw({error, timeout, Ref})
+        throw({error, timeout, Ref})
     end.
 
     

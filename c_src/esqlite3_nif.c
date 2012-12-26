@@ -95,6 +95,12 @@ make_error_tuple(ErlNifEnv *env, const char *reason)
     return enif_make_tuple2(env, make_atom(env, "error"), make_atom(env, reason));
 }
 
+static ERL_NIF_TERM 
+make_row_tuple(ErlNifEnv *env, ERL_NIF_TERM value) 
+{
+    return enif_make_tuple2(env, make_atom(env, "row"), value);
+}
+
 static const char *
 get_sqlite3_return_code_msg(int r)
 {
@@ -419,7 +425,7 @@ make_row(ErlNifEnv *env, sqlite3_stmt *statement)
     for(i = 0; i < size; i++) 
 	    array[i] = make_cell(env, statement, i);
 
-    row = enif_make_tuple_from_array(env, array, size);
+    row = make_row_tuple(env, enif_make_tuple_from_array(env, array, size));
     free(array);
     return row;
 }
