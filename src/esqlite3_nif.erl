@@ -35,7 +35,11 @@
 -on_load(init/0).
 
 init() ->
-    ok = erlang:load_nif(code:priv_dir(esqlite) ++ "/esqlite3_nif", 0).
+    PrivDir = case code:priv_dir(esqlite) of
+        {error, bad_name} -> "./priv";
+        Dir -> Dir
+    end,
+    ok = erlang:load_nif(PrivDir ++ "/esqlite3_nif", 0).
 
 %% @doc Start a low level thread which will can handle sqlite3 calls. 
 %%
