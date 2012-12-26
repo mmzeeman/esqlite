@@ -437,11 +437,11 @@ do_step(ErlNifEnv *env, sqlite3 *db, sqlite3_stmt *stmt)
 
     if(rc == SQLITE_ROW) 
         return make_row(env, stmt);
-    
     if(rc == SQLITE_DONE) 
 	    return make_atom(env, "$done");
     if(rc == SQLITE_BUSY)
 	    return make_atom(env, "$busy");
+
     if(rc == SQLITE_ERROR)
         return make_sqlite3_error_tuple(env, rc, db);
     if(rc == SQLITE_MISUSE)
