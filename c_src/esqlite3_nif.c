@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 Maas-Maarten Zeeman
+ * Copyright 2011, 2012 Maas-Maarten Zeeman
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,6 @@
 
 #include <erl_nif.h>
 #include <string.h>
-
-#include <stdio.h> /* for debugging */
 
 #include "queue.h"
 #include "sqlite3.h"
