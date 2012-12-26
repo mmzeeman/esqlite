@@ -106,7 +106,7 @@ get_sqlite3_return_code_msg(int r)
 {
     switch(r) {
     case SQLITE_OK: return "ok";
-    case SQLITE_ERROR : return "error";
+    case SQLITE_ERROR : return "sqlite_error";
     case SQLITE_INTERNAL: return "internal";
     case SQLITE_PERM: return "perm"; 
     case SQLITE_ABORT: return "abort"; 

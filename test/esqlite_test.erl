@@ -143,8 +143,15 @@ map_test() ->
 
 error1_msg_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
-    {error, {error, _Msg1}} = esqlite3:exec("dit is geen sql", Db),
-    {error, {cantopen, _Msg2}} = esqlite3:open("/dit/bestaat/niet"),
+    
+    %% Not sql.
+    {error, {sqlite_error, _Msg1}} = esqlite3:exec("dit is geen sql", Db),
+    
+    %% Database test does not exist.
+    {error, {sqlite_error, _Msg2}} = esqlite3:exec("select * from test;", Db),
+    
+    %% Opening non-existant database.
+    {error, {cantopen, _Msg3}} = esqlite3:open("/dit/bestaat/niet"),
     ok.
     
 
