@@ -1,4 +1,6 @@
-REBAR=./rebar
+PROJECT = esqlite
+REBAR = ./rebar
+DIALYZER = dialyzer
 
 all: compile
 
@@ -17,3 +19,14 @@ clean: rebar
 
 distclean: 
 	rm $(REBAR)
+
+# dializer 
+
+build-plt:
+	@$(DIALYZER) --build_plt --output_plt .$(PROJECT).plt \
+		--apps kernel stdlib 
+
+dialyze:
+	@$(DIALYZER) --src src --plt .$(PROJECT).plt --no_native \
+		-Werror_handling -Wrace_conditions -Wunmatched_returns -Wunderspecs
+
