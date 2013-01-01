@@ -310,6 +310,8 @@ bind_cell(ErlNifEnv *env, const ERL_NIF_TERM cell, sqlite3_stmt *stmt, unsigned 
     double the_double;
     char the_atom[MAX_ATOM_LENGTH+1];
     ErlNifBinary the_blob;
+    int arity;
+    const ERL_NIF_TERM* tuple;
 
     if(enif_get_int(env, cell, &the_int)) 
 	    return sqlite3_bind_int(stmt, i, the_int);
@@ -325,13 +327,22 @@ bind_cell(ErlNifEnv *env, const ERL_NIF_TERM cell, sqlite3_stmt *stmt, unsigned 
 	    return sqlite3_bind_text(stmt, i, the_atom, strlen(the_atom), SQLITE_TRANSIENT);
     }
 
-    if(enif_inspect_iolist_as_binary(env, cell, &the_blob)) {
-	    /* Bind lists which have the same length as the binary as text. */
-	    if(enif_is_list(env, cell) && (strnlen((char *) the_blob.data, the_blob.size) == the_blob.size)) {
-	       return sqlite3_bind_text(stmt, i, (char *) the_blob.data, the_blob.size, SQLITE_TRANSIENT);
-	    }
-	  
-	    return sqlite3_bind_blob(stmt, i, the_blob.data, the_blob.size, SQLITE_TRANSIENT);
+    /* Bind as text assume it is utf-8 encoded text */
+    if(enif_inspect_iolist_as_binary(env, cell, &the_blob))
+        return sqlite3_bind_text(stmt, i, (char *) the_blob.data, the_blob.size, SQLITE_TRANSIENT);
+
+    /* Check for blob tuple */
+    if(enif_get_tuple(env, cell, &arity, &tuple)) {
+        if(arity != 2) 
+            return -1;
+
+        if(enif_get_atom(env, tuple[0], the_atom, sizeof(the_atom), ERL_NIF_LATIN1)) {
+            if(0 == strncmp("blob", the_atom, strlen("blob"))) {
+                if(enif_inspect_iolist_as_binary(env, tuple[1], &the_blob)) {
+	               return sqlite3_bind_blob(stmt, i, the_blob.data, the_blob.size, SQLITE_TRANSIENT);
+                }
+            }
+        }
     }
 
     return -1;
@@ -396,12 +407,14 @@ make_cell(ErlNifEnv *env, sqlite3_stmt *statement, unsigned int i)
     case SQLITE_FLOAT:
 	    return enif_make_double(env, sqlite3_column_double(statement, i));
     case SQLITE_BLOB:
-	    return make_binary(env, sqlite3_column_blob(statement, i), sqlite3_column_bytes(statement, i));
+        return enif_make_tuple2(env, make_atom(env, "blob"), 
+            make_binary(env, sqlite3_column_blob(statement, i), 
+                sqlite3_column_bytes(statement, i)));
     case SQLITE_NULL:
 	    return make_atom(env, "undefined");
     case SQLITE_TEXT:
-	    /* TODO, make some tests to see what happens when you insert a utf-8 string */
-	    return enif_make_string(env, (char *) sqlite3_column_text(statement, i), ERL_NIF_LATIN1);
+	    return make_binary(env, sqlite3_column_text(statement, i), 
+            sqlite3_column_bytes(statement, i));
     default:
 	    return make_atom(env, "should_not_happen");
     }

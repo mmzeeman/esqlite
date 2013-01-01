@@ -43,7 +43,7 @@ prepare_test() ->
     ok = esqlite3:exec(["insert into test_table values(", "\"hello4\"", ",", "13" ");"], Db), 
 
     %% Check if the values are there.
-    [{"one", 2}, {"hello4", 13}] = esqlite3:q("select * from test_table order by two", Db),
+    [{<<"one">>, 2}, {<<"hello4">>, 13}] = esqlite3:q("select * from test_table order by two", Db),
     esqlite3:exec("commit;", Db),
     esqlite3:close(Db),
 
@@ -62,27 +62,35 @@ bind_test() ->
     esqlite3:step(Statement),
     esqlite3:bind(Statement, ["three", 4]), 
     esqlite3:step(Statement),
-    esqlite3:bind(Statement, [<<"five">>, 6]), 
+    esqlite3:bind(Statement, ["five", 6]), 
     esqlite3:step(Statement),
     esqlite3:bind(Statement, [[<<"se">>, $v, "en"], 8]), % iolist bound as text
     esqlite3:step(Statement),
-    esqlite3:bind(Statement, [[<<"nine">>], 10]), % iolist bound as text
+    esqlite3:bind(Statement, [<<"nine">>, 10]), % iolist bound as text
     esqlite3:step(Statement),
-    esqlite3:bind(Statement, [[<<"eleven">>, 0], 12]), % iolist bound as blob with trailing eos.
+    esqlite3:bind(Statement, [{blob, [<<"eleven">>, 0]}, 12]), % iolist bound as blob with trailing eos.
     esqlite3:step(Statement),
 
-    ?assertEqual([{"one", 2}], 
+    %% utf-8
+    esqlite3:bind(Statement, [[<<228,184,138,230,181,183>>], 100]), 
+    esqlite3:step(Statement),
+
+    ?assertEqual([{<<"one">>, 2}], 
         esqlite3:q("select one, two from test_table where two = '2'", Db)),
-    ?assertEqual([{"three", 4}], 
+    ?assertEqual([{<<"three">>, 4}], 
         esqlite3:q("select one, two from test_table where two = 4", Db)),
     ?assertEqual([{<<"five">>, 6}], 
         esqlite3:q("select one, two from test_table where two = 6", Db)),
-    ?assertEqual([{"seven", 8}], 
+    ?assertEqual([{<<"seven">>, 8}], 
         esqlite3:q("select one, two from test_table where two = 8", Db)),
-    ?assertEqual([{"nine", 10}], 
+    ?assertEqual([{<<"nine">>, 10}], 
         esqlite3:q("select one, two from test_table where two = 10", Db)),
-    ?assertEqual([{<<$e,$l,$e,$v,$e,$n,0>>, 12}], 
+    ?assertEqual([{{blob, <<$e,$l,$e,$v,$e,$n,0>>}, 12}], 
         esqlite3:q("select one, two from test_table where two = 12", Db)),
+
+    %% utf-8
+    ?assertEqual([{<<228,184,138,230,181,183>>, 100}], 
+        esqlite3:q("select one, two from test_table where two = 100", Db)),
 
     ok.
 
@@ -97,12 +105,8 @@ bind_for_queries_test() ->
                 [test_table], Db)),
     ?assertEqual([{1}], esqlite3:q(<<"SELECT count(type) FROM sqlite_master WHERE type='table' AND name=?;">>, 
                 ["test_table"], Db)),
-
-    %% Bound as blob... sqlite can't find the table then.
-    ?assertEqual([{0}], esqlite3:q(<<"SELECT count(type) FROM sqlite_master WHERE type='table' AND name=?;">>, 
+    ?assertEqual([{1}], esqlite3:q(<<"SELECT count(type) FROM sqlite_master WHERE type='table' AND name=?;">>, 
                 [<<"test_table">>], Db)),
-
-    %% As list it is matched as text. 
     ?assertEqual([{1}], esqlite3:q(<<"SELECT count(type) FROM sqlite_master WHERE type='table' AND name=?;">>, 
                 [[<<"test_table">>]], Db)),
 
@@ -142,10 +146,10 @@ foreach_test() ->
     
     esqlite3:foreach(F, "select * from test_table;", Db),
     
-    10 = get("hello1"),
-    11 = get("hello2"),
-    12 = get("hello3"), 
-    13 = get("hello4"),
+    10 = get(<<"hello1">>),
+    11 = get(<<"hello2">>),
+    12 = get(<<"hello3">>), 
+    13 = get(<<"hello4">>),
     
     ok.
 
@@ -161,17 +165,18 @@ map_test() ->
 
     F = fun(Row) -> Row end,
     
-    [{"hello1",10},{"hello2",11},{"hello3",12},{"hello4",13}] = esqlite3:map(F, "select * from test_table", Db),
+    [{<<"hello1">>,10},{<<"hello2">>,11},{<<"hello3">>,12},{<<"hello4">>,13}] 
+        = esqlite3:map(F, "select * from test_table", Db),
 
     %% Test that when the row-names are added..
     Assoc = fun(Names, Row) -> 
 		    lists:zip(tuple_to_list(Names), tuple_to_list(Row))
 	    end,
 
-    [[{one,"hello1"},{two,10}],
-     [{one,"hello2"},{two,11}],
-     [{one,"hello3"},{two,12}],
-     [{one,"hello4"},{two,13}]]  = esqlite3:map(Assoc, "select * from test_table", Db),
+    [[{one,<<"hello1">>},{two,10}],
+     [{one,<<"hello2">>},{two,11}],
+     [{one,<<"hello3">>},{two,12}],
+     [{one,<<"hello4">>},{two,13}]]  = esqlite3:map(Assoc, "select * from test_table", Db),
     
     ok.
 
@@ -188,15 +193,6 @@ error1_msg_test() ->
     {error, {cantopen, _Msg3}} = esqlite3:open("/dit/bestaat/niet"),
     ok.
     
-
-
-
-
-    
-	 
-
-    
-
     
 
     
