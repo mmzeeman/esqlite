@@ -51,26 +51,60 @@ prepare_test() ->
 
 bind_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
+    
     ok = esqlite3:exec("begin;", Db),
     ok = esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
-    ok = esqlite3:exec(["insert into test_table values(", "\"hello1\"", ",", "10" ");"], Db),
-    ok = esqlite3:exec(["insert into test_table values(", "\"hello2\"", ",", "11" ");"], Db),
-    ok = esqlite3:exec(["insert into test_table values(", "\"hello3\"", ",", "12" ");"], Db),
-    ok = esqlite3:exec(["insert into test_table values(", "\"hello4\"", ",", "13" ");"], Db),
     ok = esqlite3:exec("commit;", Db),
 
     %% Create a prepared statement
     {ok, Statement} = esqlite3:prepare("insert into test_table values(?1, ?2)", Db),
     esqlite3:bind(Statement, [one, 2]),
     esqlite3:step(Statement),
-    esqlite3:bind(Statement, ["three", 4]),
+    esqlite3:bind(Statement, ["three", 4]), 
     esqlite3:step(Statement),
-    esqlite3:bind(Statement, [<<"five">>, 6]),
+    esqlite3:bind(Statement, [<<"five">>, 6]), 
+    esqlite3:step(Statement),
+    esqlite3:bind(Statement, [[<<"se">>, $v, "en"], 8]), % iolist bound as text
+    esqlite3:step(Statement),
+    esqlite3:bind(Statement, [[<<"nine">>], 10]), % iolist bound as text
+    esqlite3:step(Statement),
+    esqlite3:bind(Statement, [[<<"eleven">>, 0], 12]), % iolist bound as blob with trailing eos.
     esqlite3:step(Statement),
 
-    [{"one", 2}] = esqlite3:q("select * from test_table where two = '2'", Db),
-    [{"three", 4}] = esqlite3:q("select * from test_table where two = 4", Db),
-    [{<<"five">>, 6}] = esqlite3:q("select * from test_table where two = 6", Db),
+    ?assertEqual([{"one", 2}], 
+        esqlite3:q("select one, two from test_table where two = '2'", Db)),
+    ?assertEqual([{"three", 4}], 
+        esqlite3:q("select one, two from test_table where two = 4", Db)),
+    ?assertEqual([{<<"five">>, 6}], 
+        esqlite3:q("select one, two from test_table where two = 6", Db)),
+    ?assertEqual([{"seven", 8}], 
+        esqlite3:q("select one, two from test_table where two = 8", Db)),
+    ?assertEqual([{"nine", 10}], 
+        esqlite3:q("select one, two from test_table where two = 10", Db)),
+    ?assertEqual([{<<$e,$l,$e,$v,$e,$n,0>>, 12}], 
+        esqlite3:q("select one, two from test_table where two = 12", Db)),
+
+    ok.
+
+bind_for_queries_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+    
+    ok = esqlite3:exec("begin;", Db),
+    ok = esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
+    ok = esqlite3:exec("commit;", Db),
+
+    ?assertEqual([{1}], esqlite3:q(<<"SELECT count(type) FROM sqlite_master WHERE type='table' AND name=?;">>, 
+                [test_table], Db)),
+    ?assertEqual([{1}], esqlite3:q(<<"SELECT count(type) FROM sqlite_master WHERE type='table' AND name=?;">>, 
+                ["test_table"], Db)),
+
+    %% Bound as blob... sqlite can't find the table then.
+    ?assertEqual([{0}], esqlite3:q(<<"SELECT count(type) FROM sqlite_master WHERE type='table' AND name=?;">>, 
+                [<<"test_table">>], Db)),
+
+    %% As list it is matched as text. 
+    ?assertEqual([{1}], esqlite3:q(<<"SELECT count(type) FROM sqlite_master WHERE type='table' AND name=?;">>, 
+                [[<<"test_table">>]], Db)),
 
     ok.
 

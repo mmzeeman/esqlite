@@ -1,5 +1,5 @@
 %% @author Maas-Maarten Zeeman <mmzeeman@xs4all.nl>
-%% @copyright 2011, 2012 Maas-Maarten Zeeman
+%% @copyright 2011, 2012, 2013 Maas-Maarten Zeeman
 
 %% @doc Erlang API for sqlite3 databases
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2011, 2012 Maas-Maarten Zeeman
+ * Copyright 2011, 2012, 2013 Maas-Maarten Zeeman
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -326,8 +326,8 @@ bind_cell(ErlNifEnv *env, const ERL_NIF_TERM cell, sqlite3_stmt *stmt, unsigned 
     }
 
     if(enif_inspect_iolist_as_binary(env, cell, &the_blob)) {
-	    /* Bind lists which have the same length as the binary as text */
-	    if(enif_is_list(env, cell) && (strlen((char *) the_blob.data) == the_blob.size)) {
+	    /* Bind lists which have the same length as the binary as text. */
+	    if(enif_is_list(env, cell) && (strnlen((char *) the_blob.data, the_blob.size) == the_blob.size)) {
 	       return sqlite3_bind_text(stmt, i, (char *) the_blob.data, the_blob.size, SQLITE_TRANSIENT);
 	    }
 	  
