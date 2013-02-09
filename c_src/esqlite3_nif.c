@@ -252,6 +252,8 @@ do_open(ErlNifEnv *env, esqlite_connection *db, const ERL_NIF_TERM arg)
      
 	    return error;
     }
+
+    sqlite3_busy_timeout(db->db, 2000);
 	  
     return make_atom(env, "ok");
 }
@@ -336,10 +338,14 @@ bind_cell(ErlNifEnv *env, const ERL_NIF_TERM cell, sqlite3_stmt *stmt, unsigned 
         if(arity != 2) 
             return -1;
 
+        /* length 2! */
         if(enif_get_atom(env, tuple[0], the_atom, sizeof(the_atom), ERL_NIF_LATIN1)) {
+            /* its a blob... */
             if(0 == strncmp("blob", the_atom, strlen("blob"))) {
+                /* with a iolist as argument */
                 if(enif_inspect_iolist_as_binary(env, tuple[1], &the_blob)) {
-	               return sqlite3_bind_blob(stmt, i, the_blob.data, the_blob.size, SQLITE_TRANSIENT);
+                    /* kaboom... get the blob */
+	                return sqlite3_bind_blob(stmt, i, the_blob.data, the_blob.size, SQLITE_TRANSIENT);
                 }
             }
         }
