@@ -6,10 +6,6 @@ REBAR_URL := https://github.com/downloads/basho/rebar/rebar
 
 all: compile
 
-#rebar:
-#	wget https://github.com/downloads/basho/rebar/rebar -O $(REBAR)
-#	chmod u+x $(REBAR)
-
 ./rebar:
 	erl -noshell -s inets start -s ssl start \
         -eval '{ok, saved_to_file} = httpc:request(get, {"$(REBAR_URL)", []}, [], [{stream, "./rebar"}])' \
