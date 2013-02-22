@@ -196,7 +196,7 @@ exec(Sql, Connection) ->
 %% @spec exec(iolist(), connection(), timeout()) -> integer() | {error, error_message()}
 exec(Sql, {connection, _Ref, Connection}, Timeout) ->
     Ref = make_ref(),
-    ok = esqlite3_nif:exec(Connection, Ref, self(), add_eos(Sql)),
+    ok = esqlite3_nif:exec(Connection, Ref, self(), Sql),
     receive_answer(Ref, Timeout).
 
 %% @doc Prepare a statement
@@ -210,7 +210,7 @@ prepare(Sql, Connection) ->
 %% @spec(iolist(), connection(), timeout()) -> {ok, prepared_statement()} | {error, error_message()}
 prepare(Sql, {connection, _Ref, Connection}, Timeout) ->
     Ref = make_ref(),
-    ok = esqlite3_nif:prepare(Connection, Ref, self(), add_eos(Sql)),
+    ok = esqlite3_nif:prepare(Connection, Ref, self(), Sql),
     receive_answer(Ref, Timeout).
 
 %% @doc Step
@@ -270,8 +270,6 @@ close({connection, _Ref, Connection}, Timeout) ->
     receive_answer(Ref, Timeout).
 
 %% Internal functions
-add_eos(IoList) ->
-    [IoList, 0].
 
 receive_answer(Ref, Timeout) ->
     receive 

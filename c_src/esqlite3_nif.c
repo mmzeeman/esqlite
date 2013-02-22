@@ -265,8 +265,10 @@ do_exec(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
 {
     ErlNifBinary bin;
     int rc;
+    ERL_NIF_TERM eos = enif_make_int(env, 0);
 
-    enif_inspect_iolist_as_binary(env, arg, &bin);
+    enif_inspect_iolist_as_binary(env, 
+        enif_make_list2(env, arg, eos), &bin);
 
     rc = sqlite3_exec(conn->db, (char *) bin.data, NULL, NULL, NULL);
     if(rc != SQLITE_OK)
@@ -285,8 +287,10 @@ do_prepare(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
     ERL_NIF_TERM esqlite_stmt;
     const char *tail;
     int rc;
+    ERL_NIF_TERM eos = enif_make_int(env, 0);
 
-    enif_inspect_iolist_as_binary(env, arg, &bin);
+    enif_inspect_iolist_as_binary(env, 
+        enif_make_list2(env, arg, eos), &bin);
 
     stmt = enif_alloc_resource(esqlite_statement_type, sizeof(esqlite_statement));
     if(!stmt) 
