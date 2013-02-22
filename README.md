@@ -1,10 +1,10 @@
-Esqlite
-=====
+Esqlite [![Build Status](https://secure.travis-ci.org/mmzeeman/esqlite.png?branch=master)](http://travis-ci.org/mmzeeman/esqlite)
+=======
 
 An Erlang nif library for sqlite3.
 
 Introduction
------------------
+------------
 
 This library allows you to use the accelent sqlite engine from
 erlang. The library is implemented as a nif library, which allows for
