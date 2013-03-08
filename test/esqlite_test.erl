@@ -71,6 +71,10 @@ bind_test() ->
     esqlite3:bind(Statement, [{blob, [<<"eleven">>, 0]}, 12]), % iolist bound as blob with trailing eos.
     esqlite3:step(Statement),
 
+    %% int64
+    esqlite3:bind(Statement, [int64, 308553449069486081]),
+    esqlite3:step(Statement),
+
     %% utf-8
     esqlite3:bind(Statement, [[<<228,184,138,230,181,183>>], 100]), 
     esqlite3:step(Statement),
@@ -88,10 +92,15 @@ bind_test() ->
     ?assertEqual([{{blob, <<$e,$l,$e,$v,$e,$n,0>>}, 12}], 
         esqlite3:q("select one, two from test_table where two = 12", Db)),
 
+    %% int64
+    ?assertEqual([{<<"int64">>, 308553449069486081}], 
+        esqlite3:q("select one, two from test_table where one = 'int64';", Db)),
+
     %% utf-8
     ?assertEqual([{<<228,184,138,230,181,183>>, 100}], 
         esqlite3:q("select one, two from test_table where two = 100", Db)),
 
+    
     ok.
 
 bind_for_queries_test() ->

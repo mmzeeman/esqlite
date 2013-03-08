@@ -313,6 +313,7 @@ static int
 bind_cell(ErlNifEnv *env, const ERL_NIF_TERM cell, sqlite3_stmt *stmt, unsigned int i)
 {
     int the_int;
+    ErlNifSInt64 the_long_int;
     double the_double;
     char the_atom[MAX_ATOM_LENGTH+1];
     ErlNifBinary the_blob;
@@ -321,6 +322,9 @@ bind_cell(ErlNifEnv *env, const ERL_NIF_TERM cell, sqlite3_stmt *stmt, unsigned 
 
     if(enif_get_int(env, cell, &the_int)) 
 	    return sqlite3_bind_int(stmt, i, the_int);
+
+    if(enif_get_int64(env, cell, &the_long_int)) 
+        return sqlite3_bind_int64(stmt, i, the_long_int);
 
     if(enif_get_double(env, cell, &the_double)) 
 	    return sqlite3_bind_double(stmt, i, the_double);
@@ -413,7 +417,7 @@ make_cell(ErlNifEnv *env, sqlite3_stmt *statement, unsigned int i)
      
     switch(type) {
     case SQLITE_INTEGER:
-	    return enif_make_int(env, sqlite3_column_int(statement, i));
+	    return enif_make_int64(env, sqlite3_column_int64(statement, i));
     case SQLITE_FLOAT:
 	    return enif_make_double(env, sqlite3_column_double(statement, i));
     case SQLITE_BLOB:
