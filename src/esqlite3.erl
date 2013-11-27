@@ -202,13 +202,13 @@ exec(Sql, {connection, _Ref, Connection}, Timeout) ->
 
 %% @doc Insert records, returns the last rowid.
 %%
-%% @spec insert(iolist(), connection()) -> integer() |  {error, error_message()}
+%% @spec insert(iolist(), connection()) -> {ok, integer()} |  {error, error_message()}
 insert(Sql, Connection) ->
     insert(Sql, Connection, ?DEFAULT_TIMEOUT).
 
 %% @doc Insert
 %%
-%% @spec insert(iolist(), connection(), timeout()) -> integer() | {error, error_message()}
+%% @spec insert(iolist(), connection(), timeout()) -> {ok, integer()} | {error, error_message()}
 insert(Sql, {connection, _Ref, Connection}, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:insert(Connection, Ref, self(), Sql),

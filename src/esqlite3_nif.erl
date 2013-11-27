@@ -109,7 +109,7 @@ close(_Db, _Ref, _Dest) ->
 
 %% @doc Insert record
 %%
-%% @spec insert(connection(), Ref::reference(), Dest::pid(), string()) -> ok | {error, message()}
+%% @spec insert(connection(), Ref::reference(), Dest::pid(), string()) -> {ok, integer()} | {error, message()}
 insert(_Db, _Ref, _Dest, _Sql) ->
     exit(nif_library_not_loaded).
 
