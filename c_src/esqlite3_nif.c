@@ -869,6 +869,16 @@ on_load(ErlNifEnv* env, void** priv, ERL_NIF_TERM info)
     return 0;
 }
 
+static int on_reload(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
+{
+    return 0;
+}
+
+static int on_upgrade(ErlNifEnv* env, void** priv, void** old_priv_data, ERL_NIF_TERM load_info)
+{
+    return 0;
+}
+
 static ErlNifFunc nif_funcs[] = {
     {"start", 0, esqlite_start},
     {"open", 4, esqlite_open},
@@ -881,4 +891,4 @@ static ErlNifFunc nif_funcs[] = {
     {"close", 3, esqlite_close}
 };
 
-ERL_NIF_INIT(esqlite3_nif, nif_funcs, on_load, NULL, NULL, NULL);
+ERL_NIF_INIT(esqlite3_nif, nif_funcs, on_load, on_reload, on_upgrade, NULL);
