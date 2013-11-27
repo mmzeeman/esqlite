@@ -21,15 +21,16 @@
 -author("Maas-Maarten Zeeman <mmzeeman@xs4all.nl>").
 
 %% low-level exports
--export([start/0, 
-         open/4, 
-         exec/4, 
-         prepare/4,
-         step/3,
-         finalize/3,
-         bind/4,
-         column_names/3,
-         close/3
+-export([start/0,
+    open/4,
+    exec/4,
+    insert/4,
+    prepare/4,
+    step/3,
+    finalize/3,
+    bind/4,
+    column_names/3,
+    close/3
 ]).
 
 -on_load(init/0).
@@ -37,9 +38,9 @@
 init() ->
     NifName = "esqlite3_nif",
     NifFileName = case code:priv_dir(esqlite) of
-        {error, bad_name} -> filename:join("priv", NifName);
-        Dir -> filename:join(Dir, NifName)
-    end,
+                      {error, bad_name} -> filename:join("priv", NifName);
+                      Dir -> filename:join(Dir, NifName)
+                  end,
     ok = erlang:load_nif(NifFileName, 0).
 
 %% @doc Start a low level thread which will can handle sqlite3 calls. 
@@ -105,7 +106,12 @@ column_names(_Stmt, _Ref, _Dest) ->
 close(_Db, _Ref, _Dest) ->
     exit(nif_library_not_loaded).
 
-    
+
+%% @doc Insert record
+%%
+%% @spec insert(connection(), Ref::reference(), Dest::pid(), string()) -> ok | {error, message()}
+insert(_Db, _Ref, _Dest, _Sql) ->
+    exit(nif_library_not_loaded).
 
 
 
