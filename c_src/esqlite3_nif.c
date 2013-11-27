@@ -57,7 +57,8 @@ typedef enum {
     cmd_step,
     cmd_column_names,
     cmd_close,
-    cmd_stop
+    cmd_stop,
+    cmd_insert
 } command_type;
 
 typedef struct {
@@ -275,6 +276,27 @@ do_exec(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
 	    return make_sqlite3_error_tuple(env, rc, conn->db);
 
     return make_atom(env, "ok");
+}
+
+/*
+* insert action
+*/
+static ERL_NIF_TERM
+do_insert(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
+{
+    ErlNifBinary bin;
+    int rc;
+    ERL_NIF_TERM eos = enif_make_int(env, 0);
+
+    enif_inspect_iolist_as_binary(env,
+        enif_make_list2(env, arg, eos), &bin);
+
+    rc = sqlite3_exec(conn->db, (char *) bin.data, NULL, NULL, NULL);
+    if(rc != SQLITE_OK)
+        return make_sqlite3_error_tuple(env, rc, conn->db);
+    sqlite3_int64 last_rowid = sqlite3_last_insert_rowid(conn->db);
+    ERL_NIF_TERM last_rowid_term = enif_make_int(env, last_rowid);
+    return make_ok_tuple(env, last_rowid_term);
 }
 
 /*
@@ -530,6 +552,8 @@ evaluate_command(esqlite_command *cmd, esqlite_connection *conn)
 	    return do_column_names(cmd->env, cmd->stmt);
     case cmd_close:
 	    return do_close(cmd->env, conn, cmd->arg);
+	case cmd_insert:
+	    return do_insert(cmd->env, conn, cmd->arg);
     default:
 	    return make_error_tuple(cmd->env, "invalid_command");
     }
@@ -666,6 +690,35 @@ esqlite_exec(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
      
     /* command */
     cmd->type = cmd_exec;
+    cmd->ref = enif_make_copy(cmd->env, argv[1]);
+    cmd->pid = pid;
+    cmd->arg = enif_make_copy(cmd->env, argv[3]);
+
+    return push_command(env, db, cmd);
+}
+
+static ERL_NIF_TERM
+esqlite_insert(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    esqlite_connection *db;
+    esqlite_command *cmd = NULL;
+    ErlNifPid pid;
+
+    if(argc != 4)
+        return enif_make_badarg(env);
+    if(!enif_get_resource(env, argv[0], esqlite_connection_type, (void **) &db))
+        return enif_make_badarg(env);
+    if(!enif_is_ref(env, argv[1]))
+        return make_error_tuple(env, "invalid_ref");
+    if(!enif_get_local_pid(env, argv[2], &pid))
+        return make_error_tuple(env, "invalid_pid");
+
+    cmd = command_create();
+    if(!cmd)
+        return make_error_tuple(env, "command_create_failed");
+
+    /* command */
+    cmd->type = cmd_insert;
     cmd->ref = enif_make_copy(cmd->env, argv[1]);
     cmd->pid = pid;
     cmd->arg = enif_make_copy(cmd->env, argv[3]);
@@ -884,6 +937,7 @@ static ErlNifFunc nif_funcs[] = {
     {"open", 4, esqlite_open},
     {"exec", 4, esqlite_exec},
     {"prepare", 4, esqlite_prepare},
+    {"insert", 4, esqlite_insert},
     {"step", 3, esqlite_step},
     // TODO: {"esqlite_bind", 3, esqlite_bind_named},
     {"bind", 4, esqlite_bind},

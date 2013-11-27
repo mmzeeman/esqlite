@@ -23,6 +23,7 @@
 %% higher-level export
 -export([open/1, open/2, 
          exec/2, exec/3,
+         insert/2,
          prepare/2, prepare/3, 
          step/1, step/2, 
          bind/2, bind/3, 
@@ -197,6 +198,20 @@ exec(Sql, Connection) ->
 exec(Sql, {connection, _Ref, Connection}, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:exec(Connection, Ref, self(), Sql),
+    receive_answer(Ref, Timeout).
+
+%% @doc Insert records, returns the last rowid.
+%%
+%% @spec insert(iolist(), connection()) -> {ok, integer()} |  {error, error_message()}
+insert(Sql, Connection) ->
+    insert(Sql, Connection, ?DEFAULT_TIMEOUT).
+
+%% @doc Insert
+%%
+%% @spec insert(iolist(), connection(), timeout()) -> {ok, integer()} | {error, error_message()}
+insert(Sql, {connection, _Ref, Connection}, Timeout) ->
+    Ref = make_ref(),
+    ok = esqlite3_nif:insert(Connection, Ref, self(), Sql),
     receive_answer(Ref, Timeout).
 
 %% @doc Prepare a statement
