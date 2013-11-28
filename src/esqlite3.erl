@@ -287,9 +287,18 @@ close({connection, _Ref, Connection}, Timeout) ->
 %% Internal functions
 
 receive_answer(Ref, Timeout) ->
+    Start = os:timestamp(),
     receive 
-        {Ref, Resp} -> Resp;
-        Other -> throw(Other)
+        {esqlite3, Ref, Resp} -> 
+            Resp;
+        {esqlite3, _, _}=StaleAnswer ->
+            error_logger:warning_msg("Esqlite3: Ignoring stale answer ~p~n", [StaleAnswer]),
+            PassedMics = timer:now_diff(os:timestamp(), Start) div 1000,
+            NewTimeout = case Timeout - PassedMics of
+                Passed when Passed < 0 -> 0;
+                TO -> TO
+            end,
+            receive_answer(Ref, NewTimeout)
     after Timeout ->
         throw({error, timeout, Ref})
     end.

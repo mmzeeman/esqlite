@@ -71,6 +71,8 @@ typedef struct {
     sqlite3_stmt *stmt;
 } esqlite_command;
 
+ERL_NIF_TERM atom_esqlite3;
+
 static ERL_NIF_TERM 
 make_atom(ErlNifEnv *env, const char *atom_name) 
 {
@@ -570,7 +572,7 @@ push_command(ErlNifEnv *env, esqlite_connection *conn, esqlite_command *cmd) {
 static ERL_NIF_TERM
 make_answer(esqlite_command *cmd, ERL_NIF_TERM answer)
 {
-    return enif_make_tuple2(cmd->env, cmd->ref, answer);
+    return enif_make_tuple3(cmd->env, atom_esqlite3, cmd->ref, answer);
 }
 
 static void *
@@ -918,6 +920,8 @@ on_load(ErlNifEnv* env, void** priv, ERL_NIF_TERM info)
     if(!rt) 
 	    return -1;
     esqlite_statement_type = rt;
+
+    atom_esqlite3 = make_atom(env, "esqlite3");
 
     return 0;
 }
