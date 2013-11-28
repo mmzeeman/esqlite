@@ -295,7 +295,7 @@ do_insert(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
     if(rc != SQLITE_OK)
         return make_sqlite3_error_tuple(env, rc, conn->db);
     sqlite3_int64 last_rowid = sqlite3_last_insert_rowid(conn->db);
-    ERL_NIF_TERM last_rowid_term = enif_make_int(env, last_rowid);
+    ERL_NIF_TERM last_rowid_term = enif_make_int64(env, last_rowid);
     return make_ok_tuple(env, last_rowid_term);
 }
 
