@@ -71,7 +71,7 @@ typedef struct {
     sqlite3_stmt *stmt;
 } esqlite_command;
 
-ERL_NIF_TERM atom_esqlite3;
+static ERL_NIF_TERM atom_esqlite3;
 
 static ERL_NIF_TERM 
 make_atom(ErlNifEnv *env, const char *atom_name) 
