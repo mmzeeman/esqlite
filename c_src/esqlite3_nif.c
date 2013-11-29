@@ -313,8 +313,8 @@ do_prepare(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
     int rc;
     ERL_NIF_TERM eos = enif_make_int(env, 0);
 
-    enif_inspect_iolist_as_binary(env, 
-        enif_make_list2(env, arg, eos), &bin);
+    if(!enif_inspect_iolist_as_binary(env, enif_make_list2(env, arg, eos), &bin))
+	    return make_error_tuple(env, "not an iolist");
 
     stmt = enif_alloc_resource(esqlite_statement_type, sizeof(esqlite_statement));
     if(!stmt) 
