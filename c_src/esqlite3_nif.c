@@ -20,6 +20,7 @@
 
 #include <erl_nif.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "queue.h"
 #include "sqlite3.h"
@@ -491,12 +492,7 @@ do_step(ErlNifEnv *env, sqlite3 *db, sqlite3_stmt *stmt)
     if(rc == SQLITE_BUSY)
 	    return make_atom(env, "$busy");
 
-    if(rc == SQLITE_ERROR)
-        return make_sqlite3_error_tuple(env, rc, db);
-    if(rc == SQLITE_MISUSE)
-        return make_error_tuple(env, "misuse");
-
-    return make_error_tuple(env, "unexpected_return_value");
+    return make_sqlite3_error_tuple(env, rc, db);
 }
 
 static ERL_NIF_TERM
