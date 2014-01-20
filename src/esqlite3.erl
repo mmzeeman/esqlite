@@ -198,7 +198,18 @@ exec(Sql, Connection) ->
 exec(Sql, {connection, _Ref, Connection}, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:exec(Connection, Ref, self(), Sql),
-    receive_answer(Ref, Timeout).
+    receive_answer(Ref, Timeout);
+
+%% @spec exec(iolist(), list(term()), connection()) -> integer() | {error, error_message()}
+exec(Sql, Params, {connection, _, _}=Connection) when is_list(Params) ->
+    exec(Sql, Params, Connection, ?DEFAULT_TIMEOUT).
+
+%% @spec exec(iolist(), list(term()), connection(), timeout()) -> integer() | {error, error_message()}
+exec(Sql, Params, {connection, _, _}=Connection, Timeout) when is_list(Params) ->
+    {ok, Statement} = prepare(Sql, Connection, Timeout),
+    bind(Statement, Params),
+    step(Statement, Timeout).
+    
 
 %% @doc Insert records, returns the last rowid.
 %%
