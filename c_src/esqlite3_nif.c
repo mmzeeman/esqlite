@@ -52,6 +52,7 @@ typedef enum {
     cmd_unknown,
     cmd_open,
     cmd_exec,
+    cmd_changes,
     cmd_prepare,
     cmd_bind,
     cmd_step,
@@ -278,6 +279,18 @@ do_exec(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
 	    return make_sqlite3_error_tuple(env, rc, conn->db);
 
     return make_atom(env, "ok");
+}
+
+/*
+ * Nr of changes
+ */
+static ERL_NIF_TERM
+do_changes(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
+{
+    int changes = sqlite3_changes(conn->db);
+
+    ERL_NIF_TERM changes_term = enif_make_int64(env, changes);
+    return make_ok_tuple(env, changes_term);
 }
 
 /*
@@ -544,6 +557,8 @@ evaluate_command(esqlite_command *cmd, esqlite_connection *conn)
 	    return do_open(cmd->env, conn, cmd->arg);
     case cmd_exec:
 	    return do_exec(cmd->env, conn, cmd->arg);
+    case cmd_changes:
+	    return do_changes(cmd->env, conn, cmd->arg);
     case cmd_prepare:
 	    return do_prepare(cmd->env, conn, cmd->arg);
     case cmd_step:
@@ -695,6 +710,37 @@ esqlite_exec(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     cmd->ref = enif_make_copy(cmd->env, argv[1]);
     cmd->pid = pid;
     cmd->arg = enif_make_copy(cmd->env, argv[3]);
+
+    return push_command(env, db, cmd);
+}
+
+/*
+ * Count the nr of changes of last statement
+ */
+static ERL_NIF_TERM 
+esqlite_changes(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    esqlite_connection *db;
+    esqlite_command *cmd = NULL;
+    ErlNifPid pid;
+     
+    if(argc != 3) 
+	    return enif_make_badarg(env);  
+    if(!enif_get_resource(env, argv[0], esqlite_connection_type, (void **) &db))
+	    return enif_make_badarg(env);
+    if(!enif_is_ref(env, argv[1])) 
+	    return make_error_tuple(env, "invalid_ref");
+    if(!enif_get_local_pid(env, argv[2], &pid)) 
+	    return make_error_tuple(env, "invalid_pid"); 
+    
+    cmd = command_create();
+    if(!cmd) 
+	    return make_error_tuple(env, "command_create_failed");
+     
+    /* command */
+    cmd->type = cmd_changes;
+    cmd->ref = enif_make_copy(cmd->env, argv[1]);
+    cmd->pid = pid;
 
     return push_command(env, db, cmd);
 }
@@ -940,6 +986,7 @@ static ErlNifFunc nif_funcs[] = {
     {"start", 0, esqlite_start},
     {"open", 4, esqlite_open},
     {"exec", 4, esqlite_exec},
+    {"changes", 3, esqlite_changes},
     {"prepare", 4, esqlite_prepare},
     {"insert", 4, esqlite_insert},
     {"step", 3, esqlite_step},

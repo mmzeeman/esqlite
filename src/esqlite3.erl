@@ -23,8 +23,9 @@
 %% higher-level export
 -export([open/1, open/2, 
          exec/2, exec/3,
+         changes/1, changes/2,
          insert/2,
-         prepare/2, prepare/3, 
+         prepare/2, prepare/3,
          step/1, step/2, 
          bind/2, bind/3, 
          fetchone/1,
@@ -198,6 +199,16 @@ exec(Sql, Connection) ->
 exec(Sql, {connection, _Ref, Connection}, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:exec(Connection, Ref, self(), Sql),
+    receive_answer(Ref, Timeout).
+
+%% @doc Return the number of affected rows of last statement.
+changes(Connection) ->
+    changes(Connection, ?DEFAULT_TIMEOUT).
+
+%% @doc Return the number of affected rows of last statement.
+changes({connection, _Ref, Connection}, Timeout) ->
+    Ref = make_ref(),
+    ok = esqlite3_nif:changes(Connection, Ref, self()),
     receive_answer(Ref, Timeout).
 
 %% @doc Insert records, returns the last rowid.
