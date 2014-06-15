@@ -508,6 +508,8 @@ do_step(ErlNifEnv *env, sqlite3 *db, sqlite3_stmt *stmt)
         return make_sqlite3_error_tuple(env, rc, db);
     if(rc == SQLITE_MISUSE)
         return make_error_tuple(env, "misuse");
+    if(rc == SQLITE_CONSTRAINT)
+        return make_sqlite3_error_tuple(env, rc, db);
 
     return make_error_tuple(env, "unexpected_return_value");
 }
