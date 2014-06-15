@@ -24,6 +24,7 @@
 -export([start/0,
     open/4,
     exec/4,
+    changes/3,
     insert/4,
     prepare/4,
     step/3,
@@ -68,6 +69,14 @@ open(_Db, _Ref, _Dest, _Filename) ->
 %%
 %%  @spec exec(connection(), Ref::reference(), Dest::pid(), string()) -> ok | {error, message()}
 exec(_Db, _Ref, _Dest, _Sql) ->
+    exit(nif_library_not_loaded).
+
+%% @doc Get the number of affected rows of last statement
+%% 
+%% When the statement is executed Dest will receive message {Ref, answer()}
+%% with answer() integer | {error, reason()}
+%%
+changes(_Db, _Ref, _Dest) ->
     exit(nif_library_not_loaded).
 
 %% @doc
