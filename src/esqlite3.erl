@@ -123,6 +123,7 @@ foreach(F, Sql, Connection) ->
 foreach_s(F, Statement) when is_function(F, 1) -> 
     case try_step(Statement, 0) of
         '$done' -> ok;
+        {error, _} = E -> F(E);
         {row, Row} ->
             F(Row),
             foreach_s(F, Statement)
@@ -131,6 +132,7 @@ foreach_s(F, Statement) when is_function(F, 2) ->
     ColumnNames = column_names(Statement),
     case try_step(Statement, 0) of
         '$done' -> ok;
+        {error, _} = E -> F([], E);
         {row, Row} -> 
             F(ColumnNames, Row),
             foreach_s(F, Statement)
@@ -145,6 +147,7 @@ foreach_s(F, Statement) when is_function(F, 2) ->
 map_s(F, Statement) when is_function(F, 1) ->
     case try_step(Statement, 0) of
         '$done' -> [];
+        {error, _} = E -> F(E);
         {row, Row} -> 
             [F(Row) | map_s(F, Statement)]
     end;
@@ -152,6 +155,7 @@ map_s(F, Statement) when is_function(F, 2) ->
     ColumnNames = column_names(Statement),
     case try_step(Statement, 0) of
         '$done' -> [];
+        {error, _} = E -> F([], E);
         {row, Row} -> 
             [F(ColumnNames, Row) | map_s(F, Statement)]
     end.
@@ -161,6 +165,7 @@ map_s(F, Statement) when is_function(F, 2) ->
 fetchone(Statement) ->
     case try_step(Statement, 0) of
         '$done' -> ok;
+        {error, _} = E -> E;
         {row, Row} -> Row
     end.
 
@@ -170,6 +175,7 @@ fetchall(Statement) ->
     case try_step(Statement, 0) of
         '$done' -> 
             [];
+        {error, _} = E -> E;
         {row, Row} ->
             [Row | fetchall(Statement)]
     end.  
