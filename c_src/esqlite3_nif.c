@@ -144,10 +144,16 @@ get_sqlite3_return_code_msg(int r)
 static const char *
 get_sqlite3_error_msg(int error_code, sqlite3 *db)
 {
+    static const char *msg;
+
     if(error_code == SQLITE_MISUSE) 
         return "Sqlite3 was invoked incorrectly.";
 
-    return sqlite3_errmsg(db); 
+    msg = sqlite3_errmsg(db);
+    if(!msg) 
+        return "No sqlite3 error message found.";
+
+    return msg;
 }
 
 static ERL_NIF_TERM
