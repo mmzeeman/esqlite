@@ -225,7 +225,7 @@ destruct_esqlite_connection(ErlNifEnv *env, void *arg)
     queue_destroy(db->commands);
 
     if(db->db)
-	   sqlite3_close(db->db);
+        sqlite3_close_v2(db->db);
 }
 
 static void
@@ -258,7 +258,7 @@ do_open(ErlNifEnv *env, esqlite_connection *db, const ERL_NIF_TERM arg)
     rc = sqlite3_open(filename, &db->db);
     if(rc != SQLITE_OK) {
 	    error = make_sqlite3_error_tuple(env, rc, db->db);
-	    sqlite3_close(db->db);
+	    sqlite3_close_v2(db->db);
 	    db->db = NULL;
      
 	    return error;
@@ -544,7 +544,7 @@ do_close(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
 {
     int rc;
      
-    rc = sqlite3_close(conn->db);
+    rc = sqlite3_close_v2(conn->db);
     if(rc != SQLITE_OK) 
 	    return make_sqlite3_error_tuple(env, rc, conn->db);
 
