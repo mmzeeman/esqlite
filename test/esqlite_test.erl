@@ -142,13 +142,68 @@ column_names_test() ->
     ok = esqlite3:exec("begin;", Db),
     ok = esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
     ok = esqlite3:exec(["insert into test_table values(", "\"hello1\"", ",", "10" ");"], Db),
+    ok = esqlite3:exec(["insert into test_table values(", "\"hello2\"", ",", "20" ");"], Db),
     ok = esqlite3:exec("commit;", Db),
 
+    %% All columns
     {ok, Stmt} = esqlite3:prepare("select * from test_table", Db),
-    
-    {one, two} = esqlite3:column_names(Stmt),
-    
+    {one, two} =  esqlite3:column_names(Stmt),
+    {row, {<<"hello1">>, 10}} = esqlite3:step(Stmt),
+    {one, two} =  esqlite3:column_names(Stmt),
+    {row, {<<"hello2">>, 20}} = esqlite3:step(Stmt),
+    {one, two} =  esqlite3:column_names(Stmt),
+    '$done' = esqlite3:step(Stmt),
+    {one, two} =  esqlite3:column_names(Stmt),
+
+    %% One column
+    {ok, Stmt2} = esqlite3:prepare("select two from test_table", Db),
+    {two} =  esqlite3:column_names(Stmt2),
+    {row, {10}} = esqlite3:step(Stmt2),
+    {two} =  esqlite3:column_names(Stmt2),
+    {row, {20}} = esqlite3:step(Stmt2),
+    {two} =  esqlite3:column_names(Stmt2),
+    '$done' = esqlite3:step(Stmt2),
+    {two} =  esqlite3:column_names(Stmt2),
+
+    %% No columns
+    {ok, Stmt3} = esqlite3:prepare("values(1);", Db),
+    {column1} =  esqlite3:column_names(Stmt3),
+    {row, {1}} = esqlite3:step(Stmt3),
+    {column1} =  esqlite3:column_names(Stmt3),
+
+    %% Things get a bit weird when you retrieve the column name
+    %% when calling an aggragage function.
+    {ok, Stmt4} = esqlite3:prepare("select date('now');", Db),
+    {'date(\'now\')'} =  esqlite3:column_names(Stmt4),
+    {row, {Date}} = esqlite3:step(Stmt4),
+    true = is_binary(Date),
+
     ok.
+
+reset_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+
+    {ok, Stmt} = esqlite3:prepare("select * from (values (1), (2));", Db),
+    {row, {1}} = esqlite3:step(Stmt),
+
+    ok = esqlite3:reset(Stmt),
+    {row, {1}} = esqlite3:step(Stmt),
+    {row, {2}} = esqlite3:step(Stmt),
+    '$done' = esqlite3:step(Stmt),
+
+    % After a done the statement is automatically reset.
+    {row, {1}} = esqlite3:step(Stmt),
+
+    % Calling reset multiple times...
+    ok = esqlite3:reset(Stmt),
+    ok = esqlite3:reset(Stmt),
+    ok = esqlite3:reset(Stmt),
+    ok = esqlite3:reset(Stmt),
+
+    {row, {1}} = esqlite3:step(Stmt),
+
+    ok.
+
 
 foreach_test() ->
     {ok, Db} = esqlite3:open(":memory:"),

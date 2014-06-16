@@ -3,7 +3,7 @@
 
 %% @doc Low level erlang API for sqlite3 databases
 
-%% Copyright 2011, 2012, 2013 Maas-Maarten Zeeman
+%% Copyright 2011, 2012, 2013, 2014 Maas-Maarten Zeeman
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@
     insert/4,
     prepare/4,
     step/3,
+    reset/3,
     finalize/3,
     bind/4,
     column_names/3,
@@ -89,6 +90,12 @@ prepare(_Db, _Ref, _Dest, _Sql) ->
 %%
 %% @spec step(statement(), reference(), pid()) -> ok | {error, message()}
 step(_Stmt, _Ref, _Dest) ->
+    exit(nif_library_not_loaded).
+
+%% @doc
+%%
+%% @spec reset(statement(), reference(), pid()) -> ok | {error, message()}
+reset(_Stmt, _Ref, _Dest) ->
     exit(nif_library_not_loaded).
 
 %% @doc

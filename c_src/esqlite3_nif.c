@@ -57,6 +57,7 @@ typedef enum {
     cmd_prepare,
     cmd_bind,
     cmd_step,
+    cmd_reset,
     cmd_column_names,
     cmd_close,
     cmd_stop,
@@ -265,7 +266,7 @@ do_open(ErlNifEnv *env, esqlite_connection *db, const ERL_NIF_TERM arg)
     }
 
     sqlite3_busy_timeout(db->db, 2000);
-	  
+
     return make_atom(env, "ok");
 }
 
@@ -506,12 +507,32 @@ do_step(ErlNifEnv *env, sqlite3 *db, sqlite3_stmt *stmt)
 
     if(rc == SQLITE_ROW) 
         return make_row(env, stmt);
-    if(rc == SQLITE_DONE) 
-	    return make_atom(env, "$done");
     if(rc == SQLITE_BUSY)
-	    return make_atom(env, "$busy");
+        return make_atom(env, "$busy");
+
+    if(rc == SQLITE_DONE) { 
+        /* 
+         * Automatically reset the statement after a done so 
+         * column_names will work after the statement is done.
+         *
+         * Not resetting the statement can lead to vm crashes.
+         */
+        sqlite3_reset(stmt);
+        return make_atom(env, "$done");
+    }
 
     /* We use prepare_v2, so any error code can be returned. */
+    return make_sqlite3_error_tuple(env, rc, db);
+}
+
+static ERL_NIF_TERM
+do_reset(ErlNifEnv *env, sqlite3 *db, sqlite3_stmt *stmt)
+{
+    int rc = sqlite3_reset(stmt);
+
+    if(rc == SQLITE_OK) 
+        return make_atom(env, "ok");
+
     return make_sqlite3_error_tuple(env, rc, db);
 }
 
@@ -524,14 +545,21 @@ do_column_names(ErlNifEnv *env, sqlite3_stmt *stmt)
     ERL_NIF_TERM column_names;
      
     size = sqlite3_column_count(stmt);
+    if(size <= 0)
+        return make_error_tuple(env, "no_columns");
+
     array = (ERL_NIF_TERM *) malloc(sizeof(ERL_NIF_TERM) * size);
-     
     if(!array)
-	    return make_error_tuple(env, "no_memory");
+        return make_error_tuple(env, "no_memory");
 
     for(i = 0; i < size; i++) {
-	    name = sqlite3_column_name(stmt, i);
-	    array[i] = make_atom(env, name);
+        name = sqlite3_column_name(stmt, i);
+        if(name == NULL) {
+            free(array);
+            return make_error_tuple(env, "sqlite3_malloc_failure");
+        }
+
+        array[i] = make_atom(env, name);
     }
 
     column_names = enif_make_tuple_from_array(env, array, size);
@@ -566,6 +594,8 @@ evaluate_command(esqlite_command *cmd, esqlite_connection *conn)
 	    return do_prepare(cmd->env, conn, cmd->arg);
     case cmd_step:
 	    return do_step(cmd->env, conn->db, cmd->stmt);
+    case cmd_reset:
+	    return do_reset(cmd->env, conn->db, cmd->stmt);
     case cmd_bind:
 	    return do_bind(cmd->env, conn->db, cmd->stmt, cmd->arg);
     case cmd_column_names:
@@ -885,7 +915,45 @@ esqlite_step(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 }
 
 /*
- * Step to a prepared statement
+ * Reset a prepared statement to its initial state
+ */
+static ERL_NIF_TERM 
+esqlite_reset(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    esqlite_statement *stmt;
+    esqlite_command *cmd = NULL;
+    ErlNifPid pid;
+
+    if(argc != 3) 
+	    return enif_make_badarg(env);
+    if(!enif_get_resource(env, argv[0], esqlite_statement_type, (void **) &stmt))
+	    return enif_make_badarg(env);
+    if(!enif_is_ref(env, argv[1])) 
+	    return make_error_tuple(env, "invalid_ref");
+    if(!enif_get_local_pid(env, argv[2], &pid)) 
+	    return make_error_tuple(env, "invalid_pid"); 
+    if(!stmt->statement) 
+	    return make_error_tuple(env, "no_prepared_statement");
+
+    cmd = command_create();
+    if(!cmd) 
+	   return make_error_tuple(env, "command_create_failed");
+
+    cmd->type = cmd_reset;
+    cmd->ref = enif_make_copy(cmd->env, argv[1]);
+    cmd->pid = pid;
+    cmd->stmt = stmt->statement;
+
+    if(!stmt->connection) 
+	    return make_error_tuple(env, "no_connection");
+    if(!stmt->connection->commands)
+	    return make_error_tuple(env, "no_command_queue");
+
+    return push_command(env, stmt->connection, cmd);
+}
+
+/*
+ * Get the column names of the prepared statement.
  */
 static ERL_NIF_TERM 
 esqlite_column_names(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
@@ -993,6 +1061,7 @@ static ErlNifFunc nif_funcs[] = {
     {"prepare", 4, esqlite_prepare},
     {"insert", 4, esqlite_insert},
     {"step", 3, esqlite_step},
+    {"reset", 3, esqlite_reset},
     // TODO: {"esqlite_bind", 3, esqlite_bind_named},
     {"bind", 4, esqlite_bind},
     {"column_names", 3, esqlite_column_names},

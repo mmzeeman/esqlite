@@ -27,6 +27,7 @@
          insert/2,
          prepare/2, prepare/3,
          step/1, step/2, 
+         reset/1, 
          bind/2, bind/3, 
          fetchone/1,
          fetchall/1,
@@ -269,6 +270,14 @@ step(Stmt, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:step(Stmt, Ref, self()),
     receive_answer(Ref, Timeout).
+
+%% @doc Reset the prepared statement back to its initial state.
+%%
+%% @spec reset(prepared_statement()) -> ok | {error, error_message()}
+reset(Stmt) ->
+    Ref = make_ref(),
+    ok = esqlite3_nif:reset(Stmt, Ref, self()),
+    receive_answer(Ref, ?DEFAULT_TIMEOUT).
 
 %% @doc Bind values to prepared statements
 %%
