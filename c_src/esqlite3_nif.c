@@ -511,14 +511,8 @@ do_step(ErlNifEnv *env, sqlite3 *db, sqlite3_stmt *stmt)
     if(rc == SQLITE_BUSY)
 	    return make_atom(env, "$busy");
 
-    if(rc == SQLITE_ERROR)
-        return make_sqlite3_error_tuple(env, rc, db);
-    if(rc == SQLITE_MISUSE)
-        return make_error_tuple(env, "misuse");
-    if(rc == SQLITE_CONSTRAINT)
-        return make_sqlite3_error_tuple(env, rc, db);
-
-    return make_error_tuple(env, "unexpected_return_value");
+    /* We use prepare_v2, so any error code can be returned. */
+    return make_sqlite3_error_tuple(env, rc, db);
 }
 
 static ERL_NIF_TERM

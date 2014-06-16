@@ -213,7 +213,7 @@ error1_msg_test() ->
     
     %% Database test does not exist.
     {error, {sqlite_error, _Msg2}} = esqlite3:exec("select * from test;", Db),
-    
+
     %% Opening non-existant database.
     {error, {cantopen, _Msg3}} = esqlite3:open("/dit/bestaat/niet"),
     ok.
