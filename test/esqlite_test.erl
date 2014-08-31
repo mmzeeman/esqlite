@@ -273,7 +273,12 @@ error1_msg_test() ->
     {error, {cantopen, _Msg3}} = esqlite3:open("/dit/bestaat/niet"),
     ok.
     
-    
+sqlite_version_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+    {ok, Stmt} = esqlite3:prepare("select sqlite_version() as sqlite_version;", Db),
+    {sqlite_version} =  esqlite3:column_names(Stmt),
+    {row, {<<"3.8.5">>}} = esqlite3:step(Stmt),
+    ok.
 
     
 
