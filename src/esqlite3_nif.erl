@@ -32,6 +32,7 @@
     finalize/3,
     bind/4,
     column_names/3,
+    column_types/3,
     close/3
 ]).
 
@@ -114,6 +115,12 @@ bind(_Stmt, _Ref, _Dest, _Args) ->
 %%
 %% @spec column_names(statement(), reference(), pid()) -> {ok, tuple()} | {error, message()} 
 column_names(_Stmt, _Ref, _Dest) ->
+    exit(nif_library_not_loaded).
+
+%% @doc Retrieve the column types of the prepared statement
+%%
+%% @spec column_types(statement(), reference(), pid()) -> {ok, tuple()} | {error, message()} 
+column_types(_Stmt, _Ref, _Dest) ->
     exit(nif_library_not_loaded).
 
 %% @doc Close the connection.

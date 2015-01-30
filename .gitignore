@@ -1,15 +1,9 @@
 .rebar
-
 rebar
-
 ebin
-
 priv
-
 .eunit/*
-
 *.swp
-
 *.o
-
 *~
+_build

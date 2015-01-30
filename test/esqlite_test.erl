@@ -180,6 +180,26 @@ column_names_test() ->
 
     ok.
 
+column_types_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+    ok = esqlite3:exec("begin;", Db),
+    ok = esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
+    ok = esqlite3:exec(["insert into test_table values(", "\"hello1\"", ",", "10" ");"], Db),
+    ok = esqlite3:exec(["insert into test_table values(", "\"hello2\"", ",", "20" ");"], Db),
+    ok = esqlite3:exec("commit;", Db),
+
+    %% All columns
+    {ok, Stmt} = esqlite3:prepare("select * from test_table", Db),
+    {'varchar(10)', int} =  esqlite3:column_types(Stmt),
+    {row, {<<"hello1">>, 10}} = esqlite3:step(Stmt),
+    {'varchar(10)', int} =  esqlite3:column_types(Stmt),
+    {row, {<<"hello2">>, 20}} = esqlite3:step(Stmt),
+    {'varchar(10)', int} =  esqlite3:column_types(Stmt),
+    '$done' = esqlite3:step(Stmt),
+    {'varchar(10)', int} =  esqlite3:column_types(Stmt),
+
+    ok.
+
 reset_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
 
