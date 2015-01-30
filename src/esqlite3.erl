@@ -32,6 +32,7 @@
          fetchone/1,
          fetchall/1,
          column_names/1, column_names/2,
+         column_types/1, column_types/2,
          close/1, close/2]).
 
 -export([q/2, q/3, map/3, foreach/3]).
@@ -303,6 +304,18 @@ column_names(Stmt) ->
 column_names(Stmt, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:column_names(Stmt, Ref, self()),
+    receive_answer(Ref, Timeout).
+
+%% @doc Return the column types of the prepared statement.
+%%
+-spec column_types(statement()) -> tuple(atom()).
+column_types(Stmt) ->
+    column_types(Stmt, ?DEFAULT_TIMEOUT).
+
+-spec column_types(statement(), timeout()) -> tuple(atom()).
+column_types(Stmt, Timeout) ->
+    Ref = make_ref(),
+    ok = esqlite3_nif:column_types(Stmt, Ref, self()),
     receive_answer(Ref, Timeout).
 
 %% @doc Close the database

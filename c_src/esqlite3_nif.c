@@ -59,6 +59,7 @@ typedef enum {
     cmd_step,
     cmd_reset,
     cmd_column_names,
+    cmd_column_types,
     cmd_close,
     cmd_stop,
     cmd_insert
@@ -568,6 +569,37 @@ do_column_names(ErlNifEnv *env, sqlite3_stmt *stmt)
 }
 
 static ERL_NIF_TERM
+do_column_types(ErlNifEnv *env, sqlite3_stmt *stmt)
+{
+    int i, size;
+    const char *type;
+    ERL_NIF_TERM *array;
+    ERL_NIF_TERM column_types;
+     
+    size = sqlite3_column_count(stmt);
+    if(size <= 0)
+        return make_error_tuple(env, "no_columns");
+
+    array = (ERL_NIF_TERM *) malloc(sizeof(ERL_NIF_TERM) * size);
+    if(!array)
+        return make_error_tuple(env, "no_memory");
+
+    for(i = 0; i < size; i++) {
+        type = sqlite3_column_decltype(stmt, i);
+        if(type == NULL) {
+            free(array);
+            return make_error_tuple(env, "sqlite3_malloc_failure");
+        }
+
+        array[i] = make_atom(env, type);
+    }
+
+    column_types = enif_make_tuple_from_array(env, array, size);
+    free(array);
+    return column_types;
+}
+
+static ERL_NIF_TERM
 do_close(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
 {
     int rc;
@@ -600,6 +632,8 @@ evaluate_command(esqlite_command *cmd, esqlite_connection *conn)
 	    return do_bind(cmd->env, conn->db, cmd->stmt, cmd->arg);
     case cmd_column_names:
 	    return do_column_names(cmd->env, cmd->stmt);
+    case cmd_column_types:
+	    return do_column_types(cmd->env, cmd->stmt);
     case cmd_close:
 	    return do_close(cmd->env, conn, cmd->arg);
 	case cmd_insert:
@@ -991,6 +1025,44 @@ esqlite_column_names(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 }
 
 /*
+ * Get the column types of the prepared statement.
+ */
+static ERL_NIF_TERM 
+esqlite_column_types(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    esqlite_statement *stmt;
+    esqlite_command *cmd = NULL;
+    ErlNifPid pid;
+
+    if(argc != 3) 
+	    return enif_make_badarg(env);
+    if(!enif_get_resource(env, argv[0], esqlite_statement_type, (void **) &stmt))
+	    return enif_make_badarg(env);
+    if(!enif_is_ref(env, argv[1])) 
+	    return make_error_tuple(env, "invalid_ref");
+    if(!enif_get_local_pid(env, argv[2], &pid)) 
+	    return make_error_tuple(env, "invalid_pid"); 
+    if(!stmt->statement) 
+	    return make_error_tuple(env, "no_prepared_statement");
+
+    cmd = command_create();
+    if(!cmd) 
+	    return make_error_tuple(env, "command_create_failed");
+
+    cmd->type = cmd_column_types;
+    cmd->ref = enif_make_copy(cmd->env, argv[1]);
+    cmd->pid = pid;
+    cmd->stmt = stmt->statement;
+
+    if(!stmt->connection) 
+	    return make_error_tuple(env, "no_connection");
+    if(!stmt->connection->commands)
+	    return make_error_tuple(env, "no_command_queue");
+
+    return push_command(env, stmt->connection, cmd);
+}
+
+/*
  * Close the database
  */
 static ERL_NIF_TERM
@@ -1065,6 +1137,7 @@ static ErlNifFunc nif_funcs[] = {
     // TODO: {"esqlite_bind", 3, esqlite_bind_named},
     {"bind", 4, esqlite_bind},
     {"column_names", 3, esqlite_column_names},
+    {"column_types", 3, esqlite_column_types},
     {"close", 3, esqlite_close}
 };
 
