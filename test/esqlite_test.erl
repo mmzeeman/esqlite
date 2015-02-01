@@ -297,7 +297,7 @@ sqlite_version_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
     {ok, Stmt} = esqlite3:prepare("select sqlite_version() as sqlite_version;", Db),
     {sqlite_version} =  esqlite3:column_names(Stmt),
-    {row, {<<"3.8.5">>}} = esqlite3:step(Stmt),
+    {row, {<<"3.8.8.2">>}} = esqlite3:step(Stmt),
     ok.
 
     
