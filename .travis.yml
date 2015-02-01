@@ -1,11 +1,6 @@
 language: erlang
 otp_release:
-  - R16B02
-  - R16B01
-  - R16B
+  - R16B03
   - R15B01
-  - R15B
-  - R14B04
-  - R14B03
   - 17.0
 script: "rebar compile eunit"
