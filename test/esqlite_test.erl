@@ -220,6 +220,7 @@ reset_test() ->
     ok = esqlite3:reset(Stmt),
     ok = esqlite3:reset(Stmt),
 
+    % The statement should still be reset.
     {row, {1}} = esqlite3:step(Stmt),
 
     ok.
