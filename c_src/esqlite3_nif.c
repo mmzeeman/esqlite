@@ -587,8 +587,7 @@ do_column_types(ErlNifEnv *env, sqlite3_stmt *stmt)
     for(i = 0; i < size; i++) {
         type = sqlite3_column_decltype(stmt, i);
         if(type == NULL) {
-            free(array);
-            return make_error_tuple(env, "sqlite3_malloc_failure");
+	    type = "nil";
         }
 
         array[i] = make_atom(env, type);

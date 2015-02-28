@@ -200,6 +200,16 @@ column_types_test() ->
 
     ok.
 
+nil_column_types_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+    ok = esqlite3:exec("begin;", Db),
+    ok = esqlite3:exec("create table t1(c1 variant);", Db),
+    ok = esqlite3:exec("commit;", Db),
+
+    {ok, Stmt} = esqlite3:prepare("select c1 + 1, c1 from t1", Db),
+    {nil, variant} =  esqlite3:column_types(Stmt),
+    ok.
+
 reset_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
 
