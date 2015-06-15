@@ -546,8 +546,10 @@ do_column_names(ErlNifEnv *env, sqlite3_stmt *stmt)
     ERL_NIF_TERM column_names;
      
     size = sqlite3_column_count(stmt);
-    if(size <= 0)
-        return make_error_tuple(env, "no_columns");
+    if(size == 0)
+        return enif_make_tuple(env, 0);
+    else if(size < 0)
+        return make_error_tuple(env, "invalid_column_count");
 
     array = (ERL_NIF_TERM *) malloc(sizeof(ERL_NIF_TERM) * size);
     if(!array)
@@ -577,8 +579,10 @@ do_column_types(ErlNifEnv *env, sqlite3_stmt *stmt)
     ERL_NIF_TERM column_types;
      
     size = sqlite3_column_count(stmt);
-    if(size <= 0)
-        return make_error_tuple(env, "no_columns");
+    if(size == 0)
+        return enif_make_tuple(env, 0);
+    else if(size < 0)
+        return make_error_tuple(env, "invalid_column_count");
 
     array = (ERL_NIF_TERM *) malloc(sizeof(ERL_NIF_TERM) * size);
     if(!array)

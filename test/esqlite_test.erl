@@ -178,6 +178,10 @@ column_names_test() ->
     {row, {Date}} = esqlite3:step(Stmt4),
     true = is_binary(Date),
 
+    %% Some statements have no column names
+    {ok, Stmt5} = esqlite3:prepare("create table dummy(a, b, c);", Db),
+    {} = esqlite3:column_names(Stmt5),
+
     ok.
 
 column_types_test() ->
@@ -197,6 +201,10 @@ column_types_test() ->
     {'varchar(10)', int} =  esqlite3:column_types(Stmt),
     '$done' = esqlite3:step(Stmt),
     {'varchar(10)', int} =  esqlite3:column_types(Stmt),
+
+    %% Some statements have no column types
+    {ok, Stmt2} = esqlite3:prepare("create table dummy(a, b, c);", Db),
+    {} = esqlite3:column_types(Stmt2),
 
     ok.
 
