@@ -296,11 +296,11 @@ bind(Stmt, Args, Timeout) ->
 
 %% @doc Return the column names of the prepared statement.
 %%
--spec column_names(statement()) -> tuple(atom()).
+-spec column_names(statement()) -> {atom()}.
 column_names(Stmt) ->
     column_names(Stmt, ?DEFAULT_TIMEOUT).
 
--spec column_names(statement(), timeout()) -> tuple(atom()).
+-spec column_names(statement(), timeout()) -> {atom()}.
 column_names(Stmt, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:column_names(Stmt, Ref, self()),
@@ -308,11 +308,11 @@ column_names(Stmt, Timeout) ->
 
 %% @doc Return the column types of the prepared statement.
 %%
--spec column_types(statement()) -> tuple(atom()).
+-spec column_types(statement()) -> {atom()}.
 column_types(Stmt) ->
     column_types(Stmt, ?DEFAULT_TIMEOUT).
 
--spec column_types(statement(), timeout()) -> tuple(atom()).
+-spec column_types(statement(), timeout()) -> {atom()}.
 column_types(Stmt, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:column_types(Stmt, Ref, self()),
