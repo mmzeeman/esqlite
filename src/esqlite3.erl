@@ -33,7 +33,8 @@
          fetchall/1,
          column_names/1, column_names/2,
          column_types/1, column_types/2,
-         close/1, close/2]).
+         close/1, close/2,
+         insert_statement/1, insert_statement/2]).
 
 -export([q/2, q/3, map/3, foreach/3]).
 
@@ -270,6 +271,20 @@ step(Stmt) ->
 step(Stmt, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:step(Stmt, Ref, self()),
+    receive_answer(Ref, Timeout).
+
+%% @doc steps a prepared statement and returns the last inserted rowid
+%%
+%% @spec insert_statement(prepared_statement()) -> tuple()
+insert_statement(Stmt) ->
+    insert_statement(Stmt, ?DEFAULT_TIMEOUT).
+
+%% @doc steps a prepared statement and returns the last inserted rowid
+%%
+%% @spec insert_statement(prepared_statement(), timeout()) -> tuple()
+insert_statement(Stmt, Timeout) ->
+    Ref = make_ref(),
+    ok = esqlite3_nif:insert_statement(Stmt, Ref, self()),
     receive_answer(Ref, Timeout).
 
 %% @doc Reset the prepared statement back to its initial state.

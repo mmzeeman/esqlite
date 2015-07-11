@@ -325,4 +325,22 @@ sqlite_source_id_test() ->
     {sqlite_source_id} =  esqlite3:column_names(Stmt),
     ?assertEqual({row, {<<"2015-01-30 14:30:45 7757fc721220e136620a89c9d28247f28bbbc098">>}}, esqlite3:step(Stmt)),
     ok.
-    
+
+insert_statement_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+
+    ok = esqlite3:exec("begin;", Db),
+    ok = esqlite3:exec("create table test_table(id integer primary key, one int);", Db),
+    ok = esqlite3:exec("commit;", Db),
+
+    %% Create a prepared statement
+    {ok, Statement} = esqlite3:prepare("insert into test_table (one) values(?1);", Db),
+
+    %% Insert some values
+    esqlite3:bind(Statement, [one, 100]),
+    {ok, Id1} = esqlite3:insert_statement(Statement),
+    esqlite3:bind(Statement, [one, 200]),
+    {ok, Id2} = esqlite3:insert_statement(Statement),
+
+    ?assertEqual([{Id1}, {Id2}],
+        esqlite3:q("select id from test_table;", Db)).
