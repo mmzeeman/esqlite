@@ -38,7 +38,7 @@ simple_query_test() ->
 
     ok = esqlite3:exec("delete from test_table;", Db),
     {ok, 4} = esqlite3:changes(Db),
-    
+
     ok.
 
 prepare_test() ->
@@ -61,7 +61,7 @@ prepare_test() ->
 
 bind_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
-    
+
     ok = esqlite3:exec("begin;", Db),
     ok = esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
     ok = esqlite3:exec("commit;", Db),
@@ -116,7 +116,6 @@ bind_test() ->
     ?assertEqual([{<<228,184,138,230,181,183>>, 100}], 
         esqlite3:q("select one, two from test_table where two = 100", Db)),
 
-    
     ok.
 
 bind_for_queries_test() ->
@@ -255,21 +254,21 @@ foreach_test() ->
     ok = esqlite3:exec("commit;", Db),
 
     F = fun(Row) ->
-		case Row of 
-		    {Key, Value} ->
-			put(Key, Value);
-		    _ ->
-			ok
-		end
-	end,
-    
+        case Row of 
+            {Key, Value} ->
+                put(Key, Value);
+            _ ->
+                ok
+            end
+        end,
+
     esqlite3:foreach(F, "select * from test_table;", Db),
-    
+
     10 = get(<<"hello1">>),
     11 = get(<<"hello2">>),
     12 = get(<<"hello3">>), 
     13 = get(<<"hello4">>),
-    
+
     ok.
 
 map_test() ->
@@ -283,14 +282,14 @@ map_test() ->
     ok = esqlite3:exec("commit;", Db),
 
     F = fun(Row) -> Row end,
-    
+
     [{<<"hello1">>,10},{<<"hello2">>,11},{<<"hello3">>,12},{<<"hello4">>,13}] 
         = esqlite3:map(F, "select * from test_table", Db),
 
     %% Test that when the row-names are added..
     Assoc = fun(Names, Row) -> 
-		    lists:zip(tuple_to_list(Names), tuple_to_list(Row))
-	    end,
+        lists:zip(tuple_to_list(Names), tuple_to_list(Row))
+    end,
 
     [[{one,<<"hello1">>},{two,10}],
      [{one,<<"hello2">>},{two,11}],
@@ -301,7 +300,7 @@ map_test() ->
 
 error1_msg_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
-    
+
     %% Not sql.
     {error, {sqlite_error, _Msg1}} = esqlite3:exec("dit is geen sql", Db),
     
@@ -311,7 +310,7 @@ error1_msg_test() ->
     %% Opening non-existant database.
     {error, {cantopen, _Msg3}} = esqlite3:open("/dit/bestaat/niet"),
     ok.
-    
+
 sqlite_version_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
     {ok, Stmt} = esqlite3:prepare("select sqlite_version() as sqlite_version;", Db),
@@ -325,4 +324,3 @@ sqlite_source_id_test() ->
     {sqlite_source_id} =  esqlite3:column_names(Stmt),
     ?assertEqual({row, {<<"2015-01-30 14:30:45 7757fc721220e136620a89c9d28247f28bbbc098">>}}, esqlite3:step(Stmt)),
     ok.
-    
