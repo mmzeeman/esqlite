@@ -33,7 +33,8 @@
          fetchall/1,
          column_names/1, column_names/2,
          column_types/1, column_types/2,
-         close/1, close/2]).
+         close/1, close/2,
+         enable_load_extension/1, enable_load_extension/2]).
 
 -export([q/2, q/3, map/3, foreach/3]).
 
@@ -340,6 +341,22 @@ close(Connection) ->
 close({connection, _Ref, Connection}, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:close(Connection, Ref, self()),
+    receive_answer(Ref, Timeout).
+
+%% @doc Enable the database to load extensions
+%%
+%% @spec enable_load_extension(connection()) -> ok | {error, error_message()}
+-spec enable_load_extension(connection()) -> ok | {error, _}.
+enable_load_extension(Connection) ->
+    enable_load_extension(Connection, ?DEFAULT_TIMEOUT).
+
+%% @doc Enable the database to load extensions
+%%
+%% @spec enable_load_extension(connection(), integer()) -> ok | {error, error_message()}
+-spec enable_load_extension(connection(), timeout()) -> ok | {error, _}.
+enable_load_extension({connection, _Ref, Connection}, Timeout) ->
+    Ref = make_ref(),
+    ok = esqlite3_nif:enable_load_extension(Connection, Ref, self()),
     receive_answer(Ref, Timeout).
 
 %% Internal functions

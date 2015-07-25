@@ -33,6 +33,7 @@
          bind/4,
          column_names/3,
          column_types/3,
+         enable_load_extension/3,
          close/3
         ]).
 
@@ -130,6 +131,11 @@ column_types(_Stmt, _Ref, _Dest) ->
 close(_Db, _Ref, _Dest) ->
     erlang:nif_error(nif_library_not_loaded).
 
+%% @doc Enable extension loading.
+%%
+%% @spec enable_load_extension(connection(), reference(), pid()) -> ok | {error, message()}
+enable_load_extension(_Db, _Ref, _Dest) ->
+    exit(nif_library_not_loaded).
 
 %% @doc Insert record
 %%
