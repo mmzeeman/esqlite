@@ -214,7 +214,6 @@ destruct_esqlite_connection(ErlNifEnv *env, void *arg)
      */
     cmd->type = cmd_stop;
     queue_push(db->commands, cmd);
-    queue_send(db->commands, cmd);
      
     /* Wait for the thread to finish 
      */
@@ -226,8 +225,10 @@ destruct_esqlite_connection(ErlNifEnv *env, void *arg)
      */
     queue_destroy(db->commands);
 
-    if(db->db)
+    if(db->db) {
         sqlite3_close_v2(db->db);
+        db->db = NULL;
+    }
 }
 
 static void
