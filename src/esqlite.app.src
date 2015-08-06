@@ -1,8 +1,8 @@
 {application, esqlite,
  [
   {description, "sqlite nif interface"},
-  {vsn, "1"},
-%  {modules, [esqlite3, esqlite3_nif]},
+  {vsn, "0.1.0"},
+  {modules, [esqlite3, esqlite3_nif]},
   {registered, []},
   {applications, [
                   kernel,
