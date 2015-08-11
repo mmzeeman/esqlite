@@ -62,7 +62,8 @@ typedef enum {
     cmd_column_types,
     cmd_close,
     cmd_stop,
-    cmd_insert
+    cmd_insert,
+    cmd_insert_statement,
 } command_type;
 
 typedef struct {
@@ -617,6 +618,35 @@ do_close(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
 }
 
 static ERL_NIF_TERM
+do_insert_statement(ErlNifEnv *env, sqlite3 *db, sqlite3_stmt *stmt)
+{
+  int rc = sqlite3_step(stmt);
+
+  if(rc == SQLITE_ROW)
+    return make_row(env, stmt);
+  if(rc == SQLITE_BUSY)
+    return make_atom(env, "$busy");
+
+  if(rc == SQLITE_DONE) {
+    /*
+     * Automatically reset the statement after a done so
+     * column_names will work after the statement is done.
+     *
+     * Not resetting the statement can lead to vm crashes.
+     */
+    sqlite3_reset(stmt);
+
+    sqlite3_int64 last_rowid = sqlite3_last_insert_rowid(db);
+    ERL_NIF_TERM last_rowid_term = enif_make_int64(env, last_rowid);
+    return make_ok_tuple(env, last_rowid_term);
+  }
+
+  /* We use prepare_v2, so any error code can be returned. */
+  return make_sqlite3_error_tuple(env, rc, db);
+}
+
+
+static ERL_NIF_TERM
 evaluate_command(esqlite_command *cmd, esqlite_connection *conn)
 {
     switch(cmd->type) {
@@ -640,8 +670,10 @@ evaluate_command(esqlite_command *cmd, esqlite_connection *conn)
 	    return do_column_types(cmd->env, cmd->stmt);
     case cmd_close:
 	    return do_close(cmd->env, conn, cmd->arg);
-	case cmd_insert:
+    case cmd_insert:
 	    return do_insert(cmd->env, conn, cmd->arg);
+    case cmd_insert_statement:
+      return do_insert_statement(cmd->env, conn->db, cmd->stmt);
     default:
 	    return make_error_tuple(cmd->env, "invalid_command");
     }
@@ -845,6 +877,43 @@ esqlite_insert(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     return push_command(env, db, cmd);
 }
 
+/*
+ * Insert with a prepared statement.  Returns lastrowid
+ */
+static ERL_NIF_TERM
+esqlite_insert_statement(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    esqlite_statement *stmt;
+    esqlite_command *cmd = NULL;
+    ErlNifPid pid;
+
+    if(argc != 3)
+	    return enif_make_badarg(env);
+    if(!enif_get_resource(env, argv[0], esqlite_statement_type, (void **) &stmt))
+	    return enif_make_badarg(env);
+    if(!enif_is_ref(env, argv[1]))
+	    return make_error_tuple(env, "invalid_ref");
+    if(!enif_get_local_pid(env, argv[2], &pid))
+	    return make_error_tuple(env, "invalid_pid");
+    if(!stmt->statement)
+	    return make_error_tuple(env, "no_prepared_statement");
+
+    cmd = command_create();
+    if(!cmd)
+	   return make_error_tuple(env, "command_create_failed");
+
+    cmd->type = cmd_insert_statement;
+    cmd->ref = enif_make_copy(cmd->env, argv[1]);
+    cmd->pid = pid;
+    cmd->stmt = stmt->statement;
+
+    if(!stmt->connection)
+	    return make_error_tuple(env, "no_connection");
+    if(!stmt->connection->commands)
+	    return make_error_tuple(env, "no_command_queue");
+
+    return push_command(env, stmt->connection, cmd);
+}
 
 /*
  * Prepare the sql statement
@@ -1142,7 +1211,8 @@ static ErlNifFunc nif_funcs[] = {
     {"bind", 4, esqlite_bind},
     {"column_names", 3, esqlite_column_names},
     {"column_types", 3, esqlite_column_types},
-    {"close", 3, esqlite_close}
+    {"close", 3, esqlite_close},
+    {"insert_statement", 3, esqlite_insert_statement}
 };
 
 ERL_NIF_INIT(esqlite3_nif, nif_funcs, on_load, on_reload, on_upgrade, NULL);

@@ -33,7 +33,8 @@
     bind/4,
     column_names/3,
     column_types/3,
-    close/3
+    close/3,
+    insert_statement/3
 ]).
 
 -on_load(init/0).
@@ -136,5 +137,8 @@ close(_Db, _Ref, _Dest) ->
 insert(_Db, _Ref, _Dest, _Sql) ->
     exit(nif_library_not_loaded).
 
-
-
+%% @doc Inserts a record using a prepared statement.  Returns the rowid
+%%
+%% @spec step(statement(), reference(), pid()) -> {ok, integer()} | {error, message()}
+insert_statement(_Stmt, _Ref, _Dest) ->
+    exit(nif_library_not_loaded).
