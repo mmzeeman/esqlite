@@ -299,6 +299,11 @@ map_test() ->
     
     ok.
 
+enable_load_extension_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+    ?assertEqual(ok, esqlite3:enable_load_extension(Db)),
+    ok.
+
 error1_msg_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
     
