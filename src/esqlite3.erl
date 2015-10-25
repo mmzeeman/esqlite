@@ -8,9 +8,9 @@
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
-%% 
+%%
 %%     http://www.apache.org/licenses/LICENSE-2.0
-%% 
+%%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -21,14 +21,14 @@
 -author("Maas-Maarten Zeeman <mmzeeman@xs4all.nl>").
 
 %% higher-level export
--export([open/1, open/2, 
+-export([open/1, open/2,
          exec/2, exec/3,
          changes/1, changes/2,
          insert/2,
          prepare/2, prepare/3,
-         step/1, step/2, 
-         reset/1, 
-         bind/2, bind/3, 
+         step/1, step/2,
+         reset/1,
+         bind/2, bind/3,
          fetchone/1,
          fetchall/1,
          column_names/1, column_names/2,
@@ -39,7 +39,7 @@
 
 -define(DEFAULT_TIMEOUT, 5000).
 
-%% 
+%%
 -type connection() :: tuple().
 -type statement() :: term().
 -type sql() :: iolist().
@@ -47,14 +47,14 @@
 %% @doc Opens a sqlite3 database mentioned in Filename.
 %%
 -spec open(FileName) -> {ok, connection()} | {error, _} when
-    FileName :: string().
+      FileName :: string().
 open(Filename) ->
     open(Filename, ?DEFAULT_TIMEOUT).
 
 %% @doc Open a database connection
 %%
 -spec open(Filename, timeout()) -> {ok, connection()} | {error, _} when
-    Filename :: string().
+      Filename :: string().
 open(Filename, Timeout) ->
     {ok, Connection} = esqlite3_nif:start(),
 
@@ -76,9 +76,9 @@ q(Sql, Connection) ->
 -spec q(sql(), list(), connection()) -> list(tuple()).
 q(Sql, [], Connection) ->
     case prepare(Sql, Connection) of
-        {ok, Statement} -> 
+        {ok, Statement} ->
             fetchall(Statement);
-        {error, _Msg}=Error -> 
+        {error, _Msg}=Error ->
             throw(Error)
     end;
 q(Sql, Args, Connection) ->
@@ -86,29 +86,29 @@ q(Sql, Args, Connection) ->
         {ok, Statement} ->
             ok = bind(Statement, Args),
             fetchall(Statement);
-        {error, _Msg}=Error -> 
+        {error, _Msg}=Error ->
             throw(Error)
     end.
 
 %% @doc
 -spec map(F, sql(), connection()) -> list(Type) when
-    F :: fun((Row) -> Type) | fun((ColumnNames, Row) -> Type),
-    Row :: tuple(),
-    ColumnNames :: tuple(),
-    Type :: any(). 
+      F :: fun((Row) -> Type) | fun((ColumnNames, Row) -> Type),
+      Row :: tuple(),
+      ColumnNames :: tuple(),
+      Type :: any().
 map(F, Sql, Connection) ->
     case prepare(Sql, Connection) of
         {ok, Statement} ->
             map_s(F, Statement);
-        {error, _Msg}=Error -> 
+        {error, _Msg}=Error ->
             throw(Error)
     end.
 
 %% @doc
 -spec foreach(F, sql(), connection()) -> ok when
-    F :: fun((Row) -> any()) | fun((ColumnNames, Row) -> any()),
-    Row :: tuple(),
-    ColumnNames :: tuple().
+      F :: fun((Row) -> any()) | fun((ColumnNames, Row) -> any()),
+      Row :: tuple(),
+      ColumnNames :: tuple().
 foreach(F, Sql, Connection) ->
     case prepare(Sql, Connection) of
         {ok, Statement} ->
@@ -119,10 +119,10 @@ foreach(F, Sql, Connection) ->
 
 %%
 -spec foreach_s(F, statement()) -> ok when
-    F :: fun((Row) -> any()) | fun((ColumnNames, Row) -> any()),
-    Row :: tuple(),
-    ColumnNames :: tuple().
-foreach_s(F, Statement) when is_function(F, 1) -> 
+      F :: fun((Row) -> any()) | fun((ColumnNames, Row) -> any()),
+      Row :: tuple(),
+      ColumnNames :: tuple().
+foreach_s(F, Statement) when is_function(F, 1) ->
     case try_step(Statement, 0) of
         '$done' -> ok;
         {error, _} = E -> F(E);
@@ -135,22 +135,22 @@ foreach_s(F, Statement) when is_function(F, 2) ->
     case try_step(Statement, 0) of
         '$done' -> ok;
         {error, _} = E -> F([], E);
-        {row, Row} -> 
+        {row, Row} ->
             F(ColumnNames, Row),
             foreach_s(F, Statement)
     end.
 
 %%
 -spec map_s(F, statement()) -> list(Type) when
-    F :: fun((Row) -> Type) | fun((ColumnNames, Row) -> Type),
-    Row :: tuple(),
-    ColumnNames :: tuple(),
-    Type :: term().
+      F :: fun((Row) -> Type) | fun((ColumnNames, Row) -> Type),
+      Row :: tuple(),
+      ColumnNames :: tuple(),
+      Type :: term().
 map_s(F, Statement) when is_function(F, 1) ->
     case try_step(Statement, 0) of
         '$done' -> [];
         {error, _} = E -> F(E);
-        {row, Row} -> 
+        {row, Row} ->
             [F(Row) | map_s(F, Statement)]
     end;
 map_s(F, Statement) when is_function(F, 2) ->
@@ -158,7 +158,7 @@ map_s(F, Statement) when is_function(F, 2) ->
     case try_step(Statement, 0) of
         '$done' -> [];
         {error, _} = E -> F([], E);
-        {row, Row} -> 
+        {row, Row} ->
             [F(ColumnNames, Row) | map_s(F, Statement)]
     end.
 
@@ -171,37 +171,44 @@ fetchone(Statement) ->
         {row, Row} -> Row
     end.
 
-%% 
--spec fetchall(statement()) -> list(tuple()).
+%%
+-spec fetchall(statement()) ->
+                      list(tuple()) |
+                      {error, term()}.
 fetchall(Statement) ->
     case try_step(Statement, 0) of
-        '$done' -> 
+        '$done' ->
             [];
         {error, _} = E -> E;
         {row, Row} ->
-            [Row | fetchall(Statement)]
-    end.  
+            case fetchall(Statement) of
+                {error, _} = E -> E;
+                Rest -> [Row | Rest]
+            end
+    end.
 
-%% Try the step, when the database is busy, 
--spec try_step(statement(), non_neg_integer()) -> term().
+%% Try the step, when the database is busy,
+-spec try_step(statement(), non_neg_integer()) -> 
+                      '$done' |
+                      term().
 try_step(_Statement, Tries) when Tries > 5 ->
     throw(too_many_tries);
 try_step(Statement, Tries) ->
     case esqlite3:step(Statement) of
-        '$busy' -> 
+        '$busy' ->
             timer:sleep(100 * Tries),
             try_step(Statement, Tries + 1);
-        Something -> 
+        Something ->
             Something
     end.
-            
+
 %% @doc Execute Sql statement, returns the number of affected rows.
 %%
 %% @spec exec(iolist(), connection()) -> integer() |  {error, error_message()}
 exec(Sql, Connection) ->
     exec(Sql, Connection, ?DEFAULT_TIMEOUT).
 
-%% @doc Execute 
+%% @doc Execute
 %%
 %% @spec exec(iolist(), connection(), timeout()) -> integer() | {error, error_message()}
 exec(Sql, {connection, _Ref, Connection}, Timeout) ->
@@ -218,7 +225,7 @@ exec(Sql, Params, {connection, _, _}=Connection, Timeout) when is_list(Params) -
     {ok, Statement} = prepare(Sql, Connection, Timeout),
     bind(Statement, Params),
     step(Statement, Timeout).
-    
+
 
 %% @doc Return the number of affected rows of last statement.
 changes(Connection) ->
@@ -264,9 +271,10 @@ prepare(Sql, {connection, _Ref, Connection}, Timeout) ->
 step(Stmt) ->
     step(Stmt, ?DEFAULT_TIMEOUT).
 
-%% @doc 
+%% @doc
 %%
 %% @spec step(prepared_statement(), timeout()) -> tuple()
+-spec step(term(), timeout()) -> tuple() | '$busy' | '$done'.
 step(Stmt, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:step(Stmt, Ref, self()),
@@ -338,17 +346,17 @@ close({connection, _Ref, Connection}, Timeout) ->
 
 receive_answer(Ref, Timeout) ->
     Start = os:timestamp(),
-    receive 
-        {esqlite3, Ref, Resp} -> 
+    receive
+        {esqlite3, Ref, Resp} ->
             Resp;
         {esqlite3, _, _}=StaleAnswer ->
             error_logger:warning_msg("Esqlite3: Ignoring stale answer ~p~n", [StaleAnswer]),
             PassedMics = timer:now_diff(os:timestamp(), Start) div 1000,
             NewTimeout = case Timeout - PassedMics of
-                Passed when Passed < 0 -> 0;
-                TO -> TO
-            end,
+                             Passed when Passed < 0 -> 0;
+                             TO -> TO
+                         end,
             receive_answer(Ref, NewTimeout)
     after Timeout ->
-        throw({error, timeout, Ref})
+            throw({error, timeout, Ref})
     end.
