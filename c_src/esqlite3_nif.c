@@ -258,7 +258,7 @@ do_open(ErlNifEnv *env, esqlite_connection *db, const ERL_NIF_TERM arg)
 
     /* Open the database. 
      */
-    rc = sqlite3_open(filename, &db->db);
+    rc = sqlite3_open_v2(filename, &db->db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL);
     if(rc != SQLITE_OK) {
 	    error = make_sqlite3_error_tuple(env, rc, db->db);
 	    sqlite3_close_v2(db->db);
