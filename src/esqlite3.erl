@@ -21,7 +21,7 @@
 -author("Maas-Maarten Zeeman <mmzeeman@xs4all.nl>").
 
 %% higher-level export
--export([open/1, open/2,
+-export([open/1, open/2, open/3,
          exec/2, exec/3,
          changes/1, changes/2,
          insert/2,
@@ -56,15 +56,18 @@ open(Filename) ->
 -spec open(Filename, timeout()) -> {ok, connection()} | {error, _} when
       Filename :: string().
 open(Filename, Timeout) ->
+    open(Filename, {readwrite, create}, Timeout).
+
+-spec open(Filename, tuple(), timeout()) -> {ok, connection()} | {error, _} when Filename :: string().
+open(Filename, Flags, Timeout) ->
     {ok, Connection} = esqlite3_nif:start(),
 
     Ref = make_ref(),
-    ok = esqlite3_nif:open(Connection, Ref, self(), Filename),
+    ok = esqlite3_nif:open(Connection, Ref, self(), Filename, Flags),
     case receive_answer(Ref, Timeout) of
         ok ->
             {ok, {connection, make_ref(), Connection}};
-        {error, _Msg}=Error ->
-            Error
+        {error, _Msg} = Error -> Error
     end.
 
 %% @doc Execute a sql statement, returns a list with tuples.

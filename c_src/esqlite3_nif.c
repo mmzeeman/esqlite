@@ -249,16 +249,29 @@ do_open(ErlNifEnv *env, esqlite_connection *db, const ERL_NIF_TERM arg)
 {
     char filename[MAX_PATHNAME];
     unsigned int size;
-    int rc;
+    int rc, count_args, flag_number;
     ERL_NIF_TERM error;
+    const ERL_NIF_TERM *args;
 
-    size = enif_get_string(env, arg, filename, MAX_PATHNAME, ERL_NIF_LATIN1);
+/*
+ * unpack the arg, the first argument is the filename, the second is the flag count
+ * */    
+    if(!enif_get_tuple(env, arg, &count_args, &args))
+	return make_error_tuple(env, "wrong_unpack_of_args_from_open");
+
+    if(count_args != 2)
+	return make_error_tuple(env, "wrong_number_of_args_from_open");
+
+    size = enif_get_string(env, args[0], filename, MAX_PATHNAME, ERL_NIF_LATIN1);
     if(size <= 0) 
         return make_error_tuple(env, "invalid_filename");
 
+    if(!enif_get_int(env, args[1], &flag_number))
+	return make_error_tuple(env, "unable_to_get_flag_number_from_open");
+
     /* Open the database. 
      */
-    rc = sqlite3_open_v2(filename, &db->db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL);
+    rc = sqlite3_open_v2(filename, &db->db, flag_number, NULL);
     if(rc != SQLITE_OK) {
 	    error = make_sqlite3_error_tuple(env, rc, db->db);
 	    sqlite3_close_v2(db->db);
@@ -721,6 +734,41 @@ esqlite_start(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return make_ok_tuple(env, db_conn);
 }
 
+int 
+count_flag(ErlNifEnv *env, const ERL_NIF_TERM array[], int tuple_count)
+{
+    char flag[30];
+    int i, flag_count;
+    unsigned int flag_len;
+
+    for(i = 0; i < tuple_count; i++)
+    {
+	enif_get_atom_length(env, array[i], &flag_len, ERL_NIF_LATIN1);
+	enif_get_atom(env, array[i], flag, flag_len + 1, ERL_NIF_LATIN1);
+	if (strcmp(flag, "readonly") == 0)
+	    flag_count = flag_count | SQLITE_OPEN_READONLY;
+	else if (strcmp(flag, "readwrite") == 0)
+	    flag_count = flag_count | SQLITE_OPEN_READWRITE;
+	else if (strcmp(flag, "create") == 0)
+	    flag_count = flag_count | SQLITE_OPEN_CREATE;
+	else if (strcmp(flag, "uri") == 0)
+	    flag_count = flag_count | SQLITE_OPEN_URI;
+	else if (strcmp(flag, "memory") == 0)
+	    flag_count = flag_count | SQLITE_OPEN_MEMORY;
+	else if (strcmp(flag, "nomutex") == 0)
+	    flag_count = flag_count | SQLITE_OPEN_NOMUTEX;
+	else if (strcmp(flag, "fullmutex") == 0)
+	    flag_count = flag_count | SQLITE_OPEN_FULLMUTEX;
+	else if (strcmp(flag, "sharedcache") == 0)
+	    flag_count = flag_count | SQLITE_OPEN_SHAREDCACHE;
+	else if (strcmp(flag, "privatecache") == 0)
+	    flag_count = flag_count | SQLITE_OPEN_PRIVATECACHE;
+	else
+	    return -1;
+    }
+    return flag_count;   
+}
+
 /* 
  * Open the database
  */
@@ -730,8 +778,10 @@ esqlite_open(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     esqlite_connection *db;
     esqlite_command *cmd = NULL;
     ErlNifPid pid;
+    const ERL_NIF_TERM *array;
+    int tuple_count, flag_count;
      
-    if(argc != 4) 
+    if(argc != 5) 
 	    return enif_make_badarg(env);     
     if(!enif_get_resource(env, argv[0], esqlite_connection_type, (void **) &db))
 	    return enif_make_badarg(env);
@@ -739,16 +789,27 @@ esqlite_open(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 	    return make_error_tuple(env, "invalid_ref");
     if(!enif_get_local_pid(env, argv[2], &pid)) 
 	    return make_error_tuple(env, "invalid_pid");
+    if(!enif_get_tuple(env, argv[4], &tuple_count, &array))
+            return make_error_tuple(env, "invalid_tuple");
+
+    flag_count = count_flag(env, array, tuple_count);
+
+    if (flag_count == -1)
+	    return make_error_tuple(env, "unrecognize_flag");
+
+    
 
     /* Note, no check is made for the type of the argument */
     cmd = command_create();
     if(!cmd) 
 	    return make_error_tuple(env, "command_create_failed");
 
+        
+    
     cmd->type = cmd_open;
     cmd->ref = enif_make_copy(cmd->env, argv[1]);
     cmd->pid = pid;
-    cmd->arg = enif_make_copy(cmd->env, argv[3]);
+    cmd->arg = enif_make_tuple2(cmd->env, enif_make_copy(cmd->env, argv[3]), enif_make_int(cmd->env, flag_count));
 
     return push_command(env, db, cmd);
 }
@@ -1131,7 +1192,7 @@ static int on_upgrade(ErlNifEnv* env, void** priv, void** old_priv_data, ERL_NIF
 
 static ErlNifFunc nif_funcs[] = {
     {"start", 0, esqlite_start},
-    {"open", 4, esqlite_open},
+    {"open", 5, esqlite_open},
     {"exec", 4, esqlite_exec},
     {"changes", 3, esqlite_changes},
     {"prepare", 4, esqlite_prepare},
