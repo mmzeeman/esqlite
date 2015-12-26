@@ -738,8 +738,8 @@ int
 count_flag(ErlNifEnv *env, const ERL_NIF_TERM array[], int tuple_count)
 {
     char flag[30];
-    int i, flag_count;
-    unsigned int flag_len;
+    int i, flag_count=0;
+    unsigned int flag_len=0;
 
     for(i = 0; i < tuple_count; i++)
     {
