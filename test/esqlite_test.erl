@@ -304,6 +304,11 @@ enable_load_extension_test() ->
     ?assertEqual(ok, esqlite3:enable_load_extension(Db)),
     ok.
 
+extension_use_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+    ok = esqlite3:exec("create virtual table test_table using fts3(content text);", Db),
+    ok.
+
 error1_msg_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
     
