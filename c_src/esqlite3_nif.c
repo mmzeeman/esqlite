@@ -218,11 +218,13 @@ destruct_esqlite_connection(ErlNifEnv *env, void *arg)
     /* Wait for the thread to finish 
      */
     enif_thread_join(db->tid, NULL);
+
     enif_thread_opts_destroy(db->opts);
      
     /* The thread has finished... now remove the command queue, and close
-     * the datbase (if it was still open).
+     * the database (if it was still open).
      */
+    while(queue_has_item(db->commands)) command_destroy(queue_pop(db->commands));
     queue_destroy(db->commands);
 
     if(db->db) {
