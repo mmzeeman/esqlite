@@ -1,5 +1,5 @@
 /*
- * Copyright 2011, 2012, 2013 Maas-Maarten Zeeman
+ * Copyright 2011 - 2017 Maas-Maarten Zeeman
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -346,12 +346,12 @@ do_prepare(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
 	    return make_error_tuple(env, "no_memory");
 
     rc = sqlite3_prepare_v2(conn->db, (char *) bin.data, bin.size, &(stmt->statement), &tail);
-    if(rc != SQLITE_OK)
-	    return make_sqlite3_error_tuple(env, rc, conn->db);
+    if(rc != SQLITE_OK) {
+        enif_release_resource(conn);
+        return make_sqlite3_error_tuple(env, rc, conn->db);
+    }
 
-    enif_keep_resource(conn);
     stmt->connection = conn;
-
     esqlite_stmt = enif_make_resource(env, stmt);
     enif_release_resource(stmt);
 
@@ -870,6 +870,11 @@ esqlite_prepare(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     cmd = command_create();
     if(!cmd) 
 	    return make_error_tuple(env, "command_create_failed");
+
+    /* Keep a reference to the connection to prevent it from being taken down
+     * while the prepare statement is waiting on the queue.
+     */
+    enif_keep_resource(conn);
 
     cmd->type = cmd_prepare;
     cmd->ref = enif_make_copy(cmd->env, argv[1]);

@@ -1,9 +1,9 @@
 %% @author Maas-Maarten Zeeman <mmzeeman@xs4all.nl>
-%% @copyright 2011, 2012, 2013 Maas-Maarten Zeeman
+%% @copyright 2011 - 2017 Maas-Maarten Zeeman
 
 %% @doc Low level erlang API for sqlite3 databases
 
-%% Copyright 2011, 2012, 2013, 2014 Maas-Maarten Zeeman
+%% Copyright 2011 - 2017 Maas-Maarten Zeeman
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
