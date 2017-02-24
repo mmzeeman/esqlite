@@ -39,7 +39,6 @@ typedef struct {
     sqlite3 *db;
     queue *commands;
      
-    int alive;
 } esqlite_connection;
 
 /* prepared statement */
@@ -669,20 +668,18 @@ esqlite_connection_run(void *arg)
     esqlite_command *cmd;
     int continue_running = 1;
      
-    db->alive = 1;
-
     while(continue_running) {
 	    cmd = queue_pop(db->commands);
     
-	    if(cmd->type == cmd_stop) 
+	    if(cmd->type == cmd_stop) {
 	        continue_running = 0;
-	    else 
+        } else { 
 	        enif_send(NULL, &cmd->pid, cmd->env, make_answer(cmd, evaluate_command(cmd, db)));
+        }
     
 	    command_destroy(cmd);    
     }
   
-    db->alive = 0;
     return NULL;
 }
 
