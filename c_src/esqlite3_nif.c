@@ -344,13 +344,14 @@ do_prepare(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
     if(!stmt) 
 	    return make_error_tuple(env, "no_memory");
 
+    stmt->connection = conn;
+
     rc = sqlite3_prepare_v2(conn->db, (char *) bin.data, bin.size, &(stmt->statement), &tail);
     if(rc != SQLITE_OK) {
         enif_release_resource(stmt);
         return make_sqlite3_error_tuple(env, rc, conn->db);
     }
 
-    stmt->connection = conn;
     esqlite_stmt = enif_make_resource(env, stmt);
     enif_release_resource(stmt);
 
