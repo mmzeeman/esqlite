@@ -347,7 +347,6 @@ do_prepare(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
 
     rc = sqlite3_prepare_v2(conn->db, (char *) bin.data, bin.size, &(stmt->statement), &tail);
     if(rc != SQLITE_OK) {
-        enif_release_resource(conn);
         return make_sqlite3_error_tuple(env, rc, conn->db);
     }
 
