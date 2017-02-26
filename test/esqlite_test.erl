@@ -115,7 +115,6 @@ bind_test() ->
     %% utf-8
     ?assertEqual([{<<228,184,138,230,181,183>>, 100}], 
         esqlite3:q("select one, two from test_table where two = 100", Db)),
-
     
     ok.
 
@@ -326,3 +325,24 @@ sqlite_source_id_test() ->
     ?assertEqual({row, {<<"2015-07-23 16:39:33 793e206f9032d9205bdb3f447b136bed9a25fa22">>}}, esqlite3:step(Stmt)),
     ok.
     
+garbage_collect_test() ->
+    F = fun() ->
+        {ok, Db} = esqlite3:open(":memory:"),
+        [] = esqlite3:q("create table test(one, two, three)", Db),
+        {ok, Stmt} = esqlite3:prepare("select * from test", Db),
+        '$done' = esqlite3:step(Stmt)
+    end,
+
+    [spawn(F) || _X <- lists:seq(0,30)],
+    receive after 500 -> ok end,
+    erlang:garbage_collect(),
+
+    [spawn(F) || _X <- lists:seq(0,30)],
+    receive after 500 -> ok end,
+    erlang:garbage_collect(),
+
+    ok.
+
+
+
+        

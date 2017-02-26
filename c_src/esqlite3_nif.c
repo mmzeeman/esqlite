@@ -242,7 +242,7 @@ destruct_esqlite_statement(ErlNifEnv *env, void *arg)
 	   stmt->statement = NULL;
     }
 
-    enif_release_resource(stmt->connection);
+    stmt->connection = NULL;
 }
 
 static ERL_NIF_TERM
@@ -681,7 +681,7 @@ esqlite_connection_run(void *arg)
     
 	    command_destroy(cmd);    
     }
-  
+
     return NULL;
 }
 
@@ -868,11 +868,6 @@ esqlite_prepare(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     cmd = command_create();
     if(!cmd) 
 	    return make_error_tuple(env, "command_create_failed");
-
-    /* Keep a reference to the connection to prevent it from being taken down
-     * while the prepare statement is waiting on the queue.
-     */
-    enif_keep_resource(conn);
 
     cmd->type = cmd_prepare;
     cmd->ref = enif_make_copy(cmd->env, argv[1]);

@@ -40,8 +40,8 @@
 -define(DEFAULT_TIMEOUT, 5000).
 
 %%
--type connection() :: tuple().
--type statement() :: term().
+-type connection() :: {connection, reference(), term()}.
+-type statement() :: {statement, term(), connection()}.
 -type sql() :: iolist().
 
 %% @doc Opens a sqlite3 database mentioned in Filename.
@@ -260,10 +260,13 @@ prepare(Sql, Connection) ->
 %% @doc
 %%
 %% @spec(iolist(), connection(), timeout()) -> {ok, prepared_statement()} | {error, error_message()}
-prepare(Sql, {connection, _Ref, Connection}, Timeout) ->
+prepare(Sql, {connection, _Ref, Connection}=C, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:prepare(Connection, Ref, self(), Sql),
-    receive_answer(Ref, Timeout).
+    case receive_answer(Ref, Timeout) of
+        {ok, Stmt} -> {ok, {statement, Stmt, C}};
+        Else -> Else
+    end.
 
 %% @doc Step
 %%
@@ -275,7 +278,7 @@ step(Stmt) ->
 %%
 %% @spec step(prepared_statement(), timeout()) -> tuple()
 -spec step(term(), timeout()) -> tuple() | '$busy' | '$done'.
-step(Stmt, Timeout) ->
+step({statement, Stmt, _}, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:step(Stmt, Ref, self()),
     receive_answer(Ref, Timeout).
@@ -283,7 +286,7 @@ step(Stmt, Timeout) ->
 %% @doc Reset the prepared statement back to its initial state.
 %%
 %% @spec reset(prepared_statement()) -> ok | {error, error_message()}
-reset(Stmt) ->
+reset({statement, Stmt, _}) ->
     Ref = make_ref(),
     ok = esqlite3_nif:reset(Stmt, Ref, self()),
     receive_answer(Ref, ?DEFAULT_TIMEOUT).
@@ -297,7 +300,7 @@ bind(Stmt, Args) ->
 %% @doc Bind values to prepared statements
 %%
 %% @spec bind(prepared_statement(), [], timeout()) -> ok | {error, error_message()}
-bind(Stmt, Args, Timeout) ->
+bind({statement, Stmt, _}, Args, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:bind(Stmt, Ref, self(), Args),
     receive_answer(Ref, Timeout).
@@ -309,7 +312,7 @@ column_names(Stmt) ->
     column_names(Stmt, ?DEFAULT_TIMEOUT).
 
 -spec column_names(statement(), timeout()) -> {atom()}.
-column_names(Stmt, Timeout) ->
+column_names({statement, Stmt, _}, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:column_names(Stmt, Ref, self()),
     receive_answer(Ref, Timeout).
@@ -321,7 +324,7 @@ column_types(Stmt) ->
     column_types(Stmt, ?DEFAULT_TIMEOUT).
 
 -spec column_types(statement(), timeout()) -> {atom()}.
-column_types(Stmt, Timeout) ->
+column_types({statement, Stmt, _}, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:column_types(Stmt, Ref, self()),
     receive_answer(Ref, Timeout).
