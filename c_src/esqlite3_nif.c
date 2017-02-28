@@ -43,7 +43,6 @@ typedef struct {
 
 /* prepared statement */
 typedef struct {
-    esqlite_connection *connection;
     sqlite3_stmt *statement;
 } esqlite_statement;
 
@@ -241,8 +240,6 @@ destruct_esqlite_statement(ErlNifEnv *env, void *arg)
 	   sqlite3_finalize(stmt->statement);
 	   stmt->statement = NULL;
     }
-
-    stmt->connection = NULL;
 }
 
 static ERL_NIF_TERM
@@ -343,8 +340,6 @@ do_prepare(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
     stmt = enif_alloc_resource(esqlite_statement_type, sizeof(esqlite_statement));
     if(!stmt) 
 	    return make_error_tuple(env, "no_memory");
-
-    stmt->connection = conn;
 
     rc = sqlite3_prepare_v2(conn->db, (char *) bin.data, bin.size, &(stmt->statement), &tail);
     if(rc != SQLITE_OK) {
@@ -845,7 +840,6 @@ esqlite_insert(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     return push_command(env, db, cmd);
 }
 
-
 /*
  * Prepare the sql statement
  */
@@ -883,17 +877,21 @@ esqlite_prepare(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 static ERL_NIF_TERM 
 esqlite_bind(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
+    esqlite_connection *conn;
     esqlite_statement *stmt;
     esqlite_command *cmd = NULL;
     ErlNifPid pid;
 
-    if(argc != 4) 
+    if(argc != 5) 
 	    return enif_make_badarg(env);
-    if(!enif_get_resource(env, argv[0], esqlite_statement_type, (void **) &stmt))
+
+    if(!enif_get_resource(env, argv[0], esqlite_connection_type, (void **) &conn))
 	    return enif_make_badarg(env);
-    if(!enif_is_ref(env, argv[1])) 
+    if(!enif_get_resource(env, argv[1], esqlite_statement_type, (void **) &stmt))
+	    return enif_make_badarg(env);
+    if(!enif_is_ref(env, argv[2])) 
 	    return make_error_tuple(env, "invalid_ref");
-    if(!enif_get_local_pid(env, argv[2], &pid)) 
+    if(!enif_get_local_pid(env, argv[3], &pid)) 
 	    return make_error_tuple(env, "invalid_pid"); 
 
     cmd = command_create();
@@ -901,17 +899,12 @@ esqlite_bind(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 	    return make_error_tuple(env, "command_create_failed");
 
     cmd->type = cmd_bind;
-    cmd->ref = enif_make_copy(cmd->env, argv[1]);
+    cmd->ref = enif_make_copy(cmd->env, argv[2]);
     cmd->pid = pid;
     cmd->stmt = stmt->statement;
-    cmd->arg = enif_make_copy(cmd->env, argv[3]);
+    cmd->arg = enif_make_copy(cmd->env, argv[4]);
 
-    if(!stmt->connection) 
-	    return make_error_tuple(env, "no_connection");
-    if(!stmt->connection->commands)
-	    return make_error_tuple(env, "no_command_queue");
-
-    return push_command(env, stmt->connection, cmd);
+    return push_command(env, conn, cmd);
 }
 
 /*
@@ -920,18 +913,23 @@ esqlite_bind(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 static ERL_NIF_TERM 
 esqlite_step(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
+    esqlite_connection *conn;
     esqlite_statement *stmt;
     esqlite_command *cmd = NULL;
     ErlNifPid pid;
 
-    if(argc != 3) 
+    if(argc != 4) 
 	    return enif_make_badarg(env);
-    if(!enif_get_resource(env, argv[0], esqlite_statement_type, (void **) &stmt))
+
+    if(!enif_get_resource(env, argv[0], esqlite_connection_type, (void **) &conn))
 	    return enif_make_badarg(env);
-    if(!enif_is_ref(env, argv[1])) 
+    if(!enif_get_resource(env, argv[1], esqlite_statement_type, (void **) &stmt))
+	    return enif_make_badarg(env);
+    if(!enif_is_ref(env, argv[2])) 
 	    return make_error_tuple(env, "invalid_ref");
-    if(!enif_get_local_pid(env, argv[2], &pid)) 
+    if(!enif_get_local_pid(env, argv[3], &pid)) 
 	    return make_error_tuple(env, "invalid_pid"); 
+
     if(!stmt->statement) 
 	    return make_error_tuple(env, "no_prepared_statement");
 
@@ -940,16 +938,11 @@ esqlite_step(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 	   return make_error_tuple(env, "command_create_failed");
 
     cmd->type = cmd_step;
-    cmd->ref = enif_make_copy(cmd->env, argv[1]);
+    cmd->ref = enif_make_copy(cmd->env, argv[2]);
     cmd->pid = pid;
     cmd->stmt = stmt->statement;
 
-    if(!stmt->connection) 
-	    return make_error_tuple(env, "no_connection");
-    if(!stmt->connection->commands)
-	    return make_error_tuple(env, "no_command_queue");
-
-    return push_command(env, stmt->connection, cmd);
+    return push_command(env, conn, cmd);
 }
 
 /*
@@ -958,17 +951,20 @@ esqlite_step(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 static ERL_NIF_TERM 
 esqlite_reset(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
+    esqlite_connection *conn;
     esqlite_statement *stmt;
     esqlite_command *cmd = NULL;
     ErlNifPid pid;
 
-    if(argc != 3) 
+    if(argc != 4) 
 	    return enif_make_badarg(env);
-    if(!enif_get_resource(env, argv[0], esqlite_statement_type, (void **) &stmt))
+    if(!enif_get_resource(env, argv[0], esqlite_connection_type, (void **) &conn))
 	    return enif_make_badarg(env);
-    if(!enif_is_ref(env, argv[1])) 
+    if(!enif_get_resource(env, argv[1], esqlite_statement_type, (void **) &stmt))
+	    return enif_make_badarg(env);
+    if(!enif_is_ref(env, argv[2])) 
 	    return make_error_tuple(env, "invalid_ref");
-    if(!enif_get_local_pid(env, argv[2], &pid)) 
+    if(!enif_get_local_pid(env, argv[3], &pid)) 
 	    return make_error_tuple(env, "invalid_pid"); 
     if(!stmt->statement) 
 	    return make_error_tuple(env, "no_prepared_statement");
@@ -978,16 +974,11 @@ esqlite_reset(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 	   return make_error_tuple(env, "command_create_failed");
 
     cmd->type = cmd_reset;
-    cmd->ref = enif_make_copy(cmd->env, argv[1]);
+    cmd->ref = enif_make_copy(cmd->env, argv[2]);
     cmd->pid = pid;
     cmd->stmt = stmt->statement;
 
-    if(!stmt->connection) 
-	    return make_error_tuple(env, "no_connection");
-    if(!stmt->connection->commands)
-	    return make_error_tuple(env, "no_command_queue");
-
-    return push_command(env, stmt->connection, cmd);
+    return push_command(env, conn, cmd);
 }
 
 /*
@@ -996,17 +987,20 @@ esqlite_reset(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 static ERL_NIF_TERM 
 esqlite_column_names(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
+    esqlite_connection *conn;
     esqlite_statement *stmt;
     esqlite_command *cmd = NULL;
     ErlNifPid pid;
 
-    if(argc != 3) 
+    if(argc != 4) 
 	    return enif_make_badarg(env);
-    if(!enif_get_resource(env, argv[0], esqlite_statement_type, (void **) &stmt))
+    if(!enif_get_resource(env, argv[0], esqlite_connection_type, (void **) &conn))
 	    return enif_make_badarg(env);
-    if(!enif_is_ref(env, argv[1])) 
+    if(!enif_get_resource(env, argv[1], esqlite_statement_type, (void **) &stmt))
+	    return enif_make_badarg(env);
+    if(!enif_is_ref(env, argv[2])) 
 	    return make_error_tuple(env, "invalid_ref");
-    if(!enif_get_local_pid(env, argv[2], &pid)) 
+    if(!enif_get_local_pid(env, argv[3], &pid)) 
 	    return make_error_tuple(env, "invalid_pid"); 
     if(!stmt->statement) 
 	    return make_error_tuple(env, "no_prepared_statement");
@@ -1016,16 +1010,11 @@ esqlite_column_names(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 	    return make_error_tuple(env, "command_create_failed");
 
     cmd->type = cmd_column_names;
-    cmd->ref = enif_make_copy(cmd->env, argv[1]);
+    cmd->ref = enif_make_copy(cmd->env, argv[2]);
     cmd->pid = pid;
     cmd->stmt = stmt->statement;
 
-    if(!stmt->connection) 
-	    return make_error_tuple(env, "no_connection");
-    if(!stmt->connection->commands)
-	    return make_error_tuple(env, "no_command_queue");
-
-    return push_command(env, stmt->connection, cmd);
+    return push_command(env, conn, cmd);
 }
 
 /*
@@ -1034,18 +1023,23 @@ esqlite_column_names(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 static ERL_NIF_TERM 
 esqlite_column_types(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
+    esqlite_connection *conn;
     esqlite_statement *stmt;
     esqlite_command *cmd = NULL;
     ErlNifPid pid;
 
-    if(argc != 3) 
+    if(argc != 4) 
 	    return enif_make_badarg(env);
-    if(!enif_get_resource(env, argv[0], esqlite_statement_type, (void **) &stmt))
+
+    if(!enif_get_resource(env, argv[0], esqlite_connection_type, (void **) &conn))
 	    return enif_make_badarg(env);
-    if(!enif_is_ref(env, argv[1])) 
+    if(!enif_get_resource(env, argv[1], esqlite_statement_type, (void **) &stmt))
+	    return enif_make_badarg(env);
+    if(!enif_is_ref(env, argv[2])) 
 	    return make_error_tuple(env, "invalid_ref");
-    if(!enif_get_local_pid(env, argv[2], &pid)) 
+    if(!enif_get_local_pid(env, argv[3], &pid)) 
 	    return make_error_tuple(env, "invalid_pid"); 
+
     if(!stmt->statement) 
 	    return make_error_tuple(env, "no_prepared_statement");
 
@@ -1054,16 +1048,11 @@ esqlite_column_types(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 	    return make_error_tuple(env, "command_create_failed");
 
     cmd->type = cmd_column_types;
-    cmd->ref = enif_make_copy(cmd->env, argv[1]);
+    cmd->ref = enif_make_copy(cmd->env, argv[2]);
     cmd->pid = pid;
     cmd->stmt = stmt->statement;
 
-    if(!stmt->connection) 
-	    return make_error_tuple(env, "no_connection");
-    if(!stmt->connection->commands)
-	    return make_error_tuple(env, "no_command_queue");
-
-    return push_command(env, stmt->connection, cmd);
+    return push_command(env, conn, cmd);
 }
 
 /*
@@ -1136,12 +1125,12 @@ static ErlNifFunc nif_funcs[] = {
     {"changes", 3, esqlite_changes},
     {"prepare", 4, esqlite_prepare},
     {"insert", 4, esqlite_insert},
-    {"step", 3, esqlite_step},
-    {"reset", 3, esqlite_reset},
+    {"step", 4, esqlite_step},
+    {"reset", 4, esqlite_reset},
     // TODO: {"esqlite_bind", 3, esqlite_bind_named},
-    {"bind", 4, esqlite_bind},
-    {"column_names", 3, esqlite_column_names},
-    {"column_types", 3, esqlite_column_types},
+    {"bind", 5, esqlite_bind},
+    {"column_names", 4, esqlite_column_names},
+    {"column_types", 4, esqlite_column_types},
     {"close", 3, esqlite_close}
 };
 

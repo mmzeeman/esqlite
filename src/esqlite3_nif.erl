@@ -27,12 +27,12 @@
          changes/3,
          insert/4,
          prepare/4,
-         step/3,
-         reset/3,
-         finalize/3,
-         bind/4,
-         column_names/3,
-         column_types/3,
+         step/4,
+         reset/4,
+         finalize/4,
+         bind/5,
+         column_names/4,
+         column_types/4,
          close/3
         ]).
 
@@ -91,37 +91,37 @@ prepare(_Db, _Ref, _Dest, _Sql) ->
 %% @doc
 %%
 %% @spec step(statement(), reference(), pid()) -> ok | {error, message()}
-step(_Stmt, _Ref, _Dest) ->
+step(_Db, _Stmt, _Ref, _Dest) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @doc
 %%
 %% @spec reset(statement(), reference(), pid()) -> ok | {error, message()}
-reset(_Stmt, _Ref, _Dest) ->
+reset(_Db, _Stmt, _Ref, _Dest) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @doc
 %%
 %%
-finalize(_Stmt, _Ref, _Dest) ->
+finalize(_Db, _Stmt, _Ref, _Dest) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @doc Bind parameters to a prepared statement.
 %%
-%% @spec bind(statement(), reference(), pid(), []) -> ok | {error, message()}
-bind(_Stmt, _Ref, _Dest, _Args) ->
+%% @spec bind(connection(), statement(), reference(), pid(), []) -> ok | {error, message()}
+bind(_Db, _Stmt, _Ref, _Dest, _Args) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @doc Retrieve the column names of the prepared statement
 %%
-%% @spec column_names(statement(), reference(), pid()) -> {ok, tuple()} | {error, message()}
-column_names(_Stmt, _Ref, _Dest) ->
+%% @spec column_names(connection(), statement(), reference(), pid()) -> {ok, tuple()} | {error, message()}
+column_names(_Db, _Stmt, _Ref, _Dest) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @doc Retrieve the column types of the prepared statement
 %%
-%% @spec column_types(statement(), reference(), pid()) -> {ok, tuple()} | {error, message()}
-column_types(_Stmt, _Ref, _Dest) ->
+%% @spec column_types(connection(), statement(), reference(), pid()) -> {ok, tuple()} | {error, message()}
+column_types(_Db, _Stmt, _Ref, _Dest) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @doc Close the connection.

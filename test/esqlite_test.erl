@@ -310,6 +310,28 @@ error1_msg_test() ->
     %% Opening non-existant database.
     {error, {cantopen, _Msg3}} = esqlite3:open("/dit/bestaat/niet"),
     ok.
+
+prepare_and_close_connection_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+
+    [] = esqlite3:q("create table test(one, two, three)", Db),
+    ok = esqlite3:exec(["insert into test values(1,2,3);"], Db),
+    {ok, Stmt} = esqlite3:prepare("select * from test", Db),
+
+    %% The prepated statment works.
+    {row, {1,2,3}} = esqlite3:step(Stmt),
+    '$done' = esqlite3:step(Stmt),
+
+    ok = esqlite3:close(Db),
+
+    ok = esqlite3:reset(Stmt),
+
+    %% Internally sqlite3_close_v2 is used by the nif. This will destruct the
+    %% connection when the last perpared statement is finalized
+    {row, {1,2,3}} = esqlite3:step(Stmt),
+    '$done' = esqlite3:step(Stmt),
+
+    ok.
     
 sqlite_version_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
