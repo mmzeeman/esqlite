@@ -70,7 +70,7 @@ typedef struct {
     ERL_NIF_TERM ref; 
     ErlNifPid pid;
     ERL_NIF_TERM arg;
-    sqlite3_stmt *stmt;
+    ERL_NIF_TERM stmt;
 } esqlite_command;
 
 static ERL_NIF_TERM atom_esqlite3;
@@ -194,7 +194,7 @@ command_create()
     cmd->type = cmd_unknown;
     cmd->ref = 0;
     cmd->arg = 0;
-    cmd->stmt = NULL;
+    cmd->stmt = 0;
 
     return cmd;
 }
@@ -613,6 +613,14 @@ do_close(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
 static ERL_NIF_TERM
 evaluate_command(esqlite_command *cmd, esqlite_connection *conn)
 {
+    esqlite_statement *stmt = NULL;
+
+    if(cmd->stmt) {
+        if(!enif_get_resource(cmd->env, cmd->stmt, esqlite_statement_type, (void **) &stmt)) {
+	    return make_error_tuple(cmd->env, "invalid_statement");
+        }
+    }
+
     switch(cmd->type) {
     case cmd_open:
 	    return do_open(cmd->env, conn, cmd->arg);
@@ -623,15 +631,15 @@ evaluate_command(esqlite_command *cmd, esqlite_connection *conn)
     case cmd_prepare:
 	    return do_prepare(cmd->env, conn, cmd->arg);
     case cmd_step:
-	    return do_step(cmd->env, conn->db, cmd->stmt);
+	    return do_step(cmd->env, conn->db, stmt->statement);
     case cmd_reset:
-	    return do_reset(cmd->env, conn->db, cmd->stmt);
+	    return do_reset(cmd->env, conn->db, stmt->statement);
     case cmd_bind:
-	    return do_bind(cmd->env, conn->db, cmd->stmt, cmd->arg);
+	    return do_bind(cmd->env, conn->db, stmt->statement, cmd->arg);
     case cmd_column_names:
-	    return do_column_names(cmd->env, cmd->stmt);
+	    return do_column_names(cmd->env, stmt->statement);
     case cmd_column_types:
-	    return do_column_types(cmd->env, cmd->stmt);
+	    return do_column_types(cmd->env, stmt->statement);
     case cmd_close:
 	    return do_close(cmd->env, conn, cmd->arg);
 	case cmd_insert:
@@ -901,7 +909,7 @@ esqlite_bind(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     cmd->type = cmd_bind;
     cmd->ref = enif_make_copy(cmd->env, argv[2]);
     cmd->pid = pid;
-    cmd->stmt = stmt->statement;
+    cmd->stmt = enif_make_copy(cmd->env, argv[1]);
     cmd->arg = enif_make_copy(cmd->env, argv[4]);
 
     return push_command(env, conn, cmd);
@@ -940,7 +948,7 @@ esqlite_step(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     cmd->type = cmd_step;
     cmd->ref = enif_make_copy(cmd->env, argv[2]);
     cmd->pid = pid;
-    cmd->stmt = stmt->statement;
+    cmd->stmt = enif_make_copy(cmd->env, argv[1]);
 
     return push_command(env, conn, cmd);
 }
@@ -976,7 +984,7 @@ esqlite_reset(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     cmd->type = cmd_reset;
     cmd->ref = enif_make_copy(cmd->env, argv[2]);
     cmd->pid = pid;
-    cmd->stmt = stmt->statement;
+    cmd->stmt = enif_make_copy(cmd->env, argv[1]);
 
     return push_command(env, conn, cmd);
 }
@@ -1012,7 +1020,7 @@ esqlite_column_names(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     cmd->type = cmd_column_names;
     cmd->ref = enif_make_copy(cmd->env, argv[2]);
     cmd->pid = pid;
-    cmd->stmt = stmt->statement;
+    cmd->stmt = enif_make_copy(cmd->env, argv[1]);
 
     return push_command(env, conn, cmd);
 }
@@ -1050,7 +1058,7 @@ esqlite_column_types(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     cmd->type = cmd_column_types;
     cmd->ref = enif_make_copy(cmd->env, argv[2]);
     cmd->pid = pid;
-    cmd->stmt = stmt->statement;
+    cmd->stmt = enif_make_copy(cmd->env, argv[1]);
 
     return push_command(env, conn, cmd);
 }
