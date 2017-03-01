@@ -483,7 +483,7 @@ make_row(ErlNifEnv *env, sqlite3_stmt *statement)
     ERL_NIF_TERM row;
      
     size = sqlite3_column_count(statement);
-    array = (ERL_NIF_TERM *) malloc(sizeof(ERL_NIF_TERM)*size);
+    array = (ERL_NIF_TERM *) enif_alloc(sizeof(ERL_NIF_TERM)*size);
 
     if(!array) 
 	    return make_error_tuple(env, "no_memory");
@@ -492,7 +492,7 @@ make_row(ErlNifEnv *env, sqlite3_stmt *statement)
 	    array[i] = make_cell(env, statement, i);
 
     row = make_row_tuple(env, enif_make_tuple_from_array(env, array, size));
-    free(array);
+    enif_free(array);
     return row;
 }
 
@@ -546,14 +546,14 @@ do_column_names(ErlNifEnv *env, sqlite3_stmt *stmt)
     else if(size < 0)
         return make_error_tuple(env, "invalid_column_count");
 
-    array = (ERL_NIF_TERM *) malloc(sizeof(ERL_NIF_TERM) * size);
+    array = (ERL_NIF_TERM *) enif_alloc(sizeof(ERL_NIF_TERM) * size);
     if(!array)
         return make_error_tuple(env, "no_memory");
 
     for(i = 0; i < size; i++) {
         name = sqlite3_column_name(stmt, i);
         if(name == NULL) {
-            free(array);
+            enif_free(array);
             return make_error_tuple(env, "sqlite3_malloc_failure");
         }
 
@@ -561,7 +561,7 @@ do_column_names(ErlNifEnv *env, sqlite3_stmt *stmt)
     }
 
     column_names = enif_make_tuple_from_array(env, array, size);
-    free(array);
+    enif_free(array);
     return column_names;
 }
 
@@ -579,7 +579,7 @@ do_column_types(ErlNifEnv *env, sqlite3_stmt *stmt)
     else if(size < 0)
         return make_error_tuple(env, "invalid_column_count");
 
-    array = (ERL_NIF_TERM *) malloc(sizeof(ERL_NIF_TERM) * size);
+    array = (ERL_NIF_TERM *) enif_alloc(sizeof(ERL_NIF_TERM) * size);
     if(!array)
         return make_error_tuple(env, "no_memory");
 
@@ -593,7 +593,7 @@ do_column_types(ErlNifEnv *env, sqlite3_stmt *stmt)
     }
 
     column_types = enif_make_tuple_from_array(env, array, size);
-    free(array);
+    enif_free(array);
     return column_types;
 }
 
