@@ -732,6 +732,9 @@ esqlite_open(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     if(!enif_get_local_pid(env, argv[2], &pid)) 
 	    return make_error_tuple(env, "invalid_pid");
 
+    if(!sqlite3_threadsafe())
+	    return make_error_tuple(env, "sqlite3 not thread safe.");
+
     /* Note, no check is made for the type of the argument */
     cmd = command_create();
     if(!cmd) 
