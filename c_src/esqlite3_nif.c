@@ -222,24 +222,21 @@ destruct_esqlite_connection(ErlNifEnv *env, void *arg)
     /* The thread has finished... now remove the command queue, and close
      * the database (if it was still open).
      */
-    while(queue_has_item(db->commands)) command_destroy(queue_pop(db->commands));
+    while(queue_has_item(db->commands)) {
+        command_destroy(queue_pop(db->commands));
+    }
     queue_destroy(db->commands);
 
-    if(db->db) {
-        sqlite3_close_v2(db->db);
-        db->db = NULL;
-    }
+    sqlite3_close_v2(db->db);
+    db->db = NULL;
 }
 
 static void
 destruct_esqlite_statement(ErlNifEnv *env, void *arg)
 {
     esqlite_statement *stmt = (esqlite_statement *) arg;
-
-    if(stmt->statement) {
-	   sqlite3_finalize(stmt->statement);
-	   stmt->statement = NULL;
-    }
+    sqlite3_finalize(stmt->statement);
+    stmt->statement = NULL;
 }
 
 static ERL_NIF_TERM
