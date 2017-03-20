@@ -3,5 +3,6 @@
               {vsn,"0.2.3"},
               {modules,[esqlite3,esqlite3_nif]},
               {registered,[]},
+              {include_files, ["Makefile"]},
               {applications,[kernel,stdlib]},
               {env,[]}]}.
