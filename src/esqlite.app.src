@@ -1,11 +1,16 @@
-{application,esqlite,
-             [{description,"sqlite nif interface"},
-              {vsn,"0.2.3"},
-              {modules,[esqlite3,esqlite3_nif]},
-              {registered,[]},
-              {maintainers, ["Aleph Archives", "Qing Liang <qing.liang.cn@gmail.com>"]},
-              {licenses, ["Apache"]},
-              {links, [{"Github", "https://github.com/mmzeeman/esqlite"}]},
-              {include_files, ["Makefile"]},
-              {applications,[kernel,stdlib]},
-              {env,[]}]}.
+{application, esqlite,
+ [
+  {description, "sqlite nif interface"},
+  {vsn, "0.2.3"},
+  {modules, [esqlite3, esqlite3_nif]},
+  {registered, []},
+  {maintainers, ["Aleph Archives", "Qing Liang <qing.liang.cn@gmail.com>"]},
+  {licenses, ["Apache"]},
+  {links, [{"Github", "https://github.com/mmzeeman/esqlite"}]},
+  {include_files, ["Makefile"]},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {env, []}
+ ]}.
