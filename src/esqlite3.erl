@@ -42,7 +42,7 @@
 %%
 -type connection() :: {connection, reference(), term()}.
 -type statement() :: {statement, term(), connection()}.
--type sql() :: iolist().
+-type sql() :: iodata().
 
 %% @doc Opens a sqlite3 database mentioned in Filename.
 %%
@@ -68,12 +68,12 @@ open(Filename, Timeout) ->
     end.
 
 %% @doc Execute a sql statement, returns a list with tuples.
--spec q(sql(), connection()) -> list(tuple()).
+-spec q(sql(), connection()) -> list(tuple()) | {error, term()}.
 q(Sql, Connection) ->
     q(Sql, [], Connection).
 
 %% @doc Execute statement, bind args and return a list with tuples as result.
--spec q(sql(), list(), connection()) -> list(tuple()).
+-spec q(sql(), list(), connection()) -> list(tuple()) | {error, term()}.
 q(Sql, [], Connection) ->
     case prepare(Sql, Connection) of
         {ok, Statement} ->
