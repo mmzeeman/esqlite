@@ -22,6 +22,7 @@
 
 %% higher-level export
 -export([open/1, open/2,
+         enable_load_extension/1, enable_load_extension/2,
          exec/2, exec/3,
          changes/1, changes/2,
          insert/2,
@@ -66,6 +67,22 @@ open(Filename, Timeout) ->
         {error, _Msg}=Error ->
             Error
     end.
+
+%% @doc Enable a database to load extensions
+%%
+%% @spec enable_load_extension(connection()) -> ok | {error, error_message()}
+-spec enable_load_extension(connection()) -> ok | {error, _}.
+enable_load_extension(Connection) ->
+    enable_load_extension(Connection, ?DEFAULT_TIMEOUT).
+
+%% @doc Enable a database to load extensions
+%%
+%% @spec enable_load_extension(connection(), integer()) -> ok | {error, error_message()}
+-spec enable_load_extension(connection(), timeout()) -> ok | {error, _}.
+enable_load_extension({connection, _Ref, Connection}, Timeout) ->
+    Ref = make_ref(),
+    ok = esqlite3_nif:enable_load_extension(Connection, Ref, self()),
+    receive_answer(Ref, Timeout).
 
 %% @doc Execute a sql statement, returns a list with tuples.
 -spec q(sql(), connection()) -> list(tuple()) | {error, term()}.
@@ -188,7 +205,7 @@ fetchall(Statement) ->
     end.
 
 %% Try the step, when the database is busy,
--spec try_step(statement(), non_neg_integer()) -> 
+-spec try_step(statement(), non_neg_integer()) ->
                       '$done' |
                       term().
 try_step(_Statement, Tries) when Tries > 5 ->

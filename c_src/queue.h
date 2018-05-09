@@ -1,4 +1,4 @@
-// This file is part of Emonk released under the MIT license. 
+// This file is part of Emonk released under the MIT license.
 // See the LICENSE file for more information.
 
 /* adapted by: Maas-Maarten Zeeman <mmzeeman@xs4all.nl */
@@ -21,4 +21,4 @@ void* queue_pop(queue *queue);
 int queue_send(queue *queue, void* item);
 void* queue_receive(queue *);
 
-#endif 
+#endif

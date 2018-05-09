@@ -23,6 +23,7 @@
 %% low-level exports
 -export([start/0,
          open/4,
+         enable_load_extension/3,
          exec/4,
          changes/3,
          insert/4,
@@ -61,6 +62,12 @@ start() ->
 
 open(_Db, _Ref, _Dest, _Filename) ->
     erlang:nif_error(nif_library_not_loaded).
+
+%% @doc Enable extensions' loading.
+%%
+%% @spec enable_load_extension(connection(), reference(), pid()) -> ok | {error, message()}
+enable_load_extension(_Db, _Ref, _Dest) ->
+    exit(nif_library_not_loaded).
 
 %% @doc Exec the query.
 %%

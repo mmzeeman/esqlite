@@ -21,14 +21,14 @@ test: compile
 clean: rebar
 	$(REBAR) clean
 
-distclean: 
+distclean:
 	rm $(REBAR)
 
-# dializer 
+# dializer
 
 build-plt:
 	@$(DIALYZER) --build_plt --output_plt .$(PROJECT).plt \
-		--apps kernel stdlib 
+		--apps kernel stdlib
 
 dialyze:
 	@$(DIALYZER) --src src --plt .$(PROJECT).plt --no_native \
