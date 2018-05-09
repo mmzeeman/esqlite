@@ -365,5 +365,14 @@ garbage_collect_test() ->
 
     ok.
 
+enable_load_extension_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+    ?assertEqual(ok, esqlite3:enable_load_extension(Db)),
+    ok = esqlite3:exec("create virtual table temp.stat using dbstat(main);", Db),
+    [] = esqlite3:q("create table test(one, two, three)", Db),
+    ok = esqlite3:exec(["insert into test values(1,2,3);"], Db),
 
+    Names = esqlite3:q("select name from temp.stat;", Db),
+    ?assertEqual([{<<"sqlite_master">>}, {<<"test">>}], Names),
+    ok.
 

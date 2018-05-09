@@ -50,6 +50,7 @@ typedef struct {
 typedef enum {
     cmd_unknown,
     cmd_open,
+    cmd_enable_load_extension,
     cmd_exec,
     cmd_changes,
     cmd_prepare,
@@ -264,6 +265,15 @@ do_open(ErlNifEnv *env, esqlite_connection *db, const ERL_NIF_TERM arg)
 
     sqlite3_busy_timeout(db->db, 2000);
 
+    return make_atom(env, "ok");
+}
+
+static ERL_NIF_TERM
+do_enable_load_extension(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
+{
+    int rc = sqlite3_enable_load_extension(conn->db, 1);
+    if(rc != SQLITE_OK)
+        return make_sqlite3_error_tuple(env, rc, conn->db);
     return make_atom(env, "ok");
 }
 
@@ -624,6 +634,8 @@ evaluate_command(esqlite_command *cmd, esqlite_connection *conn)
     switch(cmd->type) {
     case cmd_open:
 	    return do_open(cmd->env, conn, cmd->arg);
+    case cmd_enable_load_extension:
+        return do_enable_load_extension(cmd->env, conn, cmd->arg);
     case cmd_exec:
 	    return do_exec(cmd->env, conn, cmd->arg);
     case cmd_changes:
@@ -752,6 +764,34 @@ esqlite_open(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     cmd->ref = enif_make_copy(cmd->env, argv[1]);
     cmd->pid = pid;
     cmd->arg = enif_make_copy(cmd->env, argv[3]);
+
+    return push_command(env, db, cmd);
+}
+
+/*
+* Enable load extension
+*/
+static ERL_NIF_TERM
+esqlite_enable_load_extension(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    esqlite_connection *db;
+    esqlite_command *cmd = NULL;
+    ErlNifPid pid;
+
+    if(!enif_get_resource(env, argv[0], esqlite_connection_type, (void **) &db))
+        return enif_make_badarg(env);
+    if(!enif_is_ref(env, argv[1]))
+        return make_error_tuple(env, "invalid_ref");
+    if(!enif_get_local_pid(env, argv[2], &pid))
+        return make_error_tuple(env, "invalid_pid");
+
+    cmd = command_create();
+    if(!cmd)
+        return make_error_tuple(env, "command_create_failed");
+
+    cmd->type = cmd_enable_load_extension;
+    cmd->ref = enif_make_copy(cmd->env, argv[1]);
+    cmd->pid = pid;
 
     return push_command(env, db, cmd);
 }
@@ -1129,6 +1169,7 @@ static int on_upgrade(ErlNifEnv* env, void** priv, void** old_priv_data, ERL_NIF
 static ErlNifFunc nif_funcs[] = {
     {"start", 0, esqlite_start},
     {"open", 4, esqlite_open},
+    {"enable_load_extension", 3, esqlite_enable_load_extension},
     {"exec", 4, esqlite_exec},
     {"changes", 3, esqlite_changes},
     {"prepare", 4, esqlite_prepare},
