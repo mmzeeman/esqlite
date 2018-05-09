@@ -188,7 +188,7 @@ fetchall(Statement) ->
     end.
 
 %% Try the step, when the database is busy,
--spec try_step(statement(), non_neg_integer()) -> 
+-spec try_step(statement(), non_neg_integer()) ->
                       '$done' |
                       term().
 try_step(_Statement, Tries) when Tries > 5 ->
