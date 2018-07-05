@@ -27,7 +27,7 @@
          changes/3,
          insert/4,
          prepare/4,
-         step/4,
+         multi_step/5,
          reset/4,
          finalize/4,
          bind/5,
@@ -90,8 +90,8 @@ prepare(_Db, _Ref, _Dest, _Sql) ->
 
 %% @doc
 %%
-%% @spec step(statement(), reference(), pid()) -> ok | {error, message()}
-step(_Db, _Stmt, _Ref, _Dest) ->
+%% @spec multi_step(statement(), pos_integer(), reference(), pid()) -> {term(), list(tuple)} | {error, message()}
+multi_step(_Db, _Stmt, _Chunk_Size, _Ref, _Dest) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @doc

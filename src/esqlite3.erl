@@ -31,6 +31,7 @@
          bind/2, bind/3,
          fetchone/1,
          fetchall/1,
+         fetchall/2,
          column_names/1, column_names/2,
          column_types/1, column_types/2,
          close/1, close/2]).
@@ -38,6 +39,7 @@
 -export([q/2, q/3, map/3, foreach/3]).
 
 -define(DEFAULT_TIMEOUT, 5000).
+-define(DEFAULT_CHUNK_SIZE, 5000).
 
 %%
 -type connection() :: {connection, reference(), term()}.
@@ -123,19 +125,19 @@ foreach(F, Sql, Connection) ->
       Row :: tuple(),
       ColumnNames :: tuple().
 foreach_s(F, Statement) when is_function(F, 1) ->
-    case try_step(Statement, 0) of
-        '$done' -> ok;
+    case try_multi_step(Statement, 1, [], 0) of
+        {'$done', []} -> ok;
         {error, _} = E -> F(E);
-        {row, Row} ->
+        {rows, [Row | []]} ->
             F(Row),
             foreach_s(F, Statement)
     end;
 foreach_s(F, Statement) when is_function(F, 2) ->
     ColumnNames = column_names(Statement),
-    case try_step(Statement, 0) of
-        '$done' -> ok;
+    case try_multi_step(Statement, 1, [], 0) of
+        {'$done', []} -> ok;
         {error, _} = E -> F([], E);
-        {row, Row} ->
+        {rows, [Row | []]} ->
             F(ColumnNames, Row),
             foreach_s(F, Statement)
     end.
@@ -147,59 +149,79 @@ foreach_s(F, Statement) when is_function(F, 2) ->
       ColumnNames :: tuple(),
       Type :: term().
 map_s(F, Statement) when is_function(F, 1) ->
-    case try_step(Statement, 0) of
-        '$done' -> [];
+    case try_multi_step(Statement, 1, [], 0) of
+        {'$done', []} -> [];
         {error, _} = E -> F(E);
-        {row, Row} ->
+        {rows, [Row | []]} ->
             [F(Row) | map_s(F, Statement)]
     end;
 map_s(F, Statement) when is_function(F, 2) ->
     ColumnNames = column_names(Statement),
-    case try_step(Statement, 0) of
-        '$done' -> [];
+    case try_multi_step(Statement, 1, [], 0) of
+        {'$done', []} -> [];
         {error, _} = E -> F([], E);
-        {row, Row} ->
+        {rows, [Row | []]} ->
             [F(ColumnNames, Row) | map_s(F, Statement)]
     end.
 
 %%
--spec fetchone(statement()) -> tuple().
+%%-spec fetchone(statement()) -> tuple().
 fetchone(Statement) ->
-    case try_step(Statement, 0) of
-        '$done' -> ok;
+    case try_multi_step(Statement, 1, [], 0) of
+        {'$done', []} -> ok;
         {error, _} = E -> E;
-        {row, Row} -> Row
+        {rows, [Row | []]} -> Row
     end.
 
-%%
+%% @doc Fetch all records
+%% @param Statement is prepared sql statement
+%% @spec fetchall(statement()) -> list(tuple()) | {error, term()}.
 -spec fetchall(statement()) ->
                       list(tuple()) |
                       {error, term()}.
 fetchall(Statement) ->
-    case try_step(Statement, 0) of
-        '$done' ->
-            [];
-        {error, _} = E -> E;
-        {row, Row} ->
-            case fetchall(Statement) of
-                {error, _} = E -> E;
-                Rest -> [Row | Rest]
-            end
+    fetchall(Statement, ?DEFAULT_CHUNK_SIZE).
+
+%% @doc Fetch all records
+%% @param Statement is prepared sql statement
+%% @param ChunkSize is a count of rows to read from sqlite and send to erlang process in one bulk.
+%%        Decrease this value if rows are heavy. Default value is 5000 (DEFAULT_CHUNK_SIZE).
+%% @spec fetchall(statement()) -> list(tuple()) | {error, term()}.
+-spec fetchall(statement(), pos_integer()) ->
+                      list(tuple()) |
+                      {error, term()}.
+fetchall(Statement, ChunkSize) ->
+    case fetchall_internal(Statement, ChunkSize, []) of
+        {'$done', Rows} -> lists:reverse(Rows);
+        {error, _} = E -> E
     end.
 
-%% Try the step, when the database is busy,
--spec try_step(statement(), non_neg_integer()) -> 
-                      '$done' |
-                      term().
-try_step(_Statement, Tries) when Tries > 5 ->
+%% return rows in revers order
+-spec fetchall_internal(statement(), pos_integer(), list(tuple())) ->
+                {'$done', list(tuple())} |
+                {error, term()}.
+fetchall_internal(Statement, ChunkSize, Rest) ->
+    case try_multi_step(Statement, ChunkSize, Rest, 0) of
+        {rows, Rows} -> fetchall_internal(Statement, ChunkSize, Rows);
+        Else -> Else
+    end.
+
+%% Try a number of steps, when the database is busy,
+%% return rows in revers order
+-spec try_multi_step(statement(), pos_integer(), list(tuple()), non_neg_integer()) -> 
+                {rows, list(tuple())} |
+                {'$done', list(tuple())} |
+                {error, term()}.
+try_multi_step(_Statement, _ChunkSize, _Rest, Tries) when Tries > 5 ->
     throw(too_many_tries);
-try_step(Statement, Tries) ->
-    case esqlite3:step(Statement) of
-        '$busy' ->
+try_multi_step(Statement, ChunkSize, Rest, Tries) ->
+    case multi_step(Statement, ChunkSize) of
+        {'$busy', Rows} -> %% core can fetch a number of rows (rows < ChunkSize) per 'multi_step' call and then get busy...
+            erlang:display({"busy", Tries}),
             timer:sleep(100 * Tries),
-            try_step(Statement, Tries + 1);
-        Something ->
-            Something
+            try_multi_step(Statement, ChunkSize, Rows ++ Rest, Tries + 1);
+        {Status, Rows} ->
+            {Status, Rows ++ Rest}
     end.
 
 %% @doc Execute Sql statement, returns the number of affected rows.
@@ -280,7 +302,29 @@ step(Stmt) ->
 -spec step(term(), timeout()) -> tuple() | '$busy' | '$done'.
 step({statement, Stmt, {connection, _, Conn}}, Timeout) ->
     Ref = make_ref(),
-    ok = esqlite3_nif:step(Conn, Stmt, Ref, self()),
+    ok = esqlite3_nif:multi_step(Conn, Stmt, 1, Ref, self()),
+    case receive_answer(Ref, Timeout) of
+        {rows, [Row | []]} -> {row, Row};
+        {'$done', []} -> '$done';
+        {'$busy', []} -> '$busy';
+        Else -> Else
+    end.
+
+%% make multiple sqlite steps per call
+%% return rows in reverse order
+multi_step(Stmt, ChunkSize) ->
+    multi_step(Stmt, ChunkSize, ?DEFAULT_TIMEOUT).
+
+%% make multiple sqlite steps per call
+%% return rows in reverse order
+-spec multi_step(term(), pos_integer(), timeout()) ->
+                {rows, list(tuple())} |
+                {'$busy', list(tuple())} |
+                {'$done', list(tuple())} |
+                {error, term()}.
+multi_step({statement, Stmt, {connection, _, Conn}}, ChunkSize, Timeout) ->
+    Ref = make_ref(),
+    ok = esqlite3_nif:multi_step(Conn, Stmt, ChunkSize, Ref, self()),
     receive_answer(Ref, Timeout).
 
 %% @doc Reset the prepared statement back to its initial state.
