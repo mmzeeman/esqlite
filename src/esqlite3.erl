@@ -220,8 +220,11 @@ try_multi_step(Statement, ChunkSize, Rest, Tries) ->
             erlang:display({"busy", Tries}),
             timer:sleep(100 * Tries),
             try_multi_step(Statement, ChunkSize, Rows ++ Rest, Tries + 1);
-        {Status, Rows} ->
-            {Status, Rows ++ Rest}
+        {rows, Rows} ->
+            {rows, Rows ++ Rest};
+        {'$done', Rows} ->
+            {'$done', Rows ++ Rest};
+        Else -> Else
     end.
 
 %% @doc Execute Sql statement, returns the number of affected rows.
