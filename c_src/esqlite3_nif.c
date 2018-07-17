@@ -54,7 +54,7 @@ typedef enum {
     cmd_changes,
     cmd_prepare,
     cmd_bind,
-    cmd_step,
+    cmd_multi_step,
     cmd_reset,
     cmd_column_names,
     cmd_column_types,
@@ -476,49 +476,66 @@ make_cell(ErlNifEnv *env, sqlite3_stmt *statement, unsigned int i)
 }
 
 static ERL_NIF_TERM
-make_row(ErlNifEnv *env, sqlite3_stmt *statement) 
+make_row(ErlNifEnv *env, sqlite3_stmt *statement, ERL_NIF_TERM *array, int size)
 {
-    int i, size;
-    ERL_NIF_TERM *array;
-    ERL_NIF_TERM row;
-     
-    size = sqlite3_column_count(statement);
-    array = (ERL_NIF_TERM *) enif_alloc(sizeof(ERL_NIF_TERM)*size);
+    if(!array)
+        return make_error_tuple(env, "no_memory");
 
-    if(!array) 
-	    return make_error_tuple(env, "no_memory");
+    for(int i = 0; i < size; i++) 
+        array[i] = make_cell(env, statement, i);
 
-    for(i = 0; i < size; i++) 
-	    array[i] = make_cell(env, statement, i);
-
-    row = make_row_tuple(env, enif_make_tuple_from_array(env, array, size));
-    enif_free(array);
-    return row;
+    return enif_make_tuple_from_array(env, array, size);
 }
 
 static ERL_NIF_TERM
-do_step(ErlNifEnv *env, sqlite3 *db, sqlite3_stmt *stmt)
+do_multi_step(ErlNifEnv *env, sqlite3 *db, sqlite3_stmt *stmt, const ERL_NIF_TERM arg)
 {
+    ERL_NIF_TERM status;
+    ERL_NIF_TERM rows = enif_make_list_from_array(env, NULL, 0);
+    ERL_NIF_TERM *rowBuffer = NULL;
+    int rowBufferSize = 0;
+
+    int chunk_size = 0;
+    enif_get_int(env, arg, &chunk_size);
+
     int rc = sqlite3_step(stmt);
+    while (rc == SQLITE_ROW && chunk_size-- > 0)
+    {
+        if (!rowBufferSize)
+            rowBufferSize = sqlite3_column_count(stmt);
+        if (rowBuffer == NULL)
+            rowBuffer = (ERL_NIF_TERM *) enif_alloc(sizeof(ERL_NIF_TERM)*rowBufferSize);
 
-    if(rc == SQLITE_ROW) 
-        return make_row(env, stmt);
-    if(rc == SQLITE_BUSY)
-        return make_atom(env, "$busy");
+        rows = enif_make_list_cell(env, make_row(env, stmt, rowBuffer, rowBufferSize), rows);
 
-    if(rc == SQLITE_DONE) { 
-        /* 
-         * Automatically reset the statement after a done so 
-         * column_names will work after the statement is done.
-         *
-         * Not resetting the statement can lead to vm crashes.
-         */
-        sqlite3_reset(stmt);
-        return make_atom(env, "$done");
+        if (chunk_size > 0)
+            rc = sqlite3_step(stmt);
     }
 
-    /* We use prepare_v2, so any error code can be returned. */
-    return make_sqlite3_error_tuple(env, rc, db);
+    switch(rc) {
+    case SQLITE_ROW:
+        status = make_atom(env, "rows");
+        break;
+    case SQLITE_BUSY:
+        status = make_atom(env, "$busy");
+        break;
+    case SQLITE_DONE:
+        /* 
+        * Automatically reset the statement after a done so 
+        * column_names will work after the statement is done.
+        *
+        * Not resetting the statement can lead to vm crashes.
+        */
+        sqlite3_reset(stmt);
+        status = make_atom(env, "$done");
+        break;
+    default:
+        /* We use prepare_v2, so any error code can be returned. */
+        return make_sqlite3_error_tuple(env, rc, db);
+    }
+
+    enif_free(rowBuffer);
+    return enif_make_tuple2(env, status, rows);
 }
 
 static ERL_NIF_TERM
@@ -630,8 +647,8 @@ evaluate_command(esqlite_command *cmd, esqlite_connection *conn)
 	    return do_changes(cmd->env, conn, cmd->arg);
     case cmd_prepare:
 	    return do_prepare(cmd->env, conn, cmd->arg);
-    case cmd_step:
-	    return do_step(cmd->env, conn->db, stmt->statement);
+    case cmd_multi_step:
+        return do_multi_step(cmd->env, conn->db, stmt->statement, cmd->arg);
     case cmd_reset:
 	    return do_reset(cmd->env, conn->db, stmt->statement);
     case cmd_bind:
@@ -679,7 +696,7 @@ esqlite_connection_run(void *arg)
 	        enif_send(NULL, &cmd->pid, cmd->env, make_answer(cmd, evaluate_command(cmd, db)));
         }
     
-	    command_destroy(cmd);    
+	    command_destroy(cmd);
     }
 
     return NULL;
@@ -916,39 +933,47 @@ esqlite_bind(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 }
 
 /*
- * Step to a prepared statement
+ * Multi step to a prepared statement
  */
 static ERL_NIF_TERM 
-esqlite_step(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+esqlite_multi_step(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
     esqlite_connection *conn;
     esqlite_statement *stmt;
     esqlite_command *cmd = NULL;
     ErlNifPid pid;
+    int chunk_size = 0;
 
-    if(argc != 4) 
-	    return enif_make_badarg(env);
+    if(argc != 5) 
+        return enif_make_badarg(env);
 
     if(!enif_get_resource(env, argv[0], esqlite_connection_type, (void **) &conn))
-	    return enif_make_badarg(env);
+        return enif_make_badarg(env);
+    
     if(!enif_get_resource(env, argv[1], esqlite_statement_type, (void **) &stmt))
-	    return enif_make_badarg(env);
-    if(!enif_is_ref(env, argv[2])) 
-	    return make_error_tuple(env, "invalid_ref");
-    if(!enif_get_local_pid(env, argv[3], &pid)) 
-	    return make_error_tuple(env, "invalid_pid"); 
+        return enif_make_badarg(env);
+
+    if(!enif_get_int(env, argv[2], &chunk_size))
+        return make_error_tuple(env, "invalid_chunk_size");
+    
+    if(!enif_is_ref(env, argv[3])) 
+        return make_error_tuple(env, "invalid_ref");
+    
+    if(!enif_get_local_pid(env, argv[4], &pid)) 
+        return make_error_tuple(env, "invalid_pid");
 
     if(!stmt->statement) 
-	    return make_error_tuple(env, "no_prepared_statement");
+        return make_error_tuple(env, "no_prepared_statement");
 
     cmd = command_create();
     if(!cmd) 
-	   return make_error_tuple(env, "command_create_failed");
+        return make_error_tuple(env, "command_create_failed");
 
-    cmd->type = cmd_step;
-    cmd->ref = enif_make_copy(cmd->env, argv[2]);
+    cmd->type = cmd_multi_step;
+    cmd->ref = enif_make_copy(cmd->env, argv[3]);
     cmd->pid = pid;
     cmd->stmt = enif_make_copy(cmd->env, argv[1]);
+    cmd->arg = enif_make_copy(cmd->env, argv[2]);
 
     return push_command(env, conn, cmd);
 }
@@ -1133,7 +1158,7 @@ static ErlNifFunc nif_funcs[] = {
     {"changes", 3, esqlite_changes},
     {"prepare", 4, esqlite_prepare},
     {"insert", 4, esqlite_insert},
-    {"step", 4, esqlite_step},
+    {"multi_step", 5, esqlite_multi_step},
     {"reset", 4, esqlite_reset},
     // TODO: {"esqlite_bind", 3, esqlite_bind_named},
     {"bind", 5, esqlite_bind},
