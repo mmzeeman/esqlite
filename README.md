@@ -6,7 +6,7 @@ An Erlang nif library for sqlite3.
 Introduction
 ------------
 
-This library allows you to use the accelent sqlite engine from
+This library allows you to use the excellent sqlite engine from
 erlang. The library is implemented as a nif library, which allows for
 the fastest access to a sqlite database. This can be risky, as a bug
 in the nif library or the sqlite database can crash the entire Erlang
