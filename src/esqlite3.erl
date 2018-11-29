@@ -22,6 +22,7 @@
 
 %% higher-level export
 -export([open/1, open/2,
+         set_update_hook/2, set_update_hook/3,
          exec/2, exec/3,
          changes/1, changes/2,
          insert/2,
@@ -68,6 +69,22 @@ open(Filename, Timeout) ->
         {error, _Msg}=Error ->
             Error
     end.
+
+%% @doc Subscribe to database notifications
+%% Messages will come in the shape {action, table, id}
+%% Where action will be insert | update | delete
+%% and table will be a string
+%% and id will be an integer
+%%
+-spec set_update_hook(pid(), connection()) -> ok | {error, term()}.
+set_update_hook(Pid, Connection) ->
+    set_update_hook(Pid, Connection, ?DEFAULT_TIMEOUT).
+
+-spec set_update_hook(pid(), connection(), timeout()) -> ok | {error, term()}.
+set_update_hook(Pid, {connection, _Ref, Connection}, Timeout) ->
+    Ref = make_ref(),
+    ok = esqlite3_nif:set_update_hook(Connection, Ref, self(), Pid),
+    receive_answer(Ref, Timeout).
 
 %% @doc Execute a sql statement, returns a list with tuples.
 -spec q(sql(), connection()) -> list(tuple()) | {error, term()}.
@@ -208,7 +225,7 @@ fetchall_internal(Statement, ChunkSize, Rest) ->
 
 %% Try a number of steps, when the database is busy,
 %% return rows in revers order
--spec try_multi_step(statement(), pos_integer(), list(tuple()), non_neg_integer()) -> 
+-spec try_multi_step(statement(), pos_integer(), list(tuple()), non_neg_integer()) ->
                 {rows, list(tuple())} |
                 {'$done', list(tuple())} |
                 {error, term()}.

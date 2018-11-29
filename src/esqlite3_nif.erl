@@ -23,6 +23,7 @@
 %% low-level exports
 -export([start/0,
          open/4,
+         set_update_hook/4,
          exec/4,
          changes/3,
          insert/4,
@@ -60,6 +61,9 @@ start() ->
 %%  @spec open(connection(), reference(), pid(), string()) -> ok | {error, message()}
 
 open(_Db, _Ref, _Dest, _Filename) ->
+    erlang:nif_error(nif_library_not_loaded).
+
+set_update_hook(_Db, _Ref, _Dest, _Pid) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @doc Exec the query.
