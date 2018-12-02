@@ -1,6 +1,6 @@
 # About Hex.pm Releases
 
-Releases of [esqlite on hex.pm](https://hex.pm/packages/esqlite) are managed by Michael Ries ([@mmmries](https://github.com/mmmries)) and Eric Scouten ([@scouten](https://github.com/scouten)).
+Releases of [esqlite on hex.pm](https://hex.pm/packages/esqlite) are managed by Connor Rigby ([@connorrigby](https://github.com/connorrigby)).
 
 To make a release:
 
