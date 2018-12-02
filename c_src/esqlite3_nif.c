@@ -63,7 +63,8 @@ typedef enum {
     cmd_column_types,
     cmd_close,
     cmd_stop,
-    cmd_insert
+    cmd_insert,
+    cmd_get_autocommit,
 } command_type;
 
 typedef struct {
@@ -487,6 +488,16 @@ do_bind(ErlNifEnv *env, sqlite3 *db, sqlite3_stmt *stmt, const ERL_NIF_TERM arg)
 }
 
 static ERL_NIF_TERM
+do_get_autocommit(ErlNifEnv *env, esqlite_connection *conn)
+{
+    if(sqlite3_get_autocommit(conn->db) != 0) {
+        return make_atom(env, "true");
+    } else {
+        return make_atom(env, "false");
+    }
+}
+
+static ERL_NIF_TERM
 make_binary(ErlNifEnv *env, const void *bytes, unsigned int size)
 {
     ErlNifBinary blob;
@@ -716,6 +727,8 @@ evaluate_command(esqlite_command *cmd, esqlite_connection *conn)
 	    return do_close(cmd->env, conn, cmd->arg);
 	case cmd_insert:
 	    return do_insert(cmd->env, conn, cmd->arg);
+    case cmd_get_autocommit:
+        return do_get_autocommit(cmd->env, conn);
     default:
 	    return make_error_tuple(cmd->env, "invalid_command");
     }
@@ -949,6 +962,34 @@ esqlite_insert(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     cmd->arg = enif_make_copy(cmd->env, argv[3]);
 
     return push_command(env, db, cmd);
+}
+
+static ERL_NIF_TERM
+esqlite_get_autocommit(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    esqlite_connection *db;
+    esqlite_command *cmd = NULL;
+    ErlNifPid pid;
+
+    if(argc != 3)
+        return enif_make_badarg(env);
+    if(!enif_get_resource(env, argv[0], esqlite_connection_type, (void **) &db))
+        return enif_make_badarg(env);
+    if(!enif_is_ref(env, argv[1]))
+        return make_error_tuple(env, "invalid_ref");
+    if(!enif_get_local_pid(env, argv[2], &pid))
+        return make_error_tuple(env, "invalid_pid");
+
+    cmd = command_create();
+    if(!cmd)
+        return make_error_tuple(env, "command_create_failed");
+
+    /* command */
+    cmd->type = cmd_get_autocommit;
+    cmd->ref = enif_make_copy(cmd->env, argv[1]);
+    cmd->pid = pid;
+
+    return push_command(env, db, cmd);   
 }
 
 /*
@@ -1245,6 +1286,7 @@ static ErlNifFunc nif_funcs[] = {
     {"changes", 3, esqlite_changes},
     {"prepare", 4, esqlite_prepare},
     {"insert", 4, esqlite_insert},
+    {"get_autocommit", 3, esqlite_get_autocommit},
     {"multi_step", 5, esqlite_multi_step},
     {"reset", 4, esqlite_reset},
     // TODO: {"esqlite_bind", 3, esqlite_bind_named},

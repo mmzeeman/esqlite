@@ -20,6 +20,17 @@ open_multiple_different_databases_test() ->
     {ok, _C2} = esqlite3:open("test2.db"),
     ok.
 
+get_autocommit_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+    ok = esqlite3:exec("CREATE TABLE test (id INTEGER PRIMARY KEY, val STRING);", Db),
+    true = esqlite3:get_autocommit(Db),
+    ok = esqlite3:exec("BEGIN;", Db),
+    false = esqlite3:get_autocommit(Db),
+    ok = esqlite3:exec("INSERT INTO test (val) VALUES ('this is a test');", Db),
+    ok = esqlite3:exec("COMMIT;", Db),
+    true = esqlite3:get_autocommit(Db),
+    ok.        
+
 update_hook_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
     ok = esqlite3:set_update_hook(self(), Db),
@@ -31,7 +42,6 @@ update_hook_test() ->
     ok = esqlite3:exec("DELETE FROM test WHERE id = 1;", Db),
     ok = receive {delete, "test", 1} -> ok after 150 -> no_message end,
     ok.
-
 
 simple_query_test() ->
     {ok, Db} = esqlite3:open(":memory:"),

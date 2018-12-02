@@ -26,6 +26,8 @@
          exec/2, exec/3,
          changes/1, changes/2,
          insert/2,
+         get_autocommit/1,
+         get_autocommit/2,
          prepare/2, prepare/3,
          step/1, step/2,
          reset/1,
@@ -291,6 +293,17 @@ insert(Sql, Connection) ->
 insert(Sql, {connection, _Ref, Connection}, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:insert(Connection, Ref, self(), Sql),
+    receive_answer(Ref, Timeout).
+
+%% @doc Get autocommit
+%%
+%% @spec get_autocommit(connection) -> true | false
+get_autocommit(Connection) ->
+    get_autocommit(Connection, ?DEFAULT_TIMEOUT).
+
+get_autocommit({connection, _Ref, Connection}, Timeout) ->
+    Ref = make_ref(),
+    ok = esqlite3_nif:get_autocommit(Connection, Ref, self()),
     receive_answer(Ref, Timeout).
 
 %% @doc Prepare a statement
