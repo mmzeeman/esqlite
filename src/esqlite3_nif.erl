@@ -27,6 +27,7 @@
          exec/4,
          changes/3,
          insert/4,
+         get_autocommit/3,
          prepare/4,
          multi_step/5,
          reset/4,
@@ -139,4 +140,10 @@ close(_Db, _Ref, _Dest) ->
 %%
 %% @spec insert(connection(), Ref::reference(), Dest::pid(), string()) -> {ok, integer()} | {error, message()}
 insert(_Db, _Ref, _Dest, _Sql) ->
+    erlang:nif_error(nif_library_not_loaded).
+
+%% @doc Get automcommit
+%%
+%% @spec get_autocommit(connection(), Ref::reference(), Dest::pid()) -> true | false
+get_autocommit(_Db, _Ref, _Dest) ->
     erlang:nif_error(nif_library_not_loaded).
