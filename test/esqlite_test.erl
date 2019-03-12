@@ -29,7 +29,7 @@ get_autocommit_test() ->
     ok = esqlite3:exec("INSERT INTO test (val) VALUES ('this is a test');", Db),
     ok = esqlite3:exec("COMMIT;", Db),
     true = esqlite3:get_autocommit(Db),
-    ok.        
+    ok.
 
 update_hook_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
@@ -360,14 +360,14 @@ sqlite_version_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
     {ok, Stmt} = esqlite3:prepare("select sqlite_version() as sqlite_version;", Db),
     {sqlite_version} =  esqlite3:column_names(Stmt),
-    ?assertEqual({row, {<<"3.26.0">>}}, esqlite3:step(Stmt)),
+    ?assertEqual({row, {<<"3.27.2">>}}, esqlite3:step(Stmt)),
     ok.
 
 sqlite_source_id_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
     {ok, Stmt} = esqlite3:prepare("select sqlite_source_id() as sqlite_source_id;", Db),
     {sqlite_source_id} =  esqlite3:column_names(Stmt),
-    ?assertEqual({row, {<<"2018-12-01 12:34:55 bf8c1b2b7a5960c282e543b9c293686dccff272512d08865f4600fb58238b4f9">>}}, esqlite3:step(Stmt)),
+    ?assertEqual({row, {<<"2019-02-25 16:06:06 bd49a8271d650fa89e446b42e513b595a717b9212c91dd384aab871fc1d0f6d7">>}}, esqlite3:step(Stmt)),
     ok.
 
 garbage_collect_test() ->
