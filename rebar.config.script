@@ -1,0 +1,50 @@
+
+NifSharedSources = ["c_src/esqlite3_nif.c", "c_src/queue.c"].
+NifStaticSources = NifSharedSources ++ ["c_src/sqlite3/sqlite3.c"].
+CFlagsDefault = "$CFLAGS -DSQLITE_THREADSAFE=1 -DSQLITE_USE_URI -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_FTS3_PARENTHESIS".
+DrvLdFlagsDefault = "-shared -lsqlite3".
+
+DrvLdFlags =
+    case os:getenv("ESQLITE_CFLAGS") of
+        NotDefined when NotDefined == false; NotDefined == [] -> DrvLdFlagsDefault;
+        DrvLdFlagsOverride -> DrvLdFlagsOverride
+    end.
+
+{NifSources, LdEnv, CFlagsExt} =
+    case os:getenv("ESQLITE_USE_SYSTEM") of
+        NotDefined when NotDefined == false; NotDefined == [] -> {NifStaticSources, [], []};
+        _Defined -> {NifSharedSources, [{"DRV_LDFLAGS", DrvLdFlags}], " -Ic_src/sqlite3"}
+    end.
+
+CFlags =
+    case os:getenv("ESQLITE_CFLAGS") of
+        NotDefined when NotDefined == false; NotDefined == [] -> CFlagsDefault ++ CFlagsExt;
+        CFlagsOverride -> CFlagsOverride
+    end.
+
+[
+    {require_min_otp_vsn, "R15"},
+    {port_env, [
+        %% Default darwin ldflags causes loading of system sqlite. Removed -bundle flag.
+        {"darwin", "DRV_LDFLAGS",
+            "-flat_namespace -undefined suppress $ERL_LDFLAGS"},
+
+        {"solaris", "CFLAGS",
+            "-std=c99"},
+
+        {"linux", "CFLAGS",
+            "-std=c11"},
+
+        {"CFLAGS", CFlags}
+    ] ++ LdEnv},
+    {port_specs, [
+        {"priv/esqlite3_nif.so", NifSources}
+    ]},
+
+    {plugins, [pc]},
+
+    {provider_hooks,
+        [{post,
+        [{compile, {pc, compile}},
+            {clean, {pc, clean}}]}]}
+].

@@ -7,4 +7,4 @@ priv
 *.o
 *~
 _build
-c_src/*.d
+c_src/**/*.d
