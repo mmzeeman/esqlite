@@ -35,11 +35,12 @@
          fetchone/1,
          fetchall/1,
          fetchall/2,
+         fetchall/3,
          column_names/1, column_names/2,
          column_types/1, column_types/2,
          close/1, close/2]).
 
--export([q/2, q/3, map/3, foreach/3]).
+-export([q/2, q/3, q/4, map/3, foreach/3]).
 
 -define(DEFAULT_TIMEOUT, 5000).
 -define(DEFAULT_CHUNK_SIZE, 5000).
@@ -107,6 +108,17 @@ q(Sql, Args, Connection) ->
         {ok, Statement} ->
             ok = bind(Statement, Args),
             fetchall(Statement);
+        {error, _Msg}=Error ->
+            throw(Error)
+    end.
+
+%% @doc Execute statement, bind args and return a list with tuples as result restricted by timeout.
+-spec q(sql(), list(), connection(), timeout()) -> list(tuple()) | {error, term()}.
+q(Sql, Args, Connection, Timeout) ->
+    case prepare(Sql, Connection, Timeout) of
+        {ok, Statement} ->
+            ok = bind(Statement, Args),
+            fetchall(Statement, ?DEFAULT_CHUNK_SIZE, Timeout);
         {error, _Msg}=Error ->
             throw(Error)
     end.
@@ -199,46 +211,63 @@ fetchone(Statement) ->
                       list(tuple()) |
                       {error, term()}.
 fetchall(Statement) ->
-    fetchall(Statement, ?DEFAULT_CHUNK_SIZE).
+    fetchall(Statement, ?DEFAULT_CHUNK_SIZE, ?DEFAULT_TIMEOUT).
 
 %% @doc Fetch all records
 %% @param Statement is prepared sql statement
 %% @param ChunkSize is a count of rows to read from sqlite and send to erlang process in one bulk.
 %%        Decrease this value if rows are heavy. Default value is 5000 (DEFAULT_CHUNK_SIZE).
-%% @spec fetchall(statement()) -> list(tuple()) | {error, term()}.
+%% @spec fetchall(statement(), pos_integer()) -> list(tuple()) | {error, term()}.
 -spec fetchall(statement(), pos_integer()) ->
                       list(tuple()) |
                       {error, term()}.
 fetchall(Statement, ChunkSize) ->
-    case fetchall_internal(Statement, ChunkSize, []) of
+    fetchall(Statement, ChunkSize, ?DEFAULT_TIMEOUT).
+
+%% @doc Fetch all records
+%% @param Statement is prepared sql statement
+%% @param ChunkSize is a count of rows to read from sqlite and send to erlang process in one bulk.
+%%        Decrease this value if rows are heavy. Default value is 5000 (DEFAULT_CHUNK_SIZE).
+%% @param Timeout is timeout per each request of the one bulk
+%% @spec fetchall(statement()) -> list(tuple()) | {error, term()}.
+-spec fetchall(statement(), pos_integer(), timeout()) ->
+                      list(tuple()) |
+                      {error, term()}.
+fetchall(Statement, ChunkSize, Timeout) ->
+    case fetchall_internal(Statement, ChunkSize, [], Timeout) of
         {'$done', Rows} -> lists:reverse(Rows);
         {error, _} = E -> E
     end.
 
 %% return rows in revers order
--spec fetchall_internal(statement(), pos_integer(), list(tuple())) ->
+-spec fetchall_internal(statement(), pos_integer(), list(tuple()), timeout()) ->
                 {'$done', list(tuple())} |
                 {error, term()}.
-fetchall_internal(Statement, ChunkSize, Rest) ->
-    case try_multi_step(Statement, ChunkSize, Rest, 0) of
-        {rows, Rows} -> fetchall_internal(Statement, ChunkSize, Rows);
+fetchall_internal(Statement, ChunkSize, Rest, Timeout) ->
+    case try_multi_step(Statement, ChunkSize, Rest, 0, Timeout) of
+        {rows, Rows} -> fetchall_internal(Statement, ChunkSize, Rows, Timeout);
         Else -> Else
     end.
 
 %% Try a number of steps, when the database is busy,
 %% return rows in revers order
--spec try_multi_step(statement(), pos_integer(), list(tuple()), non_neg_integer()) ->
+try_multi_step(Statement, ChunkSize, Rest, Tries) ->
+    try_multi_step(Statement, ChunkSize, Rest, Tries, ?DEFAULT_TIMEOUT).
+
+%% Try a number of steps, when the database is busy,
+%% return rows in revers order
+-spec try_multi_step(statement(), pos_integer(), list(tuple()), non_neg_integer(), timeout()) ->
                 {rows, list(tuple())} |
                 {'$done', list(tuple())} |
                 {error, term()}.
-try_multi_step(_Statement, _ChunkSize, _Rest, Tries) when Tries > 5 ->
+try_multi_step(_Statement, _ChunkSize, _Rest, Tries, _Timeout) when Tries > 5 ->
     throw(too_many_tries);
-try_multi_step(Statement, ChunkSize, Rest, Tries) ->
-    case multi_step(Statement, ChunkSize) of
+try_multi_step(Statement, ChunkSize, Rest, Tries, Timeout) ->
+    case multi_step(Statement, ChunkSize, Timeout) of
         {'$busy', Rows} -> %% core can fetch a number of rows (rows < ChunkSize) per 'multi_step' call and then get busy...
             erlang:display({"busy", Tries}),
             timer:sleep(100 * Tries),
-            try_multi_step(Statement, ChunkSize, Rows ++ Rest, Tries + 1);
+            try_multi_step(Statement, ChunkSize, Rows ++ Rest, Tries + 1, Timeout);
         {rows, Rows} ->
             {rows, Rows ++ Rest};
         {'$done', Rows} ->
@@ -342,11 +371,6 @@ step({statement, Stmt, {connection, _, Conn}}, Timeout) ->
         {'$busy', []} -> '$busy';
         Else -> Else
     end.
-
-%% make multiple sqlite steps per call
-%% return rows in reverse order
-multi_step(Stmt, ChunkSize) ->
-    multi_step(Stmt, ChunkSize, ?DEFAULT_TIMEOUT).
 
 %% make multiple sqlite steps per call
 %% return rows in reverse order
