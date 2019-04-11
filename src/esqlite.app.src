@@ -4,7 +4,6 @@
   {vsn, "0.4.0"},
   {modules, [esqlite3, esqlite3_nif]},
   {registered, []},
-  {maintainers, ["Aleph Archives", "Qing Liang <qing.liang.cn@gmail.com>"]},
   {licenses, ["Apache"]},
   {links, [{"Github", "https://github.com/mmzeeman/esqlite"}]},
   {include_files, ["Makefile"]},
