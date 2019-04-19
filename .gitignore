@@ -1,5 +1,6 @@
 .rebar
-rebar
+.rebar3
+rebar3
 ebin
 priv
 .eunit/*
@@ -8,3 +9,4 @@ priv
 *~
 _build
 c_src/**/*.d
+erl_crash.dump
