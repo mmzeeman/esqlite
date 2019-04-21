@@ -12,8 +12,8 @@ DrvLdFlags =
 
 {NifSources, LdEnv, CFlagsExt} =
     case os:getenv("ESQLITE_USE_SYSTEM") of
-        NotDefined when NotDefined == false; NotDefined == [] -> {NifStaticSources, [], []};
-        _Defined -> {NifSharedSources, [{"DRV_LDFLAGS", DrvLdFlags}], " -Ic_src/sqlite3"}
+        NotDefined when NotDefined == false; NotDefined == [] -> {NifStaticSources, [], " -Ic_src/sqlite3"};
+        _Defined -> {NifSharedSources, [{"DRV_LDFLAGS", DrvLdFlags}], []}
     end.
 
 CFlags =

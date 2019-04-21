@@ -22,7 +22,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "sqlite3.h"
+#include <sqlite3.h>
 #include "queue.h"
 
 #define MAX_ATOM_LENGTH 255 /* from atom.h, not exposed in erlang include */
@@ -989,7 +989,7 @@ esqlite_get_autocommit(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     cmd->ref = enif_make_copy(cmd->env, argv[1]);
     cmd->pid = pid;
 
-    return push_command(env, db, cmd);   
+    return push_command(env, db, cmd);
 }
 
 /*
