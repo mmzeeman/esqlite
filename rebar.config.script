@@ -30,10 +30,10 @@ CFlags =
             "-flat_namespace -undefined suppress $ERL_LDFLAGS"},
 
         {"solaris", "CFLAGS",
-            "-std=c99"},
+            "$CFLAGS -std=c99"},
 
         {"linux", "CFLAGS",
-            "-std=c11"},
+            "$CFLAGS -std=c11"},
 
         {"CFLAGS", CFlags}
     ] ++ LdEnv},
