@@ -388,5 +388,21 @@ garbage_collect_test() ->
 
     ok.
 
-
-
+interrupt_on_timeout_test() ->
+    {ok, Db} = esqlite3:open("test.db"),
+    CreateTableQuery = "
+        DROP TABLE IF EXISTS all_numbers_in_the_world;
+        CREATE TABLE all_numbers_in_the_world (number int not null);
+    ",
+    ok = esqlite3:exec(CreateTableQuery, Db),
+    VeryLongQuery = "
+        WITH RECURSIVE
+        for(i) AS (VALUES(1) UNION ALL SELECT i+1 FROM for WHERE i < 10000000)
+            INSERT INTO all_numbers_in_the_world SELECT i FROM for;
+    ",
+    try
+        ok = esqlite3:exec(VeryLongQuery, Db, 10)
+    catch
+        {error, timeout, _} ->
+            ?assertMatch([{_Count}], esqlite3:q("SELECT COUNT(*) FROM all_numbers_in_the_world", Db))
+    end.

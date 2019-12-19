@@ -35,6 +35,7 @@
          bind/5,
          column_names/4,
          column_types/4,
+         interrupt/1,
          close/3
         ]).
 
@@ -129,12 +130,17 @@ column_names(_Db, _Stmt, _Ref, _Dest) ->
 column_types(_Db, _Stmt, _Ref, _Dest) ->
     erlang:nif_error(nif_library_not_loaded).
 
+%% @doc Abort any pending database operation.
+%%
+%% @spec interrupt(connection()) -> ok
+interrupt(_Db) ->
+    erlang:nif_error(nif_library_not_loaded).
+
 %% @doc Close the connection.
 %%
 %% @spec close(connection(), reference(), pid()) -> ok | {error, message()}
 close(_Db, _Ref, _Dest) ->
     erlang:nif_error(nif_library_not_loaded).
-
 
 %% @doc Insert record
 %%
