@@ -1215,6 +1215,20 @@ esqlite_column_types(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     return push_command(env, conn, cmd);
 }
 
+static ERL_NIF_TERM
+esqlite_interrupt(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    esqlite_connection *conn;
+
+    if(!enif_get_resource(env, argv[0], esqlite_connection_type, (void **) &conn))
+        return enif_make_badarg(env);
+
+    esqlite_connection *db = (esqlite_connection *) conn;
+    sqlite3_interrupt(db->db);
+
+    return enif_make_atom(env, "ok");
+}
+
 /*
  * Close the database
  */
@@ -1293,6 +1307,7 @@ static ErlNifFunc nif_funcs[] = {
     {"bind", 5, esqlite_bind},
     {"column_names", 4, esqlite_column_names},
     {"column_types", 4, esqlite_column_types},
+    {"interrupt", 1, esqlite_interrupt},
     {"close", 3, esqlite_close}
 };
 
