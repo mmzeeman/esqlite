@@ -26,6 +26,7 @@
          exec/2, exec/3,
          changes/1, changes/2,
          insert/2,
+         last_insert_rowid/1,
          get_autocommit/1,
          get_autocommit/2,
          prepare/2, prepare/3,
@@ -322,6 +323,20 @@ insert(Sql, Connection) ->
 insert(Sql, {connection, _Ref, Connection}, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:insert(Connection, Ref, self(), Sql),
+    receive_answer(Ref, Timeout).
+
+%% @doc Get the last insert rowid, using the default timeout.
+%%
+%% @spec last_insert_rowid(connection()) -> {ok, integer()} | {error, error_message()}
+last_insert_rowid(Connection) ->
+    last_insert_rowid(Connection, ?DEFAULT_TIMEOUT).
+
+%% @doc Get the last insert rowid.
+%%
+%% @spec last_insert_rowid(connection(), timeout()) -> {ok, integer()} | {error, error_message()}
+last_insert_rowid({connection, _Ref, Connection}, Timeout) ->
+    Ref = make_ref(),
+    ok = esqlite3_nif:last_insert_rowid(Connection, Ref, self()),
     receive_answer(Ref, Timeout).
 
 %% @doc Get autocommit

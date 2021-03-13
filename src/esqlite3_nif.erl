@@ -27,6 +27,7 @@
          exec/4,
          changes/3,
          insert/4,
+         last_insert_rowid/3,
          get_autocommit/3,
          prepare/4,
          multi_step/5,
@@ -140,6 +141,12 @@ close(_Db, _Ref, _Dest) ->
 %%
 %% @spec insert(connection(), Ref::reference(), Dest::pid(), string()) -> {ok, integer()} | {error, message()}
 insert(_Db, _Ref, _Dest, _Sql) ->
+    erlang:nif_error(nif_library_not_loaded).
+
+%% @doc Get the last insert rowid.
+%%
+%% @spec insert(connection(), Ref::reference(), Dest::pid()) -> {ok, integer()} | {error, message()}
+last_insert_rowid(_Db, _Ref, _Dest) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @doc Get automcommit
