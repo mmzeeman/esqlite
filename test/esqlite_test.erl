@@ -103,6 +103,8 @@ bind_test() ->
     esqlite3:step(Statement),
     esqlite3:bind(Statement, [{blob, [<<"eleven">>, 0]}, 12]), % iolist bound as blob with trailing eos.
     esqlite3:step(Statement),
+    esqlite3:bind(Statement, ["empty", undefined]), % 'undefined' is converted to SQL null
+    esqlite3:step(Statement),
 
     %% int64
     esqlite3:bind(Statement, [int64, 308553449069486081]),
@@ -129,6 +131,8 @@ bind_test() ->
         esqlite3:q("select one, two from test_table where two = 10", Db)),
     ?assertEqual([{{blob, <<$e,$l,$e,$v,$e,$n,0>>}, 12}],
         esqlite3:q("select one, two from test_table where two = 12", Db)),
+    ?assertEqual([{<<"empty">>, undefined}], 
+        esqlite3:q("select one, two from test_table where two is null", Db)),
 
     ?assertEqual([{<<"int64">>, 308553449069486081}],
         esqlite3:q("select one, two from test_table where one = 'int64';", Db)),
