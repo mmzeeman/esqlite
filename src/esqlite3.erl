@@ -40,7 +40,7 @@
          column_types/1, column_types/2,
          close/1, close/2]).
 
--export([q/2, q/3, q/4, map/3, foreach/3]).
+-export([q/2, q/3, q/4, map/3, map/4, foreach/3, foreach/4]).
 
 -define(DEFAULT_TIMEOUT, 5000).
 -define(DEFAULT_CHUNK_SIZE, 5000).
@@ -123,7 +123,7 @@ q(Sql, Args, Connection, Timeout) ->
             throw(Error)
     end.
 
-%% @doc
+%% @doc Execute statement and return a list with the result of F for each row.
 -spec map(F, sql(), connection()) -> list(Type) when
       F :: fun((Row) -> Type) | fun((ColumnNames, Row) -> Type),
       Row :: tuple(),
@@ -137,7 +137,24 @@ map(F, Sql, Connection) ->
             throw(Error)
     end.
 
-%% @doc
+%% @doc Execute statement, bind args and return a list with the result of F for each row.
+-spec map(F, sql(), list(), connection()) -> list(Type) when
+      F :: fun((Row) -> Type) | fun((ColumnNames, Row) -> Type),
+      Row :: tuple(),
+      ColumnNames :: tuple(),
+      Type :: any().
+map(F, Sql, [], Connection) ->
+    map(F, Sql, Connection);
+map(F, Sql, Args, Connection) ->
+    case prepare(Sql, Connection) of
+        {ok, Statement} ->
+            ok = bind(Statement, Args),
+            map_s(F, Statement);
+        {error, _Msg}=Error ->
+            throw(Error)
+    end.
+
+%% @doc Execute statement and call F with each row.
 -spec foreach(F, sql(), connection()) -> ok when
       F :: fun((Row) -> any()) | fun((ColumnNames, Row) -> any()),
       Row :: tuple(),
@@ -145,6 +162,22 @@ map(F, Sql, Connection) ->
 foreach(F, Sql, Connection) ->
     case prepare(Sql, Connection) of
         {ok, Statement} ->
+            foreach_s(F, Statement);
+        {error, _Msg}=Error ->
+            throw(Error)
+    end.
+
+%% @doc Execute statement, bind args and call F with each row.
+-spec foreach(F, sql(), list(), connection()) -> ok when
+      F :: fun((Row) -> any()) | fun((ColumnNames, Row) -> any()),
+      Row :: tuple(),
+      ColumnNames :: tuple().
+foreach(F, Sql, [], Connection) ->
+    foreach(F, Sql, Connection);
+foreach(F, Sql, Args, Connection) ->
+    case prepare(Sql, Connection) of
+        {ok, Statement} ->
+            ok = bind(Statement, Args),
             foreach_s(F, Statement);
         {error, _Msg}=Error ->
             throw(Error)

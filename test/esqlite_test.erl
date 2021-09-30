@@ -294,6 +294,31 @@ foreach_test() ->
 
     ok.
 
+bind_for_foreach_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+    ok = esqlite3:exec("begin;", Db),
+    ok = esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
+    ok = esqlite3:exec(["insert into test_table values(", "\"hello1\"", ",", "10" ");"], Db),
+    ok = esqlite3:exec(["insert into test_table values(", "\"hello2\"", ",", "11" ");"], Db),
+    ok = esqlite3:exec(["insert into test_table values(", "\"hello3\"", ",", "12" ");"], Db),
+    ok = esqlite3:exec(["insert into test_table values(", "\"hello4\"", ",", "13" ");"], Db),
+    ok = esqlite3:exec("commit;", Db),
+
+    F = fun(Row) ->
+		case Row of
+		    {Key, Value} ->
+			put(Key, Value);
+		    _ ->
+			ok
+		end
+	end,
+
+    esqlite3:foreach(F, "select * from test_table where one = ?;", ["hello1"], Db),
+
+    10 = get(<<"hello1">>),
+
+    ok.
+
 map_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
     ok = esqlite3:exec("begin;", Db),
@@ -320,6 +345,31 @@ map_test() ->
      [{one,<<"hello4">>},{two,13}]]  = esqlite3:map(Assoc, "select * from test_table", Db),
 
     ok.
+
+bind_for_map_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+    ok = esqlite3:exec("begin;", Db),
+    ok = esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
+    ok = esqlite3:exec(["insert into test_table values(", "\"hello1\"", ",", "10" ");"], Db),
+    ok = esqlite3:exec(["insert into test_table values(", "\"hello2\"", ",", "11" ");"], Db),
+    ok = esqlite3:exec(["insert into test_table values(", "\"hello3\"", ",", "12" ");"], Db),
+    ok = esqlite3:exec(["insert into test_table values(", "\"hello4\"", ",", "13" ");"], Db),
+    ok = esqlite3:exec("commit;", Db),
+
+    F = fun(Row) -> Row end,
+
+    [{<<"hello1">>,10}]
+        = esqlite3:map(F, "select * from test_table where one = ?", ["hello1"], Db),
+
+    %% Test that when the row-names are added..
+    Assoc = fun(Names, Row) ->
+		    lists:zip(tuple_to_list(Names), tuple_to_list(Row))
+	    end,
+
+    [[{one,<<"hello1">>},{two,10}]]  = esqlite3:map(Assoc, "select * from test_table where one = ?", ["hello1"], Db),
+
+    ok.
+
 
 error1_msg_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
