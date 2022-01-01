@@ -38,17 +38,22 @@
          fetchall/3,
          column_names/1, column_names/2,
          column_types/1, column_types/2,
-         close/1, close/2]).
+         close/1, close/2,
+         flush/0
+        ]).
 
 -export([q/2, q/3, q/4, map/3, map/4, foreach/3, foreach/4]).
 
--define(DEFAULT_TIMEOUT, 5000).
+-define(DEFAULT_TIMEOUT, infinity).
 -define(DEFAULT_CHUNK_SIZE, 5000).
 
 %%
+
 -type connection() :: {connection, reference(), term()}.
 -type statement() :: {statement, term(), connection()}.
 -type sql() :: iodata().
+
+-export_types([connection/0, statement/0, sql/0]).
 
 %% @doc Opens a sqlite3 database mentioned in Filename.
 %%
@@ -239,7 +244,6 @@ fetchone(Statement) ->
 
 %% @doc Fetch all records
 %% @param Statement is prepared sql statement
-%% @spec fetchall(statement()) -> list(tuple()) | {error, term()}.
 -spec fetchall(statement()) ->
                       list(tuple()) |
                       {error, term()}.
@@ -250,7 +254,6 @@ fetchall(Statement) ->
 %% @param Statement is prepared sql statement
 %% @param ChunkSize is a count of rows to read from sqlite and send to erlang process in one bulk.
 %%        Decrease this value if rows are heavy. Default value is 5000 (DEFAULT_CHUNK_SIZE).
-%% @spec fetchall(statement(), pos_integer()) -> list(tuple()) | {error, term()}.
 -spec fetchall(statement(), pos_integer()) ->
                       list(tuple()) |
                       {error, term()}.
@@ -262,7 +265,6 @@ fetchall(Statement, ChunkSize) ->
 %% @param ChunkSize is a count of rows to read from sqlite and send to erlang process in one bulk.
 %%        Decrease this value if rows are heavy. Default value is 5000 (DEFAULT_CHUNK_SIZE).
 %% @param Timeout is timeout per each request of the one bulk
-%% @spec fetchall(statement()) -> list(tuple()) | {error, term()}.
 -spec fetchall(statement(), pos_integer(), timeout()) ->
                       list(tuple()) |
                       {error, term()}.
@@ -308,25 +310,25 @@ try_multi_step(Statement, ChunkSize, Rest, Tries, Timeout) ->
         Else -> Else
     end.
 
-%% @doc Execute Sql statement, returns the number of affected rows.
+%% @doc Execute Sql statement.
 %%
-%% @spec exec(iolist(), connection()) -> integer() |  {error, error_message()}
+%% @spec exec(iolist(), connection()) -> ok |  {error, error_message()}
 exec(Sql, Connection) ->
     exec(Sql, Connection, ?DEFAULT_TIMEOUT).
 
 %% @doc Execute
 %%
-%% @spec exec(iolist(), connection(), timeout()) -> integer() | {error, error_message()}
+%% @spec exec(iolist(), connection(), timeout()) -> ok | {error, error_message()}
 exec(Sql, {connection, _Ref, Connection}, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:exec(Connection, Ref, self(), Sql),
     receive_answer(Ref, Timeout);
 
-%% @spec exec(iolist(), list(term()), connection()) -> integer() | {error, error_message()}
+%% @spec exec(iolist(), list(term()), connection()) -> ok | {error, error_message()}
 exec(Sql, Params, {connection, _, _}=Connection) when is_list(Params) ->
     exec(Sql, Params, Connection, ?DEFAULT_TIMEOUT).
 
-%% @spec exec(iolist(), list(term()), connection(), timeout()) -> integer() | {error, error_message()}
+%% @spec exec(iolist(), list(term()), connection(), timeout()) -> ok | {error, error_message()}
 exec(Sql, Params, {connection, _, _}=Connection, Timeout) when is_list(Params) ->
     {ok, Statement} = prepare(Sql, Connection, Timeout),
     bind(Statement, Params),
@@ -479,21 +481,28 @@ close({connection, _Ref, Connection}, Timeout) ->
     ok = esqlite3_nif:close(Connection, Ref, self()),
     receive_answer(Ref, Timeout).
 
+
+%% @doc Flush any stale answers left in the mailbox of the current process.
+%%      This can happen if there has been a timeout. Normally the nif functions
+%%      are called with the default 'infinite' timeout, so calling this is not
+%%      needed.
+-spec flush() -> ok.
+flush() ->
+    flush_answers().
+
+
 %% Internal functions
 
 receive_answer(Ref, Timeout) ->
-    Start = os:timestamp(),
     receive
-        {esqlite3, Ref, Resp} ->
-            Resp;
-        {esqlite3, _, _}=StaleAnswer ->
-            error_logger:warning_msg("Esqlite3: Ignoring stale answer ~p~n", [StaleAnswer]),
-            PassedMics = timer:now_diff(os:timestamp(), Start) div 1000,
-            NewTimeout = case Timeout - PassedMics of
-                             Passed when Passed < 0 -> 0;
-                             TO -> TO
-                         end,
-            receive_answer(Ref, NewTimeout)
-    after Timeout ->
-            throw({error, timeout, Ref})
+        {esqlite3, Ref, Resp} -> Resp
+    after
+        Timeout -> throw({error, timeout, Ref})
+    end.
+
+flush_answers() ->
+    receive
+        {esqlite3, _, _} -> flush_answers()
+    after
+        0 -> ok
     end.
