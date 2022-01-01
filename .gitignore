@@ -10,3 +10,4 @@ priv
 _build
 c_src/**/*.d
 erl_crash.dump
+tags
