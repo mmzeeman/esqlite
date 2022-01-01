@@ -216,13 +216,13 @@ column_types_test() ->
 
     %% All columns
     {ok, Stmt} = esqlite3:prepare("select * from test_table", Db),
-    {'varchar(10)', int} =  esqlite3:column_types(Stmt),
+    ?assertEqual({'varchar(10)', 'INT'}, esqlite3:column_types(Stmt)),
     {row, {<<"hello1">>, 10}} = esqlite3:step(Stmt),
-    {'varchar(10)', int} =  esqlite3:column_types(Stmt),
+    {'varchar(10)', 'INT'} =  esqlite3:column_types(Stmt),
     {row, {<<"hello2">>, 20}} = esqlite3:step(Stmt),
-    {'varchar(10)', int} =  esqlite3:column_types(Stmt),
+    {'varchar(10)', 'INT'} =  esqlite3:column_types(Stmt),
     '$done' = esqlite3:step(Stmt),
-    {'varchar(10)', int} =  esqlite3:column_types(Stmt),
+    {'varchar(10)', 'INT'} =  esqlite3:column_types(Stmt),
 
     %% Some statements have no column types
     {ok, Stmt2} = esqlite3:prepare("create table dummy(a, b, c);", Db),
