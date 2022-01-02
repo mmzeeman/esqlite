@@ -52,20 +52,33 @@
 -type connection() :: {connection, reference(), term()}.
 -type statement() :: {statement, term(), connection()}.
 -type sql() :: iodata().
+-type rowid() :: integer().
+
 
 -export_types([connection/0, statement/0, sql/0]).
 
 %% @doc Opens a sqlite3 database mentioned in Filename.
 %%
--spec open(FileName) -> {ok, connection()} | {error, _} when
-      FileName :: string().
+%% The standard supplied sqlite3 library supports uri filenames, which makes
+%% it possible to open the connection to the database in read-only mode. More
+%% information about this can be found here: [https://sqlite.org/uri.html] 
+%%
+%% Example:
+%%
+%% ```open("file:data.db")'''
+%%     Opens "data.db" in the current working directory
+%% ```open("file:data.db?mode=ro&cache=private")''' 
+%%     Opens "data.db" in read only mode with a private cache
+%% ```open("file:memdb1?mode=memory&cache=shared")'''
+%%     Opens a shared memory database named memdb1 with a shared cache.
+%%
+-spec open(string()) -> {ok, connection()} | {error, _}.
 open(Filename) ->
     open(Filename, ?DEFAULT_TIMEOUT).
 
-%% @doc Open a database connection
+%% @doc Like open/1, but with an additional timeout.
 %%
--spec open(Filename, timeout()) -> {ok, connection()} | {error, _} when
-      Filename :: string().
+-spec open(string(), timeout()) -> {ok, connection()} | {error, _}.
 open(Filename, Timeout) ->
     {ok, Connection} = esqlite3_nif:start(),
 
@@ -78,16 +91,20 @@ open(Filename, Timeout) ->
             Error
     end.
 
-%% @doc Subscribe to database notifications
-%% Messages will come in the shape {action, table, id}
-%% Where action will be insert | update | delete
-%% and table will be a string
-%% and id will be an integer
+%% @doc Subscribe to database notifications. When rows are inserted deleted
+%% or updates, the process will receive messages:
+%% ```{insert, string(), rowid()}'''
+%% When a new row has been inserted.
+%% ```{delete, string(), rowid()}''' 
+%% When a new row has been deleted.
+%% ```{update, string(), rowid()}''' 
+%% When a row has been updated.
 %%
 -spec set_update_hook(pid(), connection()) -> ok | {error, term()}.
 set_update_hook(Pid, Connection) ->
     set_update_hook(Pid, Connection, ?DEFAULT_TIMEOUT).
 
+%% @doc Same as set_update_hook, but with an additional timeout parameter.
 -spec set_update_hook(pid(), connection(), timeout()) -> ok | {error, term()}.
 set_update_hook(Pid, {connection, _Ref, Connection}, Timeout) ->
     Ref = make_ref(),
@@ -97,35 +114,29 @@ set_update_hook(Pid, {connection, _Ref, Connection}, Timeout) ->
 %% @doc Execute a sql statement, returns a list with tuples.
 -spec q(sql(), connection()) -> list(tuple()) | {error, term()}.
 q(Sql, Connection) ->
-    q(Sql, [], Connection).
+    q(Sql, [], Connection, ?DEFAULT_TIMEOUT).
 
 %% @doc Execute statement, bind args and return a list with tuples as result.
 -spec q(sql(), list(), connection()) -> list(tuple()) | {error, term()}.
-q(Sql, [], Connection) ->
-    case prepare(Sql, Connection) of
-        {ok, Statement} ->
-            fetchall(Statement);
-        {error, _Msg}=Error ->
-            throw(Error)
-    end;
 q(Sql, Args, Connection) ->
-    case prepare(Sql, Connection) of
-        {ok, Statement} ->
-            ok = bind(Statement, Args),
-            fetchall(Statement);
-        {error, _Msg}=Error ->
-            throw(Error)
-    end.
+    q(Sql, Args, Connection, ?DEFAULT_TIMEOUT).
 
 %% @doc Execute statement, bind args and return a list with tuples as result restricted by timeout.
 -spec q(sql(), list(), connection(), timeout()) -> list(tuple()) | {error, term()}.
+q(Sql, [], Connection, Timeout) ->
+    case prepare(Sql, Connection, Timeout) of
+        {ok, Statement} ->
+            fetchall(Statement, ?DEFAULT_CHUNK_SIZE, Timeout);
+        {error, _Msg}=Error ->
+            Error
+    end;
 q(Sql, Args, Connection, Timeout) ->
     case prepare(Sql, Connection, Timeout) of
         {ok, Statement} ->
-            ok = bind(Statement, Args),
+            ok = bind(Statement, Args, Timeout),
             fetchall(Statement, ?DEFAULT_CHUNK_SIZE, Timeout);
         {error, _Msg}=Error ->
-            throw(Error)
+            Error
     end.
 
 %% @doc Execute statement and return a list with the result of F for each row.
@@ -312,7 +323,7 @@ try_multi_step(Statement, ChunkSize, Rest, Tries, Timeout) ->
 
 %% @doc Execute Sql statement.
 %%
-%% @spec exec(iolist(), connection()) -> ok |  {error, error_message()}
+-spec exec(sql(), connection()) -> ok |  {error, _}.
 exec(Sql, Connection) ->
     exec(Sql, Connection, ?DEFAULT_TIMEOUT).
 
