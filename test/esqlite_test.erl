@@ -422,11 +422,14 @@ sqlite_source_id_test() ->
 
 garbage_collect_test() ->
     F = fun() ->
-        {ok, Db} = esqlite3:open(":memory:"),
-        [] = esqlite3:q("create table test(one, two, three)", Db),
-        {ok, Stmt} = esqlite3:prepare("select * from test", Db),
-        '$done' = esqlite3:step(Stmt)
-    end,
+                {ok, Db} = esqlite3:open(":memory:"),
+                [] = esqlite3:q("create table test(one, two, three)", Db),
+                [] = esqlite3:q("insert into test values(1, '2', 3.0)", Db), 
+                {ok, Stmt} = esqlite3:prepare("select * from test", Db),
+                {row, {1, <<"2">>, 3.0}} = esqlite3:step(Stmt),
+                '$done' = esqlite3:step(Stmt),
+                ok = esqlite3:close(Db)
+        end,
 
     [spawn(F) || _X <- lists:seq(0,30)],
     receive after 500 -> ok end,
@@ -437,6 +440,4 @@ garbage_collect_test() ->
     erlang:garbage_collect(),
 
     ok.
-
-
 
