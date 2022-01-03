@@ -1,4 +1,4 @@
-Esqlite [![Build Status](https://travis-ci.org/mmzeeman/esqlite.svg?branch=master)](https://travis-ci.org/mmzeeman/esqlite)
+Esqlite ![Test](https://github.com/mmzeeman/esqlite/workflows/Test/badge.svg)
 =======
 
 An Erlang nif library for sqlite3.
