@@ -39,6 +39,11 @@
          close/3
         ]).
 
+-type raw_connection() :: reference().
+-type raw_statement() :: reference().
+
+-export_type([raw_connection/0, raw_statement/0]).
+
 -on_load(init/0).
 
 init() ->
@@ -51,7 +56,7 @@ init() ->
 
 %% @doc Start a low level thread which will can handle sqlite3 calls.
 %%
--spec start() -> {ok, esqlite:connection()} | {error, any()}.
+-spec start() -> {ok, raw_connection()} | {error, _}.
 start() ->
     erlang:nif_error(nif_library_not_loaded).
 
@@ -60,10 +65,11 @@ start() ->
 %% Sends an asynchronous open command over the connection and returns
 %% ok immediately. When the database is opened
 %%
--spec open(esqlite:connection(), reference(), pid(), string()) -> ok | {error, any()}.
+-spec open(raw_connection(), reference(), pid(), string()) -> ok | {error, _}.
 open(_Db, _Ref, _Dest, _Filename) ->
     erlang:nif_error(nif_library_not_loaded).
 
+-spec set_update_hook(raw_connection(), reference(), pid(), pid()) -> ok | {error, _}.
 set_update_hook(_Db, _Ref, _Dest, _Pid) ->
     erlang:nif_error(nif_library_not_loaded).
 
@@ -75,7 +81,7 @@ set_update_hook(_Db, _Ref, _Dest, _Pid) ->
 %% When the statement is executed Dest will receive message {Ref, answer()}
 %% with answer() integer | {error, reason()}
 %%
--spec exec(esqlite:connection(), reference(), pid(), string()) -> ok | {error, any()}.
+-spec exec(raw_connection(), reference(), pid(), string()) -> ok | {error, _}.
 exec(_Db, _Ref, _Dest, _Sql) ->
     erlang:nif_error(nif_library_not_loaded).
 
@@ -83,70 +89,72 @@ exec(_Db, _Ref, _Dest, _Sql) ->
 %%
 %% When the statement is executed Dest will receive message {Ref, answer()}
 %% with answer() integer | {error, reason()}
-%%
+-spec changes(raw_connection(), reference(), pid()) -> ok | {error, _}.
 changes(_Db, _Ref, _Dest) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @doc
 %%
--spec prepare(esqlite:connection(), reference(), pid(), string()) -> ok | {error, any()}.
+-spec prepare(raw_connection(), reference(), pid(), string()) -> ok | {error, _}.
 prepare(_Db, _Ref, _Dest, _Sql) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @doc
 %%
--spec multi_step(esqlite:connection(), esqlite:statement(), pos_integer(), reference(), pid()) -> ok | {error, any()}.
+-spec multi_step(raw_connection(), raw_statement(), pos_integer(), reference(), pid()) -> ok | {error, _}.
 multi_step(_Db, _Stmt, _Chunk_Size, _Ref, _Dest) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @doc
 %%
--spec reset(esqlite:connection(), esqlite:statement(), reference(), pid()) -> ok | {error, any()}.
+-spec reset(raw_connection(), raw_statement(), reference(), pid()) -> ok | {error, _}.
 reset(_Db, _Stmt, _Ref, _Dest) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @doc
 %%
--spec finalize(esqlite:connection(), esqlite:statement(), reference(), pid()) -> ok | {error, any()}.
+-spec finalize(raw_connection(), raw_statement(), reference(), pid()) -> ok | {error, _}.
 finalize(_Db, _Stmt, _Ref, _Dest) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @doc Bind parameters to a prepared statement.
 %%
--spec bind(esqlite:connection(), esqlite:statement(), reference(), pid(), list(any())) -> ok | {error, any()}.
+-spec bind(raw_connection(), raw_statement(), reference(), pid(), list(any())) -> ok | {error, _}.
 bind(_Db, _Stmt, _Ref, _Dest, _Args) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @doc Retrieve the column names of the prepared statement
 %%
--spec column_names(esqlite:connection(), esqlite:statement(), reference(), pid()) -> ok | {error, any()}.
+-spec column_names(raw_connection(), raw_statement(), reference(), pid()) -> ok | {error, _}.
 column_names(_Db, _Stmt, _Ref, _Dest) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @doc Retrieve the column types of the prepared statement
 %%
--spec column_types(esqlite:connection(), esqlite:statement(), reference(), pid()) -> ok | {error, any()}.
+-spec column_types(raw_connection(), raw_statement(), reference(), pid()) -> ok | {error, _}.
 column_types(_Db, _Stmt, _Ref, _Dest) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @doc Interrupt all active queries.
+-spec interrupt(raw_connection()) -> ok.
 interrupt(_Db) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @doc Close the connection.
 %%
--spec close(esqlite:connection(), reference(), pid()) -> ok | {error, any()}.
+-spec close(raw_connection(), reference(), pid()) -> ok | {error, _}.
 close(_Db, _Ref, _Dest) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @doc Insert record
 %%
--spec insert(esqlite:connection(), reference(), pid(), esqlite:sql()) -> ok | {error, any()}.
+-spec insert(raw_connection(), reference(), pid(), esqlite:sql()) -> ok | {error, _}.
 insert(_Db, _Ref, _Dest, _Sql) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @doc Get automcommit
 %%
--spec get_autocommit(esqlite:connection(), reference(), pid()) -> ok | {error, any()}.
+-spec get_autocommit(raw_connection(), reference(), pid()) -> ok | {error, _}.
 get_autocommit(_Db, _Ref, _Dest) ->
     erlang:nif_error(nif_library_not_loaded).
+

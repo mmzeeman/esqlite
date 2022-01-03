@@ -49,8 +49,17 @@
 
 %%
 
--type connection() :: {connection, reference(), term()}.
--type statement() :: {statement, term(), connection()}.
+-record(connection, {
+          raw_connection :: esqlite_nif:raw_connection()
+}).
+
+-record(statement, {
+          raw_statement :: esqlite_nif:raw_statement(),
+          raw_connection :: esqlite_nif:raw_connection()
+}).
+
+-type connection() :: #connection{}. 
+-type statement() :: #statement{}.
 -type sql() :: iodata().
 
 %% erlang -> sqlite type conversions
@@ -92,13 +101,13 @@ open(Filename) ->
 %%
 -spec open(string(), timeout()) -> {ok, connection()} | {error, _}.
 open(Filename, Timeout) ->
-    {ok, Connection} = esqlite3_nif:start(),
+    {ok, RawConnection} = esqlite3_nif:start(),
 
     Ref = make_ref(),
-    ok = esqlite3_nif:open(Connection, Ref, self(), Filename),
-    case receive_answer(Connection, Ref, Timeout) of
+    ok = esqlite3_nif:open(RawConnection, Ref, self(), Filename),
+    case receive_answer(RawConnection, Ref, Timeout) of
         ok ->
-            {ok, {connection, make_ref(), Connection}};
+            {ok, #connection{raw_connection=RawConnection}};
         {error, _Msg}=Error ->
             Error
     end.
@@ -118,10 +127,10 @@ set_update_hook(Pid, Connection) ->
 
 %% @doc Same as set_update_hook, but with an additional timeout parameter.
 -spec set_update_hook(pid(), connection(), timeout()) -> ok | {error, term()}.
-set_update_hook(Pid, {connection, _Ref, Connection}, Timeout) ->
+set_update_hook(Pid, #connection{raw_connection=RawConnection}, Timeout) ->
     Ref = make_ref(),
-    ok = esqlite3_nif:set_update_hook(Connection, Ref, self(), Pid),
-    receive_answer(Connection, Ref, Timeout).
+    ok = esqlite3_nif:set_update_hook(RawConnection, Ref, self(), Pid),
+    receive_answer(RawConnection, Ref, Timeout).
 
 %% @doc Execute a sql statement, returns a list with tuples.
 -spec q(sql(), connection()) -> list(tuple()) | {error, term()}.
@@ -340,16 +349,16 @@ exec(Sql, Connection) ->
     exec(Sql, [], Connection, ?DEFAULT_TIMEOUT).
 
 -spec exec(sql(), list(cell_type()) | connection(), connection() | timeout()) -> ok | {error, _}.
-exec(Sql, {connection, _,_}=Connection, Timeout) ->
+exec(Sql, #connection{}=Connection, Timeout) ->
     exec(Sql, [], Connection, Timeout);
-exec(Sql, Params, Connection) ->
+exec(Sql, Params, #connection{}=Connection) ->
     exec(Sql, Params, Connection, ?DEFAULT_TIMEOUT).
 
 -spec exec(sql(), list(cell_type()), connection(), timeout()) -> ok | {error, _}.
-exec(Sql, [], {connection, _Ref, Connection}, Timeout) ->
+exec(Sql, [], #connection{raw_connection=RawConnection}, Timeout) ->
     Ref = make_ref(),
-    ok = esqlite3_nif:exec(Connection, Ref, self(), Sql),
-    receive_answer(Connection, Ref, Timeout);
+    ok = esqlite3_nif:exec(RawConnection, Ref, self(), Sql),
+    receive_answer(RawConnection, Ref, Timeout);
 exec(Sql, Params, Connection, Timeout) ->
     {ok, Statement} = prepare(Sql, Connection, Timeout),
     bind(Statement, Params),
@@ -362,10 +371,10 @@ changes(Connection) ->
     changes(Connection, ?DEFAULT_TIMEOUT).
 
 -spec changes(connection(), timeout()) -> non_neg_integer().
-changes({connection, _Ref, Connection}, Timeout) ->
+changes(#connection{raw_connection=RawConnection}, Timeout) ->
     Ref = make_ref(),
-    ok = esqlite3_nif:changes(Connection, Ref, self()),
-    receive_answer(Connection, Ref, Timeout).
+    ok = esqlite3_nif:changes(RawConnection, Ref, self()),
+    receive_answer(RawConnection, Ref, Timeout).
 
 %% @doc Insert records, returns the last rowid.
 %%
@@ -375,10 +384,10 @@ insert(Sql, Connection) ->
 
 %% @doc Like insert/2, but with extra timeout parameter.
 -spec insert(sql(), connection(), timeout()) -> {ok, rowid()} |  {error, _}.
-insert(Sql, {connection, _Ref, Connection}, Timeout) ->
+insert(Sql, #connection{raw_connection=RawConnection}, Timeout) ->
     Ref = make_ref(),
-    ok = esqlite3_nif:insert(Connection, Ref, self(), Sql),
-    receive_answer(Connection, Ref, Timeout).
+    ok = esqlite3_nif:insert(RawConnection, Ref, self(), Sql),
+    receive_answer(RawConnection, Ref, Timeout).
 
 %% @doc Check if the connection is in auto-commit mode.
 %% See: [https://sqlite.org/c3ref/get_autocommit.html] for more details.
@@ -389,10 +398,10 @@ get_autocommit(Connection) ->
 
 %% @doc Like autocommit/1, but with an extra timeout attribute.
 -spec get_autocommit(connection(), timeout()) -> true | false.
-get_autocommit({connection, _Ref, Connection}, Timeout) ->
+get_autocommit(#connection{raw_connection=RawConnection}, Timeout) ->
     Ref = make_ref(),
-    ok = esqlite3_nif:get_autocommit(Connection, Ref, self()),
-    receive_answer(Connection, Ref, Timeout).
+    ok = esqlite3_nif:get_autocommit(RawConnection, Ref, self()),
+    receive_answer(RawConnection, Ref, Timeout).
 
 %% @doc Compile a SQL statement. Returns a cached compiled statement which can be used in
 %% queries.
@@ -403,12 +412,14 @@ prepare(Sql, Connection) ->
 
 %% @doc Like prepare/2, but with an extra timeout value.
 -spec prepare(sql(), connection(), timeout()) -> {ok, statement()} | {error, _}.
-prepare(Sql, {connection, _Ref, Connection}=C, Timeout) ->
+prepare(Sql, #connection{raw_connection=RawConnection}, Timeout) ->
     Ref = make_ref(),
-    ok = esqlite3_nif:prepare(Connection, Ref, self(), Sql),
-    case receive_answer(Connection, Ref, Timeout) of
-        {ok, Stmt} -> {ok, {statement, Stmt, C}};
-        Else -> Else
+    ok = esqlite3_nif:prepare(RawConnection, Ref, self(), Sql),
+    case receive_answer(RawConnection, Ref, Timeout) of
+        {ok, Stmt} ->
+            {ok, #statement{raw_statement=Stmt, raw_connection=RawConnection}};
+        Else ->
+            Else
     end.
 
 %% @doc Step
@@ -420,10 +431,10 @@ step(Stmt) ->
 %% @doc
 %%
 -spec step(statement(), timeout()) -> tuple() | '$busy' | '$done'.
-step({statement, Stmt, {connection, _, Conn}}, Timeout) ->
+step(#statement{raw_statement=RawStatement, raw_connection=RawConnection}, Timeout) ->
     Ref = make_ref(),
-    ok = esqlite3_nif:multi_step(Conn, Stmt, 1, Ref, self()),
-    case receive_answer(Conn, Ref, Timeout) of
+    ok = esqlite3_nif:multi_step(RawConnection, RawStatement, 1, Ref, self()),
+    case receive_answer(RawConnection, Ref, Timeout) of
         {rows, [Row | []]} -> {row, Row};
         {'$done', []} -> '$done';
         {'$busy', []} -> '$busy';
@@ -437,18 +448,18 @@ step({statement, Stmt, {connection, _, Conn}}, Timeout) ->
                 {'$busy', list(tuple())} |
                 {'$done', list(tuple())} |
                 {error, term()}.
-multi_step({statement, Stmt, {connection, _, Conn}}, ChunkSize, Timeout) ->
+multi_step(#statement{raw_statement=RawStatement, raw_connection=RawConnection}, ChunkSize, Timeout) ->
     Ref = make_ref(),
-    ok = esqlite3_nif:multi_step(Conn, Stmt, ChunkSize, Ref, self()),
-    receive_answer(Conn, Ref, Timeout).
+    ok = esqlite3_nif:multi_step(RawConnection, RawStatement, ChunkSize, Ref, self()),
+    receive_answer(RawConnection, Ref, Timeout).
 
 %% @doc Reset the prepared statement back to its initial state.
 %%
 -spec reset(statement()) -> ok | {error, _}.
-reset({statement, Stmt, {connection, _, Conn}}) ->
+reset(#statement{raw_statement=RawStatement, raw_connection=RawConnection}) ->
     Ref = make_ref(),
-    ok = esqlite3_nif:reset(Conn, Stmt, Ref, self()),
-    receive_answer(Conn, Ref, ?DEFAULT_TIMEOUT).
+    ok = esqlite3_nif:reset(RawConnection, RawStatement, Ref, self()),
+    receive_answer(RawConnection, Ref, ?DEFAULT_TIMEOUT).
 
 %% @doc Bind values to prepared statements
 %%
@@ -458,10 +469,10 @@ bind(Stmt, Args) ->
 
 %% @doc Bind values to prepared statements
 -spec bind(statement(), list(cell_type()), timeout()) -> ok | {error, _}.
-bind({statement, Stmt, {connection, _, Conn}}, Args, Timeout) ->
+bind(#statement{raw_statement=RawStatement, raw_connection=RawConnection}, Args, Timeout) ->
     Ref = make_ref(),
-    ok = esqlite3_nif:bind(Conn, Stmt, Ref, self(), Args),
-    receive_answer(Conn, Ref, Timeout).
+    ok = esqlite3_nif:bind(RawConnection, RawStatement, Ref, self(), Args),
+    receive_answer(RawConnection, Ref, Timeout).
 
 %% @doc Return the column names of the prepared statement.
 %%
@@ -470,22 +481,22 @@ column_names(Stmt) ->
     column_names(Stmt, ?DEFAULT_TIMEOUT).
 
 -spec column_names(statement(), timeout()) -> {atom()}.
-column_names({statement, Stmt, {connection, _, Conn}}, Timeout) ->
+column_names(#statement{raw_statement=RawStatement, raw_connection=RawConnection}, Timeout) ->
     Ref = make_ref(),
-    ok = esqlite3_nif:column_names(Conn, Stmt, Ref, self()),
-    receive_answer(Conn, Ref, Timeout).
+    ok = esqlite3_nif:column_names(RawConnection, RawStatement, Ref, self()),
+    receive_answer(RawConnection, Ref, Timeout).
 
 %% @doc Return the column types of the prepared statement.
 %%
 -spec column_types(statement()) -> {atom()}.
-column_types(Stmt) ->
-    column_types(Stmt, ?DEFAULT_TIMEOUT).
+column_types(Statement) ->
+    column_types(Statement, ?DEFAULT_TIMEOUT).
 
 -spec column_types(statement(), timeout()) -> {atom()}.
-column_types({statement, Stmt, {connection, _, Conn}}, Timeout) ->
+column_types(#statement{raw_statement=RawStatement, raw_connection=RawConnection}, Timeout) ->
     Ref = make_ref(),
-    ok = esqlite3_nif:column_types(Conn, Stmt, Ref, self()),
-    receive_answer(Conn, Ref, Timeout).
+    ok = esqlite3_nif:column_types(RawConnection, RawStatement, Ref, self()),
+    receive_answer(RawConnection, Ref, Timeout).
 
 %% @doc Close the database
 -spec close(connection()) -> ok | {error, _}.
@@ -494,10 +505,10 @@ close(Connection) ->
 
 %% @doc Close the database
 -spec close(connection(), timeout()) -> ok | {error, _}.
-close({connection, _Ref, Connection}, Timeout) ->
+close(#connection{raw_connection=RawConnection}, Timeout) ->
     Ref = make_ref(),
-    ok = esqlite3_nif:close(Connection, Ref, self()),
-    receive_answer(Connection, Ref, Timeout).
+    ok = esqlite3_nif:close(RawConnection, Ref, self()),
+    receive_answer(RawConnection, Ref, Timeout).
 
 
 %% @doc Flush any stale answers left in the mailbox of the current process.
@@ -511,12 +522,12 @@ flush() ->
 
 %% Internal functions
 
-receive_answer(Connection, Ref, Timeout) ->
+receive_answer(RawConnection, Ref, Timeout) ->
     receive
         {esqlite3, Ref, Resp} -> Resp
     after
         Timeout ->
-            ok = esqlite3_nif:interrupt(Connection),
+            ok = esqlite3_nif:interrupt(RawConnection),
             throw({error, timeout, Ref})
     end.
 
