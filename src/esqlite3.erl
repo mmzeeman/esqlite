@@ -447,7 +447,7 @@ step(#statement{raw_statement=RawStatement, raw_connection=RawConnection}, Timeo
                 {rows, list(tuple())} |
                 {'$busy', list(tuple())} |
                 {'$done', list(tuple())} |
-                {error, term()}.
+                {error, _}.
 multi_step(#statement{raw_statement=RawStatement, raw_connection=RawConnection}, ChunkSize, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:multi_step(RawConnection, RawStatement, ChunkSize, Ref, self()),
