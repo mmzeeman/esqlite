@@ -393,7 +393,7 @@ last_insert_rowid(Connection) ->
 last_insert_rowid({connection, _Ref, Connection}, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:last_insert_rowid(Connection, Ref, self()),
-    receive_answer(Ref, Timeout).
+    receive_answer(Connection, Ref, Timeout).
 
 %% @doc Get autocommit
 %% @doc Check if the connection is in auto-commit mode.
