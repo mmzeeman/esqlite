@@ -420,6 +420,28 @@ sqlite_source_id_test() ->
     ?assertEqual({row, {<<"2021-12-30 15:30:28 378629bf2ea546f73eee84063c5358439a12f7300e433f18c9e1bddd948dea62">>}}, esqlite3:step(Stmt)),
     ok.
 
+interrupt_on_timeout_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+    CreateTableQuery = "CREATE TABLE all_numbers_in_the_world (number int not null);",
+    ok = esqlite3:exec(CreateTableQuery, Db),
+    VeryLongQuery = "
+         WITH RECURSIVE
+         for(i) AS (VALUES(1) UNION ALL SELECT i+1 FROM for WHERE i < 10000000)
+             INSERT INTO all_numbers_in_the_world SELECT i FROM for;
+     ",
+    try
+        ok = esqlite3:exec(VeryLongQuery, [], Db, 10)
+    catch
+        {error, timeout, _} ->
+            ?assertMatch([{0}], esqlite3:q("SELECT COUNT(*) FROM all_numbers_in_the_world", Db)),
+            %% There is now a stale answer, because the recursive query was interrupted.
+            receive 
+                {esqlite3, _, {error, {interrupt, "interrupted"}}} ->
+                    ok
+            end
+    end.
+
+
 garbage_collect_test() ->
     F = fun() ->
                 {ok, Db} = esqlite3:open(":memory:"),
