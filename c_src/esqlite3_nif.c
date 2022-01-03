@@ -416,20 +416,24 @@ bind_cell(ErlNifEnv *env, const ERL_NIF_TERM cell, sqlite3_stmt *stmt, unsigned 
     const ERL_NIF_TERM* tuple;
 
     if(enif_get_int(env, cell, &the_int))
-	    return sqlite3_bind_int(stmt, i, the_int);
+        return sqlite3_bind_int(stmt, i, the_int);
 
     if(enif_get_int64(env, cell, &the_long_int))
         return sqlite3_bind_int64(stmt, i, the_long_int);
 
     if(enif_get_double(env, cell, &the_double))
-	    return sqlite3_bind_double(stmt, i, the_double);
+        return sqlite3_bind_double(stmt, i, the_double);
 
     if(enif_get_atom(env, cell, the_atom, sizeof(the_atom), ERL_NIF_LATIN1)) {
-	    if(strcmp("undefined", the_atom) == 0) {
-	       return sqlite3_bind_null(stmt, i);
-	    }
+        if(strncmp("undefined", the_atom, strlen("undefined")) == 0) {
+            return sqlite3_bind_null(stmt, i);
+        }  
 
-	    return sqlite3_bind_text(stmt, i, the_atom, strlen(the_atom), SQLITE_TRANSIENT);
+        if(strncmp("null", the_atom, strlen("null")) == 0) {
+            return sqlite3_bind_null(stmt, i);
+        }
+
+        return sqlite3_bind_text(stmt, i, the_atom, strlen(the_atom), SQLITE_TRANSIENT);
     }
 
     /* Bind as text assume it is utf-8 encoded text */
@@ -448,7 +452,7 @@ bind_cell(ErlNifEnv *env, const ERL_NIF_TERM cell, sqlite3_stmt *stmt, unsigned 
                 /* with a iolist as argument */
                 if(enif_inspect_iolist_as_binary(env, tuple[1], &the_blob)) {
                     /* kaboom... get the blob */
-	                return sqlite3_bind_blob(stmt, i, the_blob.data, the_blob.size, SQLITE_TRANSIENT);
+                    return sqlite3_bind_blob(stmt, i, the_blob.data, the_blob.size, SQLITE_TRANSIENT);
                 }
             }
         }

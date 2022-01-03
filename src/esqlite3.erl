@@ -38,29 +38,59 @@
          fetchall/3,
          column_names/1, column_names/2,
          column_types/1, column_types/2,
-         close/1, close/2]).
+         close/1, close/2,
+         flush/0
+        ]).
 
 -export([q/2, q/3, q/4, map/3, map/4, foreach/3, foreach/4]).
 
--define(DEFAULT_TIMEOUT, 5000).
+-define(DEFAULT_TIMEOUT, infinity).
 -define(DEFAULT_CHUNK_SIZE, 5000).
 
 %%
+
 -type connection() :: {connection, reference(), term()}.
 -type statement() :: {statement, term(), connection()}.
 -type sql() :: iodata().
 
+%% erlang -> sqlite type conversions
+%%
+%% 'undefined' -> null
+%% 'null' -> null
+%% atom() -> text
+%% int() -> int or int64
+%% float() -> double
+%% string() -> text
+%% binary() -> text
+
+-type rowid() :: integer().
+-type row() :: tuple(). % tuple of cell_type
+-type cell_type() :: undefined | integer() | binary() | float(). 
+
+-export_types([connection/0, statement/0, sql/0, row/0, row_id/0, cell_type/0]).
+
 %% @doc Opens a sqlite3 database mentioned in Filename.
 %%
--spec open(FileName) -> {ok, connection()} | {error, _} when
-      FileName :: string().
+%% The standard supplied sqlite3 library supports uri filenames, which makes
+%% it possible to open the connection to the database in read-only mode. More
+%% information about this can be found here: [https://sqlite.org/uri.html] 
+%%
+%% Example:
+%%
+%% ```open("file:data.db")'''
+%%     Opens "data.db" in the current working directory
+%% ```open("file:data.db?mode=ro&cache=private")''' 
+%%     Opens "data.db" in read only mode with a private cache
+%% ```open("file:memdb1?mode=memory&cache=shared")'''
+%%     Opens a shared memory database named memdb1 with a shared cache.
+%%
+-spec open(string()) -> {ok, connection()} | {error, _}.
 open(Filename) ->
     open(Filename, ?DEFAULT_TIMEOUT).
 
-%% @doc Open a database connection
+%% @doc Like open/1, but with an additional timeout.
 %%
--spec open(Filename, timeout()) -> {ok, connection()} | {error, _} when
-      Filename :: string().
+-spec open(string(), timeout()) -> {ok, connection()} | {error, _}.
 open(Filename, Timeout) ->
     {ok, Connection} = esqlite3_nif:start(),
 
@@ -73,16 +103,20 @@ open(Filename, Timeout) ->
             Error
     end.
 
-%% @doc Subscribe to database notifications
-%% Messages will come in the shape {action, table, id}
-%% Where action will be insert | update | delete
-%% and table will be a string
-%% and id will be an integer
+%% @doc Subscribe to database notifications. When rows are inserted deleted
+%% or updates, the process will receive messages:
+%% ```{insert, string(), rowid()}'''
+%% When a new row has been inserted.
+%% ```{delete, string(), rowid()}''' 
+%% When a new row has been deleted.
+%% ```{update, string(), rowid()}''' 
+%% When a row has been updated.
 %%
 -spec set_update_hook(pid(), connection()) -> ok | {error, term()}.
 set_update_hook(Pid, Connection) ->
     set_update_hook(Pid, Connection, ?DEFAULT_TIMEOUT).
 
+%% @doc Same as set_update_hook, but with an additional timeout parameter.
 -spec set_update_hook(pid(), connection(), timeout()) -> ok | {error, term()}.
 set_update_hook(Pid, {connection, _Ref, Connection}, Timeout) ->
     Ref = make_ref(),
@@ -92,35 +126,29 @@ set_update_hook(Pid, {connection, _Ref, Connection}, Timeout) ->
 %% @doc Execute a sql statement, returns a list with tuples.
 -spec q(sql(), connection()) -> list(tuple()) | {error, term()}.
 q(Sql, Connection) ->
-    q(Sql, [], Connection).
+    q(Sql, [], Connection, ?DEFAULT_TIMEOUT).
 
 %% @doc Execute statement, bind args and return a list with tuples as result.
 -spec q(sql(), list(), connection()) -> list(tuple()) | {error, term()}.
-q(Sql, [], Connection) ->
-    case prepare(Sql, Connection) of
-        {ok, Statement} ->
-            fetchall(Statement);
-        {error, _Msg}=Error ->
-            throw(Error)
-    end;
 q(Sql, Args, Connection) ->
-    case prepare(Sql, Connection) of
-        {ok, Statement} ->
-            ok = bind(Statement, Args),
-            fetchall(Statement);
-        {error, _Msg}=Error ->
-            throw(Error)
-    end.
+    q(Sql, Args, Connection, ?DEFAULT_TIMEOUT).
 
 %% @doc Execute statement, bind args and return a list with tuples as result restricted by timeout.
--spec q(sql(), list(), connection(), timeout()) -> list(tuple()) | {error, term()}.
+-spec q(sql(), list(), connection(), timeout()) -> list(row()) | {error, term()}.
+q(Sql, [], Connection, Timeout) ->
+    case prepare(Sql, Connection, Timeout) of
+        {ok, Statement} ->
+            fetchall(Statement, ?DEFAULT_CHUNK_SIZE, Timeout);
+        {error, _Msg}=Error ->
+            Error
+    end;
 q(Sql, Args, Connection, Timeout) ->
     case prepare(Sql, Connection, Timeout) of
         {ok, Statement} ->
-            ok = bind(Statement, Args),
+            ok = bind(Statement, Args, Timeout),
             fetchall(Statement, ?DEFAULT_CHUNK_SIZE, Timeout);
         {error, _Msg}=Error ->
-            throw(Error)
+            Error
     end.
 
 %% @doc Execute statement and return a list with the result of F for each row.
@@ -229,7 +257,7 @@ map_s(F, Statement) when is_function(F, 2) ->
     end.
 
 %%
-%%-spec fetchone(statement()) -> tuple().
+-spec fetchone(statement()) -> tuple().
 fetchone(Statement) ->
     case try_multi_step(Statement, 1, [], 0) of
         {'$done', []} -> ok;
@@ -239,7 +267,6 @@ fetchone(Statement) ->
 
 %% @doc Fetch all records
 %% @param Statement is prepared sql statement
-%% @spec fetchall(statement()) -> list(tuple()) | {error, term()}.
 -spec fetchall(statement()) ->
                       list(tuple()) |
                       {error, term()}.
@@ -250,7 +277,6 @@ fetchall(Statement) ->
 %% @param Statement is prepared sql statement
 %% @param ChunkSize is a count of rows to read from sqlite and send to erlang process in one bulk.
 %%        Decrease this value if rows are heavy. Default value is 5000 (DEFAULT_CHUNK_SIZE).
-%% @spec fetchall(statement(), pos_integer()) -> list(tuple()) | {error, term()}.
 -spec fetchall(statement(), pos_integer()) ->
                       list(tuple()) |
                       {error, term()}.
@@ -262,7 +288,6 @@ fetchall(Statement, ChunkSize) ->
 %% @param ChunkSize is a count of rows to read from sqlite and send to erlang process in one bulk.
 %%        Decrease this value if rows are heavy. Default value is 5000 (DEFAULT_CHUNK_SIZE).
 %% @param Timeout is timeout per each request of the one bulk
-%% @spec fetchall(statement()) -> list(tuple()) | {error, term()}.
 -spec fetchall(statement(), pos_integer(), timeout()) ->
                       list(tuple()) |
                       {error, term()}.
@@ -272,7 +297,7 @@ fetchall(Statement, ChunkSize, Timeout) ->
         {error, _} = E -> E
     end.
 
-%% return rows in revers order
+%% return rows in reverse order
 -spec fetchall_internal(statement(), pos_integer(), list(tuple()), timeout()) ->
                 {'$done', list(tuple())} |
                 {error, term()}.
@@ -308,36 +333,33 @@ try_multi_step(Statement, ChunkSize, Rest, Tries, Timeout) ->
         Else -> Else
     end.
 
-%% @doc Execute Sql statement, returns the number of affected rows.
+%% @doc Execute Sql statement.
 %%
-%% @spec exec(iolist(), connection()) -> integer() |  {error, error_message()}
+-spec exec(sql(), connection()) -> ok |  {error, _}.
 exec(Sql, Connection) ->
-    exec(Sql, Connection, ?DEFAULT_TIMEOUT).
+    exec(Sql, [], Connection, ?DEFAULT_TIMEOUT).
 
-%% @doc Execute
-%%
-%% @spec exec(iolist(), connection(), timeout()) -> integer() | {error, error_message()}
-exec(Sql, {connection, _Ref, Connection}, Timeout) ->
+-spec exec(sql(), list(cell_type()), connection()) -> ok | {error, _}.
+exec(Sql, Params, Connection) ->
+    exec(Sql, Params, Connection, ?DEFAULT_TIMEOUT).
+
+-spec exec(sql(), list(cell_type()), connection(), timeout()) -> ok | {error, _}.
+exec(Sql, [], {connection, _Ref, Connection}, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:exec(Connection, Ref, self(), Sql),
     receive_answer(Ref, Timeout);
-
-%% @spec exec(iolist(), list(term()), connection()) -> integer() | {error, error_message()}
-exec(Sql, Params, {connection, _, _}=Connection) when is_list(Params) ->
-    exec(Sql, Params, Connection, ?DEFAULT_TIMEOUT).
-
-%% @spec exec(iolist(), list(term()), connection(), timeout()) -> integer() | {error, error_message()}
-exec(Sql, Params, {connection, _, _}=Connection, Timeout) when is_list(Params) ->
+exec(Sql, Params, Connection, Timeout) ->
     {ok, Statement} = prepare(Sql, Connection, Timeout),
     bind(Statement, Params),
     step(Statement, Timeout).
 
 
 %% @doc Return the number of affected rows of last statement.
+-spec changes(connection()) -> non_neg_integer().
 changes(Connection) ->
     changes(Connection, ?DEFAULT_TIMEOUT).
 
-%% @doc Return the number of affected rows of last statement.
+-spec changes(connection(), timeout()) -> non_neg_integer().
 changes({connection, _Ref, Connection}, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:changes(Connection, Ref, self()),
@@ -345,38 +367,40 @@ changes({connection, _Ref, Connection}, Timeout) ->
 
 %% @doc Insert records, returns the last rowid.
 %%
-%% @spec insert(iolist(), connection()) -> {ok, integer()} |  {error, error_message()}
+-spec insert(sql(), connection()) -> {ok, rowid()} |  {error, _}.
 insert(Sql, Connection) ->
     insert(Sql, Connection, ?DEFAULT_TIMEOUT).
 
-%% @doc Insert
-%%
-%% @spec insert(iolist(), connection(), timeout()) -> {ok, integer()} | {error, error_message()}
+%% @doc Like insert/2, but with extra timeout parameter.
+-spec insert(sql(), connection(), timeout()) -> {ok, rowid()} |  {error, _}.
 insert(Sql, {connection, _Ref, Connection}, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:insert(Connection, Ref, self(), Sql),
     receive_answer(Ref, Timeout).
 
-%% @doc Get autocommit
+%% @doc Check if the connection is in auto-commit mode.
+%% See: [https://sqlite.org/c3ref/get_autocommit.html] for more details.
 %%
-%% @spec get_autocommit(connection) -> true | false
+-spec get_autocommit(connection()) -> true | false.
 get_autocommit(Connection) ->
     get_autocommit(Connection, ?DEFAULT_TIMEOUT).
 
+%% @doc Like autocommit/1, but with an extra timeout attribute.
+-spec get_autocommit(connection(), timeout()) -> true | false.
 get_autocommit({connection, _Ref, Connection}, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:get_autocommit(Connection, Ref, self()),
     receive_answer(Ref, Timeout).
 
-%% @doc Prepare a statement
+%% @doc Compile a SQL statement. Returns a cached compiled statement which can be used in
+%% queries.
 %%
-%% @spec prepare(iolist(), connection()) -> {ok, prepared_statement()} | {error, error_message()}
+-spec prepare(sql(), connection()) -> {ok, statement()} | {error, _}.
 prepare(Sql, Connection) ->
     prepare(Sql, Connection, ?DEFAULT_TIMEOUT).
 
-%% @doc
-%%
-%% @spec(iolist(), connection(), timeout()) -> {ok, prepared_statement()} | {error, error_message()}
+%% @doc Like prepare/2, but with an extra timeout value.
+-spec prepare(sql(), connection(), timeout()) -> {ok, statement()} | {error, _}.
 prepare(Sql, {connection, _Ref, Connection}=C, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:prepare(Connection, Ref, self(), Sql),
@@ -387,14 +411,13 @@ prepare(Sql, {connection, _Ref, Connection}=C, Timeout) ->
 
 %% @doc Step
 %%
-%% @spec step(prepared_statement()) -> tuple()
+-spec step(statement()) -> tuple() | '$busy' | '$done'.
 step(Stmt) ->
     step(Stmt, ?DEFAULT_TIMEOUT).
 
 %% @doc
 %%
-%% @spec step(prepared_statement(), timeout()) -> tuple()
--spec step(term(), timeout()) -> tuple() | '$busy' | '$done'.
+-spec step(statement(), timeout()) -> tuple() | '$busy' | '$done'.
 step({statement, Stmt, {connection, _, Conn}}, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:multi_step(Conn, Stmt, 1, Ref, self()),
@@ -419,7 +442,7 @@ multi_step({statement, Stmt, {connection, _, Conn}}, ChunkSize, Timeout) ->
 
 %% @doc Reset the prepared statement back to its initial state.
 %%
-%% @spec reset(prepared_statement()) -> ok | {error, error_message()}
+-spec reset(statement()) -> ok | {error, _}.
 reset({statement, Stmt, {connection, _, Conn}}) ->
     Ref = make_ref(),
     ok = esqlite3_nif:reset(Conn, Stmt, Ref, self()),
@@ -427,13 +450,12 @@ reset({statement, Stmt, {connection, _, Conn}}) ->
 
 %% @doc Bind values to prepared statements
 %%
-%% @spec bind(prepared_statement(), value_list()) -> ok | {error, error_message()}
+-spec bind(statement(), list(cell_type())) -> ok | {error, _}.
 bind(Stmt, Args) ->
     bind(Stmt, Args, ?DEFAULT_TIMEOUT).
 
 %% @doc Bind values to prepared statements
-%%
-%% @spec bind(prepared_statement(), [], timeout()) -> ok | {error, error_message()}
+-spec bind(statement(), list(cell_type()), timeout()) -> ok | {error, _}.
 bind({statement, Stmt, {connection, _, Conn}}, Args, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:bind(Conn, Stmt, Ref, self(), Args),
@@ -464,36 +486,39 @@ column_types({statement, Stmt, {connection, _, Conn}}, Timeout) ->
     receive_answer(Ref, Timeout).
 
 %% @doc Close the database
-%%
-%% @spec close(connection()) -> ok | {error, error_message()}
 -spec close(connection()) -> ok | {error, _}.
 close(Connection) ->
     close(Connection, ?DEFAULT_TIMEOUT).
 
 %% @doc Close the database
-%%
-%% @spec close(connection(), integer()) -> ok | {error, error_message()}
 -spec close(connection(), timeout()) -> ok | {error, _}.
 close({connection, _Ref, Connection}, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:close(Connection, Ref, self()),
     receive_answer(Ref, Timeout).
 
+
+%% @doc Flush any stale answers left in the mailbox of the current process.
+%%      This can happen if there has been a timeout. Normally the nif functions
+%%      are called with the default 'infinite' timeout, so calling this is not
+%%      needed.
+-spec flush() -> ok.
+flush() ->
+    flush_answers().
+
+
 %% Internal functions
 
 receive_answer(Ref, Timeout) ->
-    Start = os:timestamp(),
     receive
-        {esqlite3, Ref, Resp} ->
-            Resp;
-        {esqlite3, _, _}=StaleAnswer ->
-            error_logger:warning_msg("Esqlite3: Ignoring stale answer ~p~n", [StaleAnswer]),
-            PassedMics = timer:now_diff(os:timestamp(), Start) div 1000,
-            NewTimeout = case Timeout - PassedMics of
-                             Passed when Passed < 0 -> 0;
-                             TO -> TO
-                         end,
-            receive_answer(Ref, NewTimeout)
-    after Timeout ->
-            throw({error, timeout, Ref})
+        {esqlite3, Ref, Resp} -> Resp
+    after
+        Timeout -> throw({error, timeout, Ref})
+    end.
+
+flush_answers() ->
+    receive
+        {esqlite3, _, _} -> flush_answers()
+    after
+        0 -> ok
     end.
