@@ -35,6 +35,7 @@
          bind/5,
          column_names/4,
          column_types/4,
+         interrupt/1,
          close/3
         ]).
 
@@ -126,6 +127,10 @@ column_names(_Db, _Stmt, _Ref, _Dest) ->
 %%
 -spec column_types(esqlite:connection(), esqlite:statement(), reference(), pid()) -> ok | {error, any()}.
 column_types(_Db, _Stmt, _Ref, _Dest) ->
+    erlang:nif_error(nif_library_not_loaded).
+
+%% @doc Interrupt all active queries.
+interrupt(_Db) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @doc Close the connection.
