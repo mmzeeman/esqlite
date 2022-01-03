@@ -335,12 +335,11 @@ do_exec(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
     int rc;
     ERL_NIF_TERM eos = enif_make_int(env, 0);
 
-    enif_inspect_iolist_as_binary(env,
-        enif_make_list2(env, arg, eos), &bin);
+    enif_inspect_iolist_as_binary(env, enif_make_list2(env, arg, eos), &bin);
 
     rc = sqlite3_exec(conn->db, (char *) bin.data, NULL, NULL, NULL);
     if(rc != SQLITE_OK)
-	    return make_sqlite3_error_tuple(env, rc, conn->db);
+        return make_sqlite3_error_tuple(env, rc, conn->db);
 
     return make_atom(env, "ok");
 }
@@ -351,6 +350,10 @@ do_exec(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
 static ERL_NIF_TERM
 do_changes(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
 {
+    if(!conn->db) {
+        return make_error_tuple(env, "closed");
+    }
+
     int changes = sqlite3_changes(conn->db);
 
     ERL_NIF_TERM changes_term = enif_make_int64(env, changes);
@@ -499,11 +502,15 @@ do_bind(ErlNifEnv *env, sqlite3 *db, sqlite3_stmt *stmt, const ERL_NIF_TERM arg)
 static ERL_NIF_TERM
 do_get_autocommit(ErlNifEnv *env, esqlite_connection *conn)
 {
+    if(!conn->db) {
+        return make_error_tuple(env, "closed");
+    }
+
     if(sqlite3_get_autocommit(conn->db) != 0) {
         return make_atom(env, "true");
-    } else {
-        return make_atom(env, "false");
-    }
+    } 
+
+    return make_atom(env, "false");
 }
 
 static ERL_NIF_TERM
@@ -694,7 +701,7 @@ do_close(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
 
     rc = sqlite3_close_v2(conn->db);
     if(rc != SQLITE_OK)
-	    return make_sqlite3_error_tuple(env, rc, conn->db);
+        return make_sqlite3_error_tuple(env, rc, conn->db);
 
     conn->db = NULL;
     return make_atom(env, "ok");
