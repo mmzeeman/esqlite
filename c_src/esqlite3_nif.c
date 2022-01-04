@@ -353,9 +353,9 @@ do_changes(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
         return make_error_tuple(env, "closed");
     }
 
-    int changes = sqlite3_changes(conn->db);
-
+    sqlite3_int64 changes = sqlite3_changes64(conn->db);
     ERL_NIF_TERM changes_term = enif_make_int64(env, changes);
+
     return make_ok_tuple(env, changes_term);
 }
 
