@@ -520,8 +520,8 @@ make_binary(ErlNifEnv *env, const void *bytes, unsigned int size)
     ERL_NIF_TERM term;
 
     if(!enif_alloc_binary(size, &blob)) {
-	    /* TODO: fix this */
-	    return make_atom(env, "error");
+        /* TODO: fix this */
+        return make_atom(env, "error");
     }
 
     memcpy(blob.data, bytes, size);
@@ -537,21 +537,21 @@ make_cell(ErlNifEnv *env, sqlite3_stmt *statement, unsigned int i)
     int type = sqlite3_column_type(statement, i);
 
     switch(type) {
-    case SQLITE_INTEGER:
-	    return enif_make_int64(env, sqlite3_column_int64(statement, i));
-    case SQLITE_FLOAT:
-	    return enif_make_double(env, sqlite3_column_double(statement, i));
-    case SQLITE_BLOB:
-        return enif_make_tuple2(env, make_atom(env, "blob"),
-            make_binary(env, sqlite3_column_blob(statement, i),
-                sqlite3_column_bytes(statement, i)));
-    case SQLITE_NULL:
-	    return make_atom(env, "undefined");
-    case SQLITE_TEXT:
-	    return make_binary(env, sqlite3_column_text(statement, i),
-            sqlite3_column_bytes(statement, i));
-    default:
-	    return make_atom(env, "should_not_happen");
+        case SQLITE_INTEGER:
+            return enif_make_int64(env, sqlite3_column_int64(statement, i));
+        case SQLITE_FLOAT:
+            return enif_make_double(env, sqlite3_column_double(statement, i));
+        case SQLITE_BLOB:
+            return enif_make_tuple2(env, make_atom(env, "blob"),
+                    make_binary(env, sqlite3_column_blob(statement, i),
+                        sqlite3_column_bytes(statement, i)));
+        case SQLITE_NULL:
+            return make_atom(env, "undefined");
+        case SQLITE_TEXT:
+            return make_binary(env, sqlite3_column_text(statement, i),
+                    sqlite3_column_bytes(statement, i));
+        default:
+            return make_atom(env, "should_not_happen");
     }
 }
 
@@ -593,25 +593,25 @@ do_multi_step(ErlNifEnv *env, sqlite3 *db, sqlite3_stmt *stmt, const ERL_NIF_TER
     }
 
     switch(rc) {
-    case SQLITE_ROW:
-        status = make_atom(env, "rows");
-        break;
-    case SQLITE_BUSY:
-        status = make_atom(env, "$busy");
-        break;
-    case SQLITE_DONE:
-        /*
-        * Automatically reset the statement after a done so
-        * column_names will work after the statement is done.
-        *
-        * Not resetting the statement can lead to vm crashes.
-        */
-        sqlite3_reset(stmt);
-        status = make_atom(env, "$done");
-        break;
-    default:
-        /* We use prepare_v2, so any error code can be returned. */
-        return make_sqlite3_error_tuple(env, rc, db);
+        case SQLITE_ROW:
+            status = make_atom(env, "rows");
+            break;
+        case SQLITE_BUSY:
+            status = make_atom(env, "$busy");
+            break;
+        case SQLITE_DONE:
+            /*
+             * Automatically reset the statement after a done so
+             * column_names will work after the statement is done.
+             *
+             * Not resetting the statement can lead to vm crashes.
+             */
+            sqlite3_reset(stmt);
+            status = make_atom(env, "$done");
+            break;
+        default:
+            /* We use prepare_v2, so any error code can be returned. */
+            return make_sqlite3_error_tuple(env, rc, db);
     }
 
     enif_free(rowBuffer);
