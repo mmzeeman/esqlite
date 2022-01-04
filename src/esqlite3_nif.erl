@@ -155,7 +155,7 @@ insert(_Db, _Ref, _Dest, _Sql) ->
 
 %% @doc Get the last insert rowid.
 %%
-%% @spec insert(connection(), Ref::reference(), Dest::pid()) -> {ok, integer()} | {error, message()}
+-spec last_insert_rowid(raw_connection(), reference(), pid()) -> ok | {error, _}.
 last_insert_rowid(_Db, _Ref, _Dest) ->
     erlang:nif_error(nif_library_not_loaded).
 

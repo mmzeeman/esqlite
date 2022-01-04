@@ -11,12 +11,15 @@ open_single_database_test() ->
     ok.
 
 close_test() ->
+    %% Open and close the database immediately
     {ok, C} = esqlite3:open(":memory:"),
     ok = esqlite3:close(C),
 
+    %% Check if functions still return sensible values.
     {error, closed} = esqlite3:set_update_hook(self(), C),
     {error, closed} = esqlite3:changes(C),
     {error, closed} = esqlite3:get_autocommit(C),
+    {error, closed} = esqlite3:last_insert_rowid(C),
 
     {error, _} = esqlite3:exec("create table test(one, two, three)", C),
 

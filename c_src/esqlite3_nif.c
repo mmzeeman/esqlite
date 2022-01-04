@@ -312,8 +312,6 @@ update_callback(void *arg, int sqlite_operation_type, char const *sqlite_databas
 static ERL_NIF_TERM
 do_set_update_hook(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
 {
-    int rc;
-    
     if(!enif_get_local_pid(env, arg, &conn->notification_pid)) {
         return make_error_tuple(env, "invalid_pid");
     }
@@ -382,15 +380,24 @@ do_insert(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
     return make_ok_tuple(env, last_rowid_term);
 }
 
+/*
+ * Return the last inserted rowid
+ */
 static ERL_NIF_TERM
 do_last_insert_rowid(ErlNifEnv *env, esqlite_connection *conn)
 {
+    if(!conn->db) {
+        return make_error_tuple(env, "closed");
+    }
+
     sqlite3_int64 last_rowid = sqlite3_last_insert_rowid(conn->db);
     ERL_NIF_TERM last_rowid_term = enif_make_int64(env, last_rowid);
+
     return make_ok_tuple(env, last_rowid_term);
 }
 
 /*
+ * Compile a sql statement
  */
 static ERL_NIF_TERM
 do_prepare(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
@@ -750,6 +757,8 @@ evaluate_command(esqlite_command *cmd, esqlite_connection *conn)
             return do_column_types(cmd->env, stmt->statement);
         case cmd_close:
             return do_close(cmd->env, conn, cmd->arg);
+        case cmd_last_insert_rowid:
+            return do_last_insert_rowid(cmd->env, conn);
         case cmd_insert:
             return do_insert(cmd->env, conn, cmd->arg);
         case cmd_get_autocommit:

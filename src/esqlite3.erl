@@ -402,11 +402,11 @@ last_insert_rowid(Connection) ->
 
 %% @doc Get the last insert rowid.
 %%
--spec last_insert_rowid(connection(), timeout()) -> {ok, integer()} | {error, _}.
-last_insert_rowid({connection, _Ref, Connection}, Timeout) ->
+-spec last_insert_rowid(connection(), timeout()) -> {ok, rowid()} | {error, _}.
+last_insert_rowid(#connection{raw_connection=RawConnection}, Timeout) ->
     Ref = make_ref(),
-    ok = esqlite3_nif:last_insert_rowid(Connection, Ref, self()),
-    receive_answer(Connection, Ref, Timeout).
+    ok = esqlite3_nif:last_insert_rowid(RawConnection, Ref, self()),
+    receive_answer(RawConnection, Ref, Timeout).
 
 %% @doc Get autocommit
 %% @doc Check if the connection is in auto-commit mode.
