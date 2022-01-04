@@ -24,6 +24,9 @@ CFlags =
 
 [
     {require_min_otp_vsn, "21"},
+
+    {xref_checks, [undefined_function_calls]},
+
     {port_env, [
         %% Default darwin ldflags causes loading of system sqlite. Removed -bundle flag.
         {"darwin", "DRV_LDFLAGS",
@@ -46,5 +49,14 @@ CFlags =
     {provider_hooks,
         [{post,
         [{compile, {pc, compile}},
-            {clean, {pc, clean}}]}]}
+            {clean, {pc, clean}}]}]},
+
+    {dialyzer, [
+        {warnings, [
+            unmatched_returns,
+            error_handling,
+            race_conditions
+            % underspecs
+        ]}
+    ]}
 ].

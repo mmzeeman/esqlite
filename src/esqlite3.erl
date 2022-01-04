@@ -361,8 +361,12 @@ exec(Sql, [], #connection{raw_connection=RawConnection}, Timeout) ->
     receive_answer(RawConnection, Ref, Timeout);
 exec(Sql, Params, Connection, Timeout) ->
     {ok, Statement} = prepare(Sql, Connection, Timeout),
-    bind(Statement, Params),
-    step(Statement, Timeout).
+    case bind(Statement, Params) of
+        ok ->
+            step(Statement, Timeout);
+        {error, _}=Error ->
+            Error
+    end.
 
 
 %% @doc Return the number of affected rows of last statement.
