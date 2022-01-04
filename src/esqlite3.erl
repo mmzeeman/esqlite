@@ -166,17 +166,17 @@ q(Sql, Args, Connection, Timeout) ->
     end.
 
 %% @doc Execute statement and return a list with the result of F for each row.
--spec map(F, sql(), connection()) -> list(Type) when
-      F :: fun((Row) -> Type) | fun((ColumnNames, Row) -> Type),
-      Row :: tuple(),
+-spec map(Fun, sql(), connection()) -> list(Type) when
+      Fun :: fun((Row) -> Type) | fun((ColumnNames, Row) -> Type),
+      Row :: row(),
       ColumnNames :: tuple(),
       Type :: any().
-map(F, Sql, Connection) ->
+map(Fun, Sql, Connection) ->
     case prepare(Sql, Connection) of
         {ok, Statement} ->
-            map_s(F, Statement);
+            map_s(Fun, Statement);
         {error, _Msg}=Error ->
-            throw(Error)
+            Error
     end.
 
 %% @doc Execute statement, bind args and return a list with the result of F for each row.
@@ -185,89 +185,105 @@ map(F, Sql, Connection) ->
       Row :: tuple(),
       ColumnNames :: tuple(),
       Type :: any().
-map(F, Sql, [], Connection) ->
-    map(F, Sql, Connection);
-map(F, Sql, Args, Connection) ->
+map(Fun, Sql, [], Connection) ->
+    map(Fun, Sql, Connection);
+map(Fun, Sql, Args, Connection) ->
     case prepare(Sql, Connection) of
         {ok, Statement} ->
-            ok = bind(Statement, Args),
-            map_s(F, Statement);
+            case bind(Statement, Args) of
+                ok ->
+                    map_s(Fun, Statement);
+                {error, _}=Error ->
+                    Error
+            end;
         {error, _Msg}=Error ->
-            throw(Error)
+            Error
     end.
 
 %% @doc Execute statement and call F with each row.
--spec foreach(F, sql(), connection()) -> ok when
-      F :: fun((Row) -> any()) | fun((ColumnNames, Row) -> any()),
+-spec foreach(Fun, sql(), connection()) -> ok when
+      Fun :: fun((Row) -> any()) | fun((ColumnNames, Row) -> any()),
       Row :: tuple(),
       ColumnNames :: tuple().
-foreach(F, Sql, Connection) ->
+foreach(Fun, Sql, Connection) ->
     case prepare(Sql, Connection) of
         {ok, Statement} ->
-            foreach_s(F, Statement);
+            foreach_s(Fun, Statement);
         {error, _Msg}=Error ->
-            throw(Error)
+            Error
     end.
 
 %% @doc Execute statement, bind args and call F with each row.
--spec foreach(F, sql(), list(), connection()) -> ok when
-      F :: fun((Row) -> any()) | fun((ColumnNames, Row) -> any()),
-      Row :: tuple(),
+-spec foreach(Fun, sql(), list(), connection()) -> ok when
+      Fun :: fun((Row) -> any()) | fun((ColumnNames, Row) -> any()),
+      Row :: row(),
       ColumnNames :: tuple().
 foreach(F, Sql, [], Connection) ->
     foreach(F, Sql, Connection);
 foreach(F, Sql, Args, Connection) ->
     case prepare(Sql, Connection) of
         {ok, Statement} ->
-            ok = bind(Statement, Args),
-            foreach_s(F, Statement);
+            case bind(Statement, Args) of
+                ok ->
+                    foreach_s(F, Statement);
+                {error, _Msg}=Error ->
+                    Error
+            end;
         {error, _Msg}=Error ->
-            throw(Error)
+            Error
     end.
 
 %%
--spec foreach_s(F, statement()) -> ok when
-      F :: fun((Row) -> any()) | fun((ColumnNames, Row) -> any()),
-      Row :: tuple(),
+-spec foreach_s(Fun, statement()) -> ok when
+      Fun :: fun((Row) -> any()) | fun((ColumnNames, Row) -> any()),
+      Row :: row(),
       ColumnNames :: tuple().
-foreach_s(F, Statement) when is_function(F, 1) ->
+foreach_s(Fun, Statement) when is_function(Fun, 1) ->
     case try_multi_step(Statement, 1, [], 0) of
-        {'$done', []} -> ok;
-        {error, _} = E -> F(E);
+        {'$done', []} ->
+            ok;
+        {error, _} = Error ->
+            Error;
         {rows, [Row | []]} ->
-            F(Row),
-            foreach_s(F, Statement)
+            Fun(Row),
+            foreach_s(Fun, Statement)
     end;
-foreach_s(F, Statement) when is_function(F, 2) ->
+foreach_s(Fun, Statement) when is_function(Fun, 2) ->
     ColumnNames = column_names(Statement),
     case try_multi_step(Statement, 1, [], 0) of
-        {'$done', []} -> ok;
-        {error, _} = E -> F([], E);
+        {'$done', []} ->
+            ok;
+        {error, _} = Error ->
+            Error;
         {rows, [Row | []]} ->
-            F(ColumnNames, Row),
-            foreach_s(F, Statement)
+            Fun(ColumnNames, Row),
+            foreach_s(Fun, Statement)
     end.
 
 %%
--spec map_s(F, statement()) -> list(Type) when
-      F :: fun((Row) -> Type) | fun((ColumnNames, Row) -> Type),
-      Row :: tuple(),
+-spec map_s(Fun, statement()) -> list(Type) when
+      Fun :: fun((Row) -> Type) | fun((ColumnNames, Row) -> Type),
+      Row :: row(),
       ColumnNames :: tuple(),
       Type :: term().
-map_s(F, Statement) when is_function(F, 1) ->
+map_s(Fun, Statement) when is_function(Fun, 1) ->
     case try_multi_step(Statement, 1, [], 0) of
-        {'$done', []} -> [];
-        {error, _} = E -> F(E);
+        {'$done', []} ->
+            [];
+        {error, _} = Error ->
+            Error;
         {rows, [Row | []]} ->
-            [F(Row) | map_s(F, Statement)]
+            [Fun(Row) | map_s(Fun, Statement)]
     end;
-map_s(F, Statement) when is_function(F, 2) ->
+map_s(Fun, Statement) when is_function(Fun, 2) ->
     ColumnNames = column_names(Statement),
     case try_multi_step(Statement, 1, [], 0) of
-        {'$done', []} -> [];
-        {error, _} = E -> F([], E);
+        {'$done', []} ->
+            [];
+        {error, _} = Error ->
+            Error;
         {rows, [Row | []]} ->
-            [F(ColumnNames, Row) | map_s(F, Statement)]
+            [Fun(ColumnNames, Row) | map_s(Fun, Statement)]
     end.
 
 %%

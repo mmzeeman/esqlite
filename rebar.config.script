@@ -55,8 +55,8 @@ CFlags =
         {warnings, [
             unmatched_returns,
             error_handling,
-            race_conditions
-            % underspecs
+            race_conditions,
+            underspecs
         ]}
     ]}
 ].
