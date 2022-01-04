@@ -43,6 +43,15 @@ get_autocommit_test() ->
     true = esqlite3:get_autocommit(Db),
     ok.
 
+last_insert_rowid_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+    ok = esqlite3:exec("CREATE TABLE test (id INTEGER PRIMARY KEY, val STRING);", Db),
+    ok = esqlite3:exec("INSERT INTO test (val) VALUES ('this is a test');", Db),
+    {ok, 1} = esqlite3:last_insert_rowid(Db),
+    ok = esqlite3:exec("INSERT INTO test (val) VALUES ('this is another test');", Db),
+    {ok, 2} = esqlite3:last_insert_rowid(Db),
+    ok.
+
 update_hook_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
     ok = esqlite3:set_update_hook(self(), Db),

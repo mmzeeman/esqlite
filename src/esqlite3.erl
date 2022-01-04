@@ -26,6 +26,7 @@
          exec/2, exec/3, exec/4,
          changes/1, changes/2,
          insert/2,
+         last_insert_rowid/1,
          get_autocommit/1,
          get_autocommit/2,
          prepare/2, prepare/3,
@@ -393,6 +394,21 @@ insert(Sql, #connection{raw_connection=RawConnection}, Timeout) ->
     ok = esqlite3_nif:insert(RawConnection, Ref, self(), Sql),
     receive_answer(RawConnection, Ref, Timeout).
 
+%% @doc Get the last insert rowid, using the default timeout.
+%%
+-spec last_insert_rowid(connection()) -> {ok, rowid()} | {error, _}.
+last_insert_rowid(Connection) ->
+    last_insert_rowid(Connection, ?DEFAULT_TIMEOUT).
+
+%% @doc Get the last insert rowid.
+%%
+-spec last_insert_rowid(connection(), timeout()) -> {ok, integer()} | {error, _}.
+last_insert_rowid({connection, _Ref, Connection}, Timeout) ->
+    Ref = make_ref(),
+    ok = esqlite3_nif:last_insert_rowid(Connection, Ref, self()),
+    receive_answer(Connection, Ref, Timeout).
+
+%% @doc Get autocommit
 %% @doc Check if the connection is in auto-commit mode.
 %% See: [https://sqlite.org/c3ref/get_autocommit.html] for more details.
 %%
