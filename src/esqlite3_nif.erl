@@ -42,8 +42,9 @@
 
 -type raw_connection() :: reference().
 -type raw_statement() :: reference().
+-type sql() :: iodata(). 
 
--export_type([raw_connection/0, raw_statement/0]).
+-export_type([raw_connection/0, raw_statement/0, sql/0]).
 
 -on_load(init/0).
 
@@ -82,7 +83,7 @@ set_update_hook(_Db, _Ref, _Dest, _Pid) ->
 %% When the statement is executed Dest will receive message {Ref, answer()}
 %% with answer() integer | {error, reason()}
 %%
--spec exec(raw_connection(), reference(), pid(), string()) -> ok | {error, _}.
+-spec exec(raw_connection(), reference(), pid(), sql()) -> ok | {error, _}.
 exec(_Db, _Ref, _Dest, _Sql) ->
     erlang:nif_error(nif_library_not_loaded).
 
@@ -96,7 +97,7 @@ changes(_Db, _Ref, _Dest) ->
 
 %% @doc
 %%
--spec prepare(raw_connection(), reference(), pid(), string()) -> ok | {error, _}.
+-spec prepare(raw_connection(), reference(), pid(), sql()) -> ok | {error, _}.
 prepare(_Db, _Ref, _Dest, _Sql) ->
     erlang:nif_error(nif_library_not_loaded).
 
@@ -149,7 +150,7 @@ close(_Db, _Ref, _Dest) ->
 
 %% @doc Insert record
 %%
--spec insert(raw_connection(), reference(), pid(), esqlite:sql()) -> ok | {error, _}.
+-spec insert(raw_connection(), reference(), pid(), sql()) -> ok | {error, _}.
 insert(_Db, _Ref, _Dest, _Sql) ->
     erlang:nif_error(nif_library_not_loaded).
 

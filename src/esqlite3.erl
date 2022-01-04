@@ -55,13 +55,13 @@
 }).
 
 -record(statement, {
-          raw_statement :: esqlite_nif:raw_statement(),
-          raw_connection :: esqlite_nif:raw_connection()
+          raw_connection :: esqlite_nif:raw_connection(),
+          raw_statement :: esqlite_nif:raw_statement()
 }).
 
 -type connection() :: #connection{}. 
 -type statement() :: #statement{}.
--type sql() :: iodata().
+-type sql() :: esqlite_nif:sql().
 
 %% erlang -> sqlite type conversions
 %%
@@ -134,17 +134,17 @@ set_update_hook(Pid, #connection{raw_connection=RawConnection}, Timeout) ->
     receive_answer(RawConnection, Ref, Timeout).
 
 %% @doc Execute a sql statement, returns a list with tuples.
--spec q(sql(), connection()) -> list(tuple()) | {error, term()}.
+-spec q(sql(), connection()) -> list(row()) | {error, _}.
 q(Sql, Connection) ->
     q(Sql, [], Connection, ?DEFAULT_TIMEOUT).
 
 %% @doc Execute statement, bind args and return a list with tuples as result.
--spec q(sql(), list(), connection()) -> list(tuple()) | {error, term()}.
+-spec q(sql(), list(), connection()) -> list(row()) | {error, _}.
 q(Sql, Args, Connection) ->
     q(Sql, Args, Connection, ?DEFAULT_TIMEOUT).
 
 %% @doc Execute statement, bind args and return a list with tuples as result restricted by timeout.
--spec q(sql(), list(), connection(), timeout()) -> list(row()) | {error, term()}.
+-spec q(sql(), list(), connection(), timeout()) -> list(row()) | {error, _}.
 q(Sql, [], Connection, Timeout) ->
     case prepare(Sql, Connection, Timeout) of
         {ok, Statement} ->
@@ -155,8 +155,12 @@ q(Sql, [], Connection, Timeout) ->
 q(Sql, Args, Connection, Timeout) ->
     case prepare(Sql, Connection, Timeout) of
         {ok, Statement} ->
-            ok = bind(Statement, Args, Timeout),
-            fetchall(Statement, ?DEFAULT_CHUNK_SIZE, Timeout);
+            case bind(Statement, Args, Timeout) of
+                ok ->
+                    fetchall(Statement, ?DEFAULT_CHUNK_SIZE, Timeout);
+                {error, _}=Error ->
+                    Error
+            end;
         {error, _Msg}=Error ->
             Error
     end.
@@ -277,9 +281,7 @@ fetchone(Statement) ->
 
 %% @doc Fetch all records
 %% @param Statement is prepared sql statement
--spec fetchall(statement()) ->
-                      list(tuple()) |
-                      {error, term()}.
+-spec fetchall(statement()) -> list(row()) | {error, _}.
 fetchall(Statement) ->
     fetchall(Statement, ?DEFAULT_CHUNK_SIZE, ?DEFAULT_TIMEOUT).
 
@@ -287,9 +289,7 @@ fetchall(Statement) ->
 %% @param Statement is prepared sql statement
 %% @param ChunkSize is a count of rows to read from sqlite and send to erlang process in one bulk.
 %%        Decrease this value if rows are heavy. Default value is 5000 (DEFAULT_CHUNK_SIZE).
--spec fetchall(statement(), pos_integer()) ->
-                      list(tuple()) |
-                      {error, term()}.
+-spec fetchall(statement(), pos_integer()) -> list(row()) | {error, _}.
 fetchall(Statement, ChunkSize) ->
     fetchall(Statement, ChunkSize, ?DEFAULT_TIMEOUT).
 
@@ -298,9 +298,7 @@ fetchall(Statement, ChunkSize) ->
 %% @param ChunkSize is a count of rows to read from sqlite and send to erlang process in one bulk.
 %%        Decrease this value if rows are heavy. Default value is 5000 (DEFAULT_CHUNK_SIZE).
 %% @param Timeout is timeout per each request of the one bulk
--spec fetchall(statement(), pos_integer(), timeout()) ->
-                      list(tuple()) |
-                      {error, term()}.
+-spec fetchall(statement(), pos_integer(), timeout()) -> list(row()) | {error, _}.
 fetchall(Statement, ChunkSize, Timeout) ->
     case fetchall_internal(Statement, ChunkSize, [], Timeout) of
         {'$done', Rows} -> lists:reverse(Rows);
@@ -308,9 +306,9 @@ fetchall(Statement, ChunkSize, Timeout) ->
     end.
 
 %% return rows in reverse order
--spec fetchall_internal(statement(), pos_integer(), list(tuple()), timeout()) ->
-                {'$done', list(tuple())} |
-                {error, term()}.
+-spec fetchall_internal(statement(), pos_integer(), list(row()), timeout()) ->
+                {'$done', list(row())} |
+                {error, _}.
 fetchall_internal(Statement, ChunkSize, Rest, Timeout) ->
     case try_multi_step(Statement, ChunkSize, Rest, 0, Timeout) of
         {rows, Rows} -> fetchall_internal(Statement, ChunkSize, Rows, Timeout);
@@ -436,10 +434,10 @@ prepare(Sql, #connection{raw_connection=RawConnection}, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:prepare(RawConnection, Ref, self(), Sql),
     case receive_answer(RawConnection, Ref, Timeout) of
-        {ok, Stmt} ->
+        {ok, Stmt} when is_reference(Stmt) ->
             {ok, #statement{raw_statement=Stmt, raw_connection=RawConnection}};
-        Else ->
-            Else
+        {error, _}=Error ->
+            Error 
     end.
 
 %% @doc Step
