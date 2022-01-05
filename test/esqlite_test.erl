@@ -296,6 +296,7 @@ reset_test() ->
 
 foreach_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
+
     ok = esqlite3:exec("begin;", Db),
     ok = esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
     ok = esqlite3:exec(["insert into test_table values(", "\"hello1\"", ",", "10" ");"], Db),
@@ -324,6 +325,7 @@ foreach_test() ->
 
 bind_for_foreach_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
+
     ok = esqlite3:exec("begin;", Db),
     ok = esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
     ok = esqlite3:exec(["insert into test_table values(", "\"hello1\"", ",", "10" ");"], Db),
@@ -349,6 +351,7 @@ bind_for_foreach_test() ->
 
 map_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
+
     ok = esqlite3:exec("begin;", Db),
     ok = esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
     ok = esqlite3:exec(["insert into test_table values(", "\"hello1\"", ",", "10" ");"], Db),
@@ -359,13 +362,15 @@ map_test() ->
 
     F = fun(Row) -> Row end,
 
-    [{<<"hello1">>,10},{<<"hello2">>,11},{<<"hello3">>,12},{<<"hello4">>,13}]
-        = esqlite3:map(F, "select * from test_table", Db),
+    [{<<"hello1">>,10},
+     {<<"hello2">>,11},
+     {<<"hello3">>,12},
+     {<<"hello4">>,13}] = esqlite3:map(F, "select * from test_table", Db),
 
     %% Test that when the row-names are added..
     Assoc = fun(Names, Row) ->
-		    lists:zip(tuple_to_list(Names), tuple_to_list(Row))
-	    end,
+                    lists:zip(tuple_to_list(Names), tuple_to_list(Row))
+            end,
 
     [[{one,<<"hello1">>},{two,10}],
      [{one,<<"hello2">>},{two,11}],
@@ -376,6 +381,7 @@ map_test() ->
 
 bind_for_map_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
+
     ok = esqlite3:exec("begin;", Db),
     ok = esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
     ok = esqlite3:exec(["insert into test_table values(", "\"hello1\"", ",", "10" ");"], Db),
@@ -410,6 +416,7 @@ error1_msg_test() ->
 
     %% Opening non-existant database.
     {error, {cantopen, _Msg3}} = esqlite3:open("/dit/bestaat/niet"),
+
     ok.
 
 prepare_and_close_connection_test() ->
@@ -437,15 +444,16 @@ prepare_and_close_connection_test() ->
 sqlite_version_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
     {ok, Stmt} = esqlite3:prepare("select sqlite_version() as sqlite_version;", Db),
-    {sqlite_version} =  esqlite3:column_names(Stmt),
+    {sqlite_version} = esqlite3:column_names(Stmt),
     ?assertEqual({row, {<<"3.37.1">>}}, esqlite3:step(Stmt)),
     ok.
 
 sqlite_source_id_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
     {ok, Stmt} = esqlite3:prepare("select sqlite_source_id() as sqlite_source_id;", Db),
-    {sqlite_source_id} =  esqlite3:column_names(Stmt),
-    ?assertEqual({row, {<<"2021-12-30 15:30:28 378629bf2ea546f73eee84063c5358439a12f7300e433f18c9e1bddd948dea62">>}}, esqlite3:step(Stmt)),
+    {sqlite_source_id} = esqlite3:column_names(Stmt),
+    ?assertEqual({row, {<<"2021-12-30 15:30:28 378629bf2ea546f73eee84063c5358439a12f7300e433f18c9e1bddd948dea62">>}},
+                 esqlite3:step(Stmt)),
     ok.
 
 interrupt_on_timeout_test() ->
@@ -468,7 +476,6 @@ interrupt_on_timeout_test() ->
                     ok
             end
     end.
-
 
 garbage_collect_test() ->
     F = fun() ->
