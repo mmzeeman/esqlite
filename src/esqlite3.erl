@@ -1,9 +1,6 @@
 %% @author Maas-Maarten Zeeman <mmzeeman@xs4all.nl>
-%% @copyright 2011 - 2017 Maas-Maarten Zeeman
-
+%% @copyright 2011 - 2022 Maas-Maarten Zeeman
 %% @doc Erlang API for sqlite3 databases
-
-%% Copyright 2011 - 2017 Maas-Maarten Zeeman
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -422,7 +419,6 @@ last_insert_rowid(#connection{raw_connection=RawConnection}, Timeout) ->
     ok = esqlite3_nif:last_insert_rowid(RawConnection, Ref, self()),
     receive_answer(RawConnection, Ref, Timeout).
 
-%% @doc Get autocommit
 %% @doc Check if the connection is in auto-commit mode.
 %% See: [https://sqlite.org/c3ref/get_autocommit.html] for more details.
 %%
