@@ -1508,6 +1508,10 @@ esqlite_backup_step(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     if(!enif_get_local_pid(env, argv[4], &pid))
         return make_error_tuple(env, "invalid_pid");
 
+    cmd = command_create();
+    if(!cmd)
+        return make_error_tuple(env, "command_create_failed");
+
     cmd->type = cmd_backup_step;
     cmd->ref = enif_make_copy(cmd->env, argv[3]);
     cmd->pid = pid;
@@ -1539,6 +1543,10 @@ esqlite_backup_remaining(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     if(!enif_get_local_pid(env, argv[3], &pid))
         return make_error_tuple(env, "invalid_pid");
 
+    cmd = command_create();
+    if(!cmd)
+        return make_error_tuple(env, "command_create_failed");
+
     cmd->type = cmd_backup_remaining;
     cmd->ref = enif_make_copy(cmd->env, argv[2]);
     cmd->pid = pid;
@@ -1569,6 +1577,10 @@ esqlite_backup_pagecount(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
         return make_error_tuple(env, "invalid_ref");
     if(!enif_get_local_pid(env, argv[3], &pid))
         return make_error_tuple(env, "invalid_pid");
+
+    cmd = command_create();
+    if(!cmd)
+        return make_error_tuple(env, "command_create_failed");
 
     cmd->type = cmd_backup_pagecount;
     cmd->ref = enif_make_copy(cmd->env, argv[2]);
