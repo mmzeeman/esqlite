@@ -734,7 +734,6 @@ do_column_types(ErlNifEnv *env, sqlite3_stmt *stmt)
 static ERL_NIF_TERM
 do_backup_init(ErlNifEnv *env, sqlite3 *db, const ERL_NIF_TERM arg)
 {
-    int rc;
     int tuple_arity;
     const ERL_NIF_TERM *elements;
     sqlite3_backup *backup;
@@ -800,13 +799,35 @@ do_backup_step(ErlNifEnv *env, const ERL_NIF_TERM arg)
 static ERL_NIF_TERM
 do_backup_remaining(ErlNifEnv *env, const ERL_NIF_TERM arg)
 {
-    return make_atom(env, "todo");
+    esqlite_backup *esqlite_backup;
+    int remaining;
+    ERL_NIF_TERM remaining_term;
+
+    if(!enif_get_resource(env, arg, esqlite_backup_type, (void **) &esqlite_backup)) {
+        return make_error_tuple(env, "invalid");
+    }
+
+    remaining = sqlite3_backup_remaining(esqlite_backup->backup);
+    remaining_term = enif_make_int64(env, remaining);
+
+    return make_ok_tuple(env, remaining_term);
 }
 
 static ERL_NIF_TERM
 do_backup_pagecount(ErlNifEnv *env, const ERL_NIF_TERM arg)
 {
-    return make_atom(env, "todo");
+    esqlite_backup *esqlite_backup;
+    int pagecount;
+    ERL_NIF_TERM pagecount_term;
+
+    if(!enif_get_resource(env, arg, esqlite_backup_type, (void **) &esqlite_backup)) {
+        return make_error_tuple(env, "invalid");
+    }
+
+    pagecount = sqlite3_backup_pagecount(esqlite_backup->backup);
+    pagecount_term = enif_make_int64(env, pagecount);
+
+    return make_ok_tuple(env, pagecount_term);
 }
 
 static ERL_NIF_TERM
@@ -1512,7 +1533,7 @@ esqlite_backup_remaining(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
     if(!enif_get_resource(env, argv[0], esqlite_connection_type, (void **) &conn))
         return enif_make_badarg(env);
-    // backup
+    // backup 1
     if(!enif_is_ref(env, argv[2]))
         return make_error_tuple(env, "invalid_ref");
     if(!enif_get_local_pid(env, argv[3], &pid))
@@ -1543,7 +1564,7 @@ esqlite_backup_pagecount(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
     if(!enif_get_resource(env, argv[0], esqlite_connection_type, (void **) &conn))
         return enif_make_badarg(env);
-    // backup
+    // backup 1
     if(!enif_is_ref(env, argv[2]))
         return make_error_tuple(env, "invalid_ref");
     if(!enif_get_local_pid(env, argv[3], &pid))

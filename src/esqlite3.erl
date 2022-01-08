@@ -37,6 +37,8 @@
          column_names/1, column_names/2,
          column_types/1, column_types/2,
          backup_init/4, backup_init/5,
+         backup_remaining/1, backup_remaining/2,
+         backup_pagecount/1, backup_pagecount/2, 
          close/1, close/2,
          flush/0
         ]).
@@ -58,6 +60,7 @@
 }).
 
 -record(backup, {
+          raw_connection :: esqlite_nif:raw_connection(),
           raw_backup :: esqlite_nif:raw_backup()
 }).
 
@@ -544,7 +547,46 @@ backup_init(Dest, DestName, Src, SrcName) ->
 backup_init(#connection{raw_connection=Dest}, DestName, #connection{raw_connection=Src}, SrcName, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:backup_init(Dest, DestName, Src, SrcName, Ref, self()),
-    receive_answer(Dest, Ref, Timeout).
+    case receive_answer(Dest, Ref, Timeout) of
+        {ok, RawBackup} when is_reference(RawBackup) ->
+            {ok, #backup{raw_connection=Dest, raw_backup=RawBackup}};
+        {error, _} = Error ->
+            Error
+    end.
+
+%% @doc Get the remaining number of pages which need to be backed up.
+-spec backup_remaining(backup()) -> {ok, pos_integer()} | {error, _}.
+backup_remaining(Backup) ->
+    backup_remaining(Backup, ?DEFAULT_TIMEOUT).
+
+%% @doc Get the remaining number of pages which need to be backed up.
+-spec backup_remaining(backup(), timeout()) -> {ok, pos_integer()} | {error, _}.
+backup_remaining(#backup{raw_connection=Conn, raw_backup=Back}, Timeout) ->
+    Ref = make_ref(),
+    ok = esqlite3_nif:backup_remaining(Conn, Back, Ref, self()),
+    case receive_answer(Conn, Ref, Timeout) of
+        {ok, R} when is_integer(R) ->
+            {ok, R};
+        {error, _}=E ->
+            E
+    end.
+
+%% @doc Get the remaining number of pages which need to be backed up.
+-spec backup_pagecount(backup()) -> {ok, pos_integer()} | {error, _}.
+backup_pagecount(Backup) ->
+    backup_pagecount(Backup, ?DEFAULT_TIMEOUT).
+
+%% @doc Get the remaining number of pages which need to be backed up.
+-spec backup_pagecount(backup(), timeout()) -> {ok, pos_integer()} | {error, _}.
+backup_pagecount(#backup{raw_connection=Conn, raw_backup=Back}, Timeout) ->
+    Ref = make_ref(),
+    ok = esqlite3_nif:backup_pagecount(Conn, Back, Ref, self()),
+    case receive_answer(Conn, Ref, Timeout) of
+        {ok, R} when is_integer(R) ->
+            {ok, R};
+        {error, _}=E ->
+            E
+    end.
 
 
 %% @doc Close the database

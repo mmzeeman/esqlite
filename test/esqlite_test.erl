@@ -445,6 +445,8 @@ backup_test() ->
     {ok, Source} = esqlite3:open("test2.sql"),
 
     {ok, Backup} = esqlite3:backup_init(Dest, "main", Source, "main"),
+    {ok, 0} = esqlite3:backup_remaining(Backup),
+    {ok, 0} = esqlite3:backup_pagecount(Backup),
 
     ok.
 
