@@ -262,6 +262,10 @@ static void
 destruct_esqlite_backup(ErlNifEnv *env, void *arg) 
 {
     esqlite_backup *backup = (esqlite_backup *) arg;
+    
+    if(backup->backup) {
+        sqlite3_backup_finish(backup->backup);
+    }
 
     backup->backup = NULL;
 }
@@ -751,7 +755,6 @@ do_backup_init(ErlNifEnv *env, sqlite3 *db, const ERL_NIF_TERM arg)
     if(!enif_get_tuple(env, arg, &tuple_arity, &elements)) {
         return make_error_tuple(env, "no_tuple");
     }
-
     if(tuple_arity != 3) {
         return make_error_tuple(env, "invalid_tuple");
     }
@@ -791,9 +794,46 @@ do_backup_init(ErlNifEnv *env, sqlite3 *db, const ERL_NIF_TERM arg)
 }
 
 static ERL_NIF_TERM
-do_backup_step(ErlNifEnv *env, const ERL_NIF_TERM arg)
+do_backup_step(ErlNifEnv *env, sqlite3 *db, const ERL_NIF_TERM arg)
 {
-    return make_atom(env, "todo");
+    int tuple_arity;
+    const ERL_NIF_TERM *elements;
+    esqlite_backup *esqlite_backup;
+    int n_page = 0;
+    int rc;
+
+    if(db == NULL) {
+        return make_error_tuple(env, "closed");
+    }
+
+    if(!enif_get_tuple(env, arg, &tuple_arity, &elements)) {
+        return make_error_tuple(env, "no_tuple");
+    }
+    if(tuple_arity != 2) {
+        return make_error_tuple(env, "invalid_tuple");
+    }
+
+    if(!enif_get_resource(env, elements[0], esqlite_backup_type, (void **) &esqlite_backup)) {
+        return make_error_tuple(env, "invalid");
+    }
+    if(!esqlite_backup->backup) {
+        return make_error_tuple(env, "backup");
+    }
+
+    if(!enif_get_int(env, elements[1], &n_page)) {
+        return make_error_tuple(env, "n_page");
+    }
+
+    rc = sqlite3_backup_step(esqlite_backup->backup, n_page);
+    if(rc == SQLITE_DONE) {
+        return make_atom(env, "done");
+    }
+
+    if(rc != SQLITE_OK) {
+        return make_sqlite3_error_tuple(env, rc, db);
+    }
+
+    return make_atom(env, "ok");
 }
 
 static ERL_NIF_TERM
@@ -833,7 +873,18 @@ do_backup_pagecount(ErlNifEnv *env, const ERL_NIF_TERM arg)
 static ERL_NIF_TERM
 do_backup_finish(ErlNifEnv *env, const ERL_NIF_TERM arg)
 {
-    return make_atom(env, "todo");
+    esqlite_backup *esqlite_backup;
+
+    if(!enif_get_resource(env, arg, esqlite_backup_type, (void **) &esqlite_backup)) {
+        return make_error_tuple(env, "invalid");
+    }
+
+    if(esqlite_backup->backup) {
+        (void) sqlite3_backup_finish(esqlite_backup->backup);
+        esqlite_backup->backup = NULL;
+    }
+
+    return make_atom(env, "ok");
 }
 
 static ERL_NIF_TERM
@@ -884,7 +935,7 @@ evaluate_command(esqlite_command *cmd, esqlite_connection *conn)
         case cmd_backup_init:
             return do_backup_init(cmd->env, conn->db, cmd->arg);
         case cmd_backup_step:
-            return do_backup_step(cmd->env, cmd->arg);
+            return do_backup_step(cmd->env, conn->db, cmd->arg);
         case cmd_backup_remaining:
             return do_backup_remaining(cmd->env, cmd->arg);
         case cmd_backup_pagecount:

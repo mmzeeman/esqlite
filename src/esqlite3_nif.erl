@@ -143,7 +143,7 @@ column_types(_Db, _Stmt, _Ref, _Dest) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @doc Initialize a backup procedure of a database.
--spec backup_init(raw_connection(), iodata(), raw_connection(), iodata(), reference(), pid()) -> ok | {error, _}.
+-spec backup_init(raw_connection(), string(), raw_connection(), string(), reference(), pid()) -> ok | {error, _}.
 backup_init(_DestDb, _DestName, _SourceDb, _SourceName, _Ref, _Dest) ->
     erlang:nif_error(nif_library_not_loaded).
 

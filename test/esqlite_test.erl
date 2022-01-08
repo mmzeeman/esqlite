@@ -447,6 +447,7 @@ backup_test() ->
     {ok, Backup} = esqlite3:backup_init(Dest, "main", Source, "main"),
     {ok, 0} = esqlite3:backup_remaining(Backup),
     {ok, 0} = esqlite3:backup_pagecount(Backup),
+    done = esqlite3:backup_step(Backup, 1),
 
     ok.
 

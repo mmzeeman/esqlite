@@ -39,6 +39,7 @@
          backup_init/4, backup_init/5,
          backup_remaining/1, backup_remaining/2,
          backup_pagecount/1, backup_pagecount/2, 
+         backup_step/2, backup_step/3, 
          close/1, close/2,
          flush/0
         ]).
@@ -553,6 +554,20 @@ backup_init(#connection{raw_connection=Dest}, DestName, #connection{raw_connecti
         {error, _} = Error ->
             Error
     end.
+
+
+%% @doc Do a backup step. 
+-spec backup_step(backup(), integer()) -> ok | {error, _}.
+backup_step(Backup, NPage) ->
+    backup_step(Backup, NPage, ?DEFAULT_TIMEOUT).
+
+%% @doc Do a backup step. 
+-spec backup_step(backup(), integer(), timeout()) -> ok | {error, _}.
+backup_step(#backup{raw_connection=Conn, raw_backup=Back}, NPage, Timeout) ->
+    Ref = make_ref(),
+    ok = esqlite3_nif:backup_step(Conn, Back, NPage, Ref, self()),
+    receive_answer(Conn, Ref, Timeout).
+
 
 %% @doc Get the remaining number of pages which need to be backed up.
 -spec backup_remaining(backup()) -> {ok, pos_integer()} | {error, _}.
