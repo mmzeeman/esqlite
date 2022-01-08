@@ -25,11 +25,13 @@
 #include <sqlite3.h>
 #include "queue.h"
 
-#define MAX_ATOM_LENGTH 255 /* from atom.h, not exposed in erlang include */
-#define MAX_PATHNAME 512 /* unfortunately not in sqlite.h. */
+#define MAX_ATOM_LENGTH 255         /* from atom.h, not exposed in erlang include */
+#define MAX_SQLITE_NAME_LENGTH  255 /* Maximum name length. Using longer will return misuse */
+#define MAX_PATHNAME 512            /* unfortunately not in sqlite.h. */
 
 static ErlNifResourceType *esqlite_connection_type = NULL;
 static ErlNifResourceType *esqlite_statement_type = NULL;
+static ErlNifResourceType *esqlite_backup_type = NULL;
 
 /* database connection context */
 typedef struct {
@@ -325,6 +327,7 @@ update_callback(void *arg, int sqlite_operation_type, char const *sqlite_databas
 
     cmd->type = cmd_notification;
     cmd->arg = enif_make_tuple3(cmd->env, type, table, rowid);
+
     push_command(cmd->env, db, cmd);
 }
 
@@ -429,11 +432,11 @@ do_prepare(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
     ERL_NIF_TERM eos = enif_make_int(env, 0);
 
     if(!enif_inspect_iolist_as_binary(env, enif_make_list2(env, arg, eos), &bin))
-	    return make_error_tuple(env, "not an iolist");
+        return make_error_tuple(env, "not an iolist");
 
     stmt = enif_alloc_resource(esqlite_statement_type, sizeof(esqlite_statement));
     if(!stmt)
-	    return make_error_tuple(env, "no_memory");
+        return make_error_tuple(env, "no_memory");
 
     rc = sqlite3_prepare_v2(conn->db, (char *) bin.data, bin.size, &(stmt->statement), &tail);
     if(rc != SQLITE_OK) {
@@ -514,21 +517,21 @@ do_bind(ErlNifEnv *env, sqlite3 *db, sqlite3_stmt *stmt, const ERL_NIF_TERM arg)
 
     is_list = enif_get_list_length(env, arg, &list_length);
     if(!is_list)
-	    return make_error_tuple(env, "bad_arg_list");
+        return make_error_tuple(env, "bad_arg_list");
     if(parameter_count != list_length)
-	    return make_error_tuple(env, "args_wrong_length");
+        return make_error_tuple(env, "args_wrong_length");
 
     sqlite3_reset(stmt);
 
     list = arg;
     for(i=0; i < list_length; i++) {
-	    enif_get_list_cell(env, list, &head, &tail);
-	    r = bind_cell(env, head, stmt, i+1);
-	    if(r == -1)
-	        return make_error_tuple(env, "wrong_type");
-	    if(r != SQLITE_OK)
-	        return make_sqlite3_error_tuple(env, r, db);
-	    list = tail;
+        enif_get_list_cell(env, list, &head, &tail);
+        r = bind_cell(env, head, stmt, i+1);
+        if(r == -1)
+            return make_error_tuple(env, "wrong_type");
+        if(r != SQLITE_OK)
+            return make_sqlite3_error_tuple(env, r, db);
+        list = tail;
     }
 
     return make_atom(env, "ok");
@@ -657,11 +660,10 @@ static ERL_NIF_TERM
 do_reset(ErlNifEnv *env, sqlite3 *db, sqlite3_stmt *stmt)
 {
     int rc = sqlite3_reset(stmt);
+    if(rc != SQLITE_OK)
+        return make_sqlite3_error_tuple(env, rc, db);
 
-    if(rc == SQLITE_OK)
-        return make_atom(env, "ok");
-
-    return make_sqlite3_error_tuple(env, rc, db);
+    return make_atom(env, "ok");
 }
 
 static ERL_NIF_TERM
@@ -730,9 +732,63 @@ do_column_types(ErlNifEnv *env, sqlite3_stmt *stmt)
 }
 
 static ERL_NIF_TERM
-do_backup_init(ErlNifEnv *env, const ERL_NIF_TERM arg)
+do_backup_init(ErlNifEnv *env, sqlite3 *db, const ERL_NIF_TERM arg)
 {
-    return make_atom(env, "todo");
+    int rc;
+    int tuple_arity;
+    const ERL_NIF_TERM *elements;
+    sqlite3_backup *backup;
+    unsigned int size;
+    char dst_name[MAX_SQLITE_NAME_LENGTH];
+    char src_name[MAX_SQLITE_NAME_LENGTH];
+    esqlite_connection *src;
+    esqlite_backup *esqlite_backup;
+    ERL_NIF_TERM erl_backup_term;
+
+    if(db == NULL) {
+        return make_error_tuple(env, "dst_closed");
+    }
+
+    if(!enif_get_tuple(env, arg, &tuple_arity, &elements)) {
+        return make_error_tuple(env, "no_tuple");
+    }
+
+    if(tuple_arity != 3) {
+        return make_error_tuple(env, "invalid_tuple");
+    }
+
+    size = enif_get_string(env, elements[0], dst_name, MAX_PATHNAME, ERL_NIF_LATIN1);
+    if(size <= 0)
+        return make_error_tuple(env, "invalid_dst_name");
+
+    if(!enif_get_resource(env, elements[1], esqlite_connection_type, (void **) &src)) {
+        return make_error_tuple(env, "invalid_src_db");
+    }
+    if(!src->db) {
+        return make_error_tuple(env, "src_closed");
+    }
+	
+    size = enif_get_string(env, elements[2], src_name, MAX_PATHNAME, ERL_NIF_LATIN1);
+    if(size <= 0)
+        return make_error_tuple(env, "invalid_src_name");
+
+    backup = sqlite3_backup_init(db, dst_name, src->db, src_name);
+    if(backup == NULL) {
+        return make_sqlite3_error_tuple(env, sqlite3_errcode(db), db);
+    }
+
+    esqlite_backup = enif_alloc_resource(esqlite_backup_type, sizeof(esqlite_backup));
+    if(!esqlite_backup) {
+        // Release backup resouces 
+        (void) sqlite3_backup_finish(backup);
+        return make_error_tuple(env, "no_memory");
+    }
+
+    esqlite_backup->backup = backup;
+    erl_backup_term = enif_make_resource(env, esqlite_backup);
+    enif_release_resource(esqlite_backup);
+
+    return make_ok_tuple(env, erl_backup_term);
 }
 
 static ERL_NIF_TERM
@@ -805,7 +861,7 @@ evaluate_command(esqlite_command *cmd, esqlite_connection *conn)
         case cmd_column_types:
             return do_column_types(cmd->env, stmt->statement);
         case cmd_backup_init:
-            return do_backup_init(cmd->env, cmd->arg);
+            return do_backup_init(cmd->env, conn->db, cmd->arg);
         case cmd_backup_step:
             return do_backup_step(cmd->env, cmd->arg);
         case cmd_backup_remaining:
@@ -1406,7 +1462,6 @@ esqlite_backup_finish(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     cmd->ref = enif_make_copy(cmd->env, argv[2]);
     cmd->pid = pid;
     cmd->arg = enif_make_copy(cmd->env, argv[1]);
-    cmd->stmt = NULL;
 
     return push_command(env, conn, cmd);
 }
@@ -1556,25 +1611,20 @@ on_load(ErlNifEnv* env, void** priv, ERL_NIF_TERM info)
 {
     ErlNifResourceType *rt;
 
-    rt = enif_open_resource_type(env, "esqlite3_nif", "esqlite_connection_type",
-            destruct_esqlite_connection, ERL_NIF_RT_CREATE, NULL);
-    if(!rt)
-        return -1;
+    rt = enif_open_resource_type(env, "esqlite3_nif", "esqlite_connection_type", destruct_esqlite_connection,
+            ERL_NIF_RT_CREATE, NULL);
+    if(!rt) return -1;
     esqlite_connection_type = rt;
 
-    rt =  enif_open_resource_type(env, "esqlite3_nif", "esqlite_statement_type",
-            destruct_esqlite_statement, ERL_NIF_RT_CREATE, NULL);
-    if(!rt)
-        return -1;
+    rt =  enif_open_resource_type(env, "esqlite3_nif", "esqlite_statement_type", destruct_esqlite_statement,
+            ERL_NIF_RT_CREATE, NULL);
+    if(!rt) return -1;
     esqlite_statement_type = rt;
 
-    rt =  enif_open_resource_type(env, "esqlite3_nif", "esqlite_backup_type",
-            destruct_esqlite_backup, ERL_NIF_RT_CREATE, NULL);
-    if(!rt)
-        return -1;
-    esqlite_statement_type = rt;
-
-
+    rt =  enif_open_resource_type(env, "esqlite3_nif", "esqlite_backup_type", destruct_esqlite_backup,
+            ERL_NIF_RT_CREATE, NULL);
+    if(!rt) return -1;
+    esqlite_backup_type = rt;
 
     atom_esqlite3 = make_atom(env, "esqlite3");
 

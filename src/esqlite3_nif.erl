@@ -49,7 +49,7 @@
 -type raw_backup() :: reference().
 -type sql() :: iodata(). 
 
--export_type([raw_connection/0, raw_statement/0, sql/0]).
+-export_type([raw_connection/0, raw_statement/0, raw_backup/0, sql/0]).
 
 -on_load(init/0).
 

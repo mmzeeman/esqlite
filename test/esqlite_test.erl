@@ -293,7 +293,6 @@ reset_test() ->
 
     ok.
 
-
 foreach_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
 
@@ -440,6 +439,15 @@ prepare_and_close_connection_test() ->
     '$done' = esqlite3:step(Stmt),
 
     ok.
+
+backup_test() ->
+    {ok, Dest} = esqlite3:open("test1.sql"),
+    {ok, Source} = esqlite3:open("test2.sql"),
+
+    {ok, Backup} = esqlite3:backup_init(Dest, "main", Source, "main"),
+
+    ok.
+
 
 sqlite_version_test() ->
     {ok, Db} = esqlite3:open(":memory:"),

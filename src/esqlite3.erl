@@ -36,6 +36,7 @@
          fetchall/3,
          column_names/1, column_names/2,
          column_types/1, column_types/2,
+         backup_init/4, backup_init/5,
          close/1, close/2,
          flush/0
         ]).
@@ -56,8 +57,13 @@
           raw_statement :: esqlite_nif:raw_statement()
 }).
 
+-record(backup, {
+          raw_backup :: esqlite_nif:raw_backup()
+}).
+
 -type connection() :: #connection{}. 
 -type statement() :: #statement{}.
+-type backup() :: #backup{}.
 -type sql() :: esqlite_nif:sql().
 
 %% erlang -> sqlite type conversions
@@ -527,6 +533,19 @@ column_types(#statement{raw_statement=RawStatement, raw_connection=RawConnection
     Ref = make_ref(),
     ok = esqlite3_nif:column_types(RawConnection, RawStatement, Ref, self()),
     receive_answer(RawConnection, Ref, Timeout).
+
+%% @doc Initialize a backup procedure.
+-spec backup_init(connection(), string(), connection(), string()) -> {ok, backup()} | {error, _}.
+backup_init(Dest, DestName, Src, SrcName) ->
+    backup_init(Dest, DestName, Src, SrcName, ?DEFAULT_TIMEOUT).
+
+%% @doc Initialize a backup procedure
+-spec backup_init(connection(), string(), connection(), string(), timeout()) -> {ok, backup()} | {error, _}.
+backup_init(#connection{raw_connection=Dest}, DestName, #connection{raw_connection=Src}, SrcName, Timeout) ->
+    Ref = make_ref(),
+    ok = esqlite3_nif:backup_init(Dest, DestName, Src, SrcName, Ref, self()),
+    receive_answer(Dest, Ref, Timeout).
+
 
 %% @doc Close the database
 -spec close(connection()) -> ok | {error, _}.
