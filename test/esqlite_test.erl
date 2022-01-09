@@ -441,8 +441,8 @@ prepare_and_close_connection_test() ->
     ok.
 
 backup_test() ->
-    {ok, Dest} = esqlite3:open("test1.sql"),
-    {ok, Source} = esqlite3:open("test2.sql"),
+    {ok, Dest} = esqlite3:open("test1.db"),
+    {ok, Source} = esqlite3:open("test2.db"),
 
     {ok, Backup} = esqlite3:backup_init(Dest, "main", Source, "main"),
     {ok, 0} = esqlite3:backup_remaining(Backup),
