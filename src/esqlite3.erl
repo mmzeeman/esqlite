@@ -18,28 +18,29 @@
 -author("Maas-Maarten Zeeman <mmzeeman@xs4all.nl>").
 
 %% higher-level export
--export([open/1, open/2,
-         close/1, close/2,
-         set_update_hook/2, set_update_hook/3,
-         exec/2, exec/3, exec/4,
-         changes/1, changes/2,
-         insert/2, insert/3,
-         last_insert_rowid/1,
-         get_autocommit/1, get_autocommit/2,
-         prepare/2, prepare/3,
-         step/1, step/2,
-         reset/1,
-         bind/2, bind/3,
-         fetchone/1,
-         fetchall/1, fetchall/2, fetchall/3,
-         column_names/1, column_names/2,
-         column_types/1, column_types/2,
-         backup_init/4, backup_init/5,
-         backup_remaining/1, backup_remaining/2,
-         backup_pagecount/1, backup_pagecount/2, 
-         backup_step/2, backup_step/3, 
-         flush/0
-        ]).
+-export([
+    open/1, open/2,
+    close/1, close/2,
+    set_update_hook/2, set_update_hook/3,
+    exec/2, exec/3, exec/4,
+    changes/1, changes/2,
+    insert/2, insert/3,
+    last_insert_rowid/1,
+    get_autocommit/1, get_autocommit/2,
+    prepare/2, prepare/3,
+    step/1, step/2,
+    reset/1,
+    bind/2, bind/3,
+    fetchone/1,
+    fetchall/1, fetchall/2, fetchall/3,
+    column_names/1, column_names/2,
+    column_types/1, column_types/2,
+    backup_init/4, backup_init/5,
+    backup_remaining/1, backup_remaining/2,
+    backup_pagecount/1, backup_pagecount/2, 
+    backup_step/2, backup_step/3, 
+    flush/0
+]).
 
 -export([q/2, q/3, q/4, map/3, map/4, foreach/3, foreach/4]).
 
