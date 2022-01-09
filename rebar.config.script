@@ -23,9 +23,15 @@ CFlags =
     end.
 
 [
-    {require_min_otp_vsn, "21"},
+    {minimum_otp_vsn, "21.0"},
 
-    {xref_checks, [undefined_function_calls]},
+    {erl_opts, [debug_info, warnings_as_errors]},
+
+    {xref_checks, [undefined_function_calls,
+                   undefined_functions,
+                   locals_not_used,
+                   deprecated_function_calls,
+                   deprecated_functions]},
 
     {port_env, [
         %% Default darwin ldflags causes loading of system sqlite. Removed -bundle flag.
@@ -56,7 +62,8 @@ CFlags =
             unmatched_returns,
             error_handling,
             race_conditions,
-            underspecs
+            underspecs,
+            unknown
         ]}
     ]},
 

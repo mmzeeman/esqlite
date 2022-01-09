@@ -47,23 +47,23 @@
 -define(DEFAULT_CHUNK_SIZE, 5000).
 
 -record(connection, {
-    raw_connection :: esqlite_nif:raw_connection()
+    raw_connection :: esqlite3_nif:raw_connection()
 }).
 
 -record(statement, {
-    raw_connection :: esqlite_nif:raw_connection(),
-    raw_statement :: esqlite_nif:raw_statement()
+    raw_connection :: esqlite3_nif:raw_connection(),
+    raw_statement :: esqlite3_nif:raw_statement()
 }).
 
 -record(backup, {
-    raw_connection :: esqlite_nif:raw_connection(),
-    raw_backup :: esqlite_nif:raw_backup()
+    raw_connection :: esqlite3_nif:raw_connection(),
+    raw_backup :: esqlite3_nif:raw_backup()
 }).
 
 -type connection() :: #connection{}. 
 -type statement() :: #statement{}.
 -type backup() :: #backup{}.
--type sql() :: esqlite_nif:sql().
+-type sql() :: esqlite3_nif:sql().
 
 %% erlang -> sqlite type conversions
 %%
@@ -79,7 +79,7 @@
 -type row() :: tuple(). % tuple of cell_type
 -type cell_type() :: undefined | integer() | binary() | float(). 
 
--export_types([connection/0, statement/0, sql/0, row/0, row_id/0, cell_type/0]).
+-export_type([connection/0, statement/0, sql/0, row/0, rowid/0, cell_type/0]).
 
 %% @doc Opens a sqlite3 database mentioned in Filename.
 %%
