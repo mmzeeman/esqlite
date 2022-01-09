@@ -60,6 +60,9 @@ CFlags =
         ]}
     ]},
 
+    {edoc_opts, [{preprocess, true},
+                 {sort_functions, false}]},
+
     {hex, [{doc, edoc}]}
 
 ].
