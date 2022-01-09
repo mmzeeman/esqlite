@@ -1,7 +1,3 @@
-%% @author Maas-Maarten Zeeman <mmzeeman@xs4all.nl>
-%% @copyright 2011 - 2022 Maas-Maarten Zeeman
-%% @doc Erlang API for sqlite3 databases
-%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -13,34 +9,35 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%
+%% @author Maas-Maarten Zeeman <mmzeeman@xs4all.nl>
+%% @copyright 2011 - 2022 Maas-Maarten Zeeman
+%% @doc Erlang API for sqlite3 databases
 
 -module(esqlite3).
 -author("Maas-Maarten Zeeman <mmzeeman@xs4all.nl>").
 
 %% higher-level export
 -export([open/1, open/2,
+         close/1, close/2,
          set_update_hook/2, set_update_hook/3,
          exec/2, exec/3, exec/4,
          changes/1, changes/2,
-         insert/2,
+         insert/2, insert/3,
          last_insert_rowid/1,
-         get_autocommit/1,
-         get_autocommit/2,
+         get_autocommit/1, get_autocommit/2,
          prepare/2, prepare/3,
          step/1, step/2,
          reset/1,
          bind/2, bind/3,
          fetchone/1,
-         fetchall/1,
-         fetchall/2,
-         fetchall/3,
+         fetchall/1, fetchall/2, fetchall/3,
          column_names/1, column_names/2,
          column_types/1, column_types/2,
          backup_init/4, backup_init/5,
          backup_remaining/1, backup_remaining/2,
          backup_pagecount/1, backup_pagecount/2, 
          backup_step/2, backup_step/3, 
-         close/1, close/2,
          flush/0
         ]).
 
@@ -49,20 +46,18 @@
 -define(DEFAULT_TIMEOUT, infinity).
 -define(DEFAULT_CHUNK_SIZE, 5000).
 
-%%
-
 -record(connection, {
-          raw_connection :: esqlite_nif:raw_connection()
+    raw_connection :: esqlite_nif:raw_connection()
 }).
 
 -record(statement, {
-          raw_connection :: esqlite_nif:raw_connection(),
-          raw_statement :: esqlite_nif:raw_statement()
+    raw_connection :: esqlite_nif:raw_connection(),
+    raw_statement :: esqlite_nif:raw_statement()
 }).
 
 -record(backup, {
-          raw_connection :: esqlite_nif:raw_connection(),
-          raw_backup :: esqlite_nif:raw_backup()
+    raw_connection :: esqlite_nif:raw_connection(),
+    raw_backup :: esqlite_nif:raw_backup()
 }).
 
 -type connection() :: #connection{}. 
@@ -120,6 +115,27 @@ open(Filename, Timeout) ->
             Error
     end.
 
+%% @doc Close the database
+-spec close(connection()) -> ok | {error, _}.
+close(Connection) ->
+    close(Connection, ?DEFAULT_TIMEOUT).
+
+%% @doc Close the database
+-spec close(connection(), timeout()) -> ok | {error, _}.
+close(#connection{raw_connection=RawConnection}, Timeout) ->
+    Ref = make_ref(),
+    ok = esqlite3_nif:close(RawConnection, Ref, self()),
+    receive_answer(RawConnection, Ref, Timeout).
+
+%% @doc Flush any stale answers left in the mailbox of the current process.
+%%      This can happen if there has been a timeout. Normally the nif functions
+%%      are called with the default 'infinite' timeout, so calling this is not
+%%      needed.
+-spec flush() -> ok.
+flush() ->
+    flush_answers().
+
+
 %% @doc Subscribe to database notifications. When rows are inserted deleted
 %% or updates, the process will receive messages:
 %% ```{insert, string(), rowid()}'''
@@ -133,12 +149,17 @@ open(Filename, Timeout) ->
 set_update_hook(Pid, Connection) ->
     set_update_hook(Pid, Connection, ?DEFAULT_TIMEOUT).
 
-%% @doc Same as set_update_hook, but with an additional timeout parameter.
+%% @doc Same as set_update_hook/2, but with an additional timeout parameter.
+%%
 -spec set_update_hook(pid(), connection(), timeout()) -> ok | {error, term()}.
 set_update_hook(Pid, #connection{raw_connection=RawConnection}, Timeout) ->
     Ref = make_ref(),
     ok = esqlite3_nif:set_update_hook(RawConnection, Ref, self(), Pid),
     receive_answer(RawConnection, Ref, Timeout).
+
+%%
+%% q
+%%
 
 %% @doc Execute a sql statement, returns a list with tuples.
 -spec q(sql(), connection()) -> list(row()) | {error, _}.
@@ -171,6 +192,10 @@ q(Sql, Args, Connection, Timeout) ->
         {error, _Msg}=Error ->
             Error
     end.
+
+%%
+%% map
+%%
 
 %% @doc Execute statement and return a list with the result of F for each row.
 -spec map(Fun, sql(), connection()) -> list(Type) when
@@ -207,6 +232,10 @@ map(Fun, Sql, Args, Connection) ->
             Error
     end.
 
+%%
+%% foreach
+%%
+
 %% @doc Execute statement and call F with each row.
 -spec foreach(Fun, sql(), connection()) -> ok when
       Fun :: fun((Row) -> any()) | fun((ColumnNames, Row) -> any()),
@@ -241,57 +270,8 @@ foreach(F, Sql, Args, Connection) ->
     end.
 
 %%
--spec foreach_s(Fun, statement()) -> ok when
-      Fun :: fun((Row) -> any()) | fun((ColumnNames, Row) -> any()),
-      Row :: row(),
-      ColumnNames :: tuple().
-foreach_s(Fun, Statement) when is_function(Fun, 1) ->
-    case try_multi_step(Statement, 1, [], 0) of
-        {'$done', []} ->
-            ok;
-        {error, _} = Error ->
-            Error;
-        {rows, [Row | []]} ->
-            Fun(Row),
-            foreach_s(Fun, Statement)
-    end;
-foreach_s(Fun, Statement) when is_function(Fun, 2) ->
-    ColumnNames = column_names(Statement),
-    case try_multi_step(Statement, 1, [], 0) of
-        {'$done', []} ->
-            ok;
-        {error, _} = Error ->
-            Error;
-        {rows, [Row | []]} ->
-            Fun(ColumnNames, Row),
-            foreach_s(Fun, Statement)
-    end.
-
+%% fetchall
 %%
--spec map_s(Fun, statement()) -> list(Type) when
-      Fun :: fun((Row) -> Type) | fun((ColumnNames, Row) -> Type),
-      Row :: row(),
-      ColumnNames :: tuple(),
-      Type :: term().
-map_s(Fun, Statement) when is_function(Fun, 1) ->
-    case try_multi_step(Statement, 1, [], 0) of
-        {'$done', []} ->
-            [];
-        {error, _} = Error ->
-            Error;
-        {rows, [Row | []]} ->
-            [Fun(Row) | map_s(Fun, Statement)]
-    end;
-map_s(Fun, Statement) when is_function(Fun, 2) ->
-    ColumnNames = column_names(Statement),
-    case try_multi_step(Statement, 1, [], 0) of
-        {'$done', []} ->
-            [];
-        {error, _} = Error ->
-            Error;
-        {rows, [Row | []]} ->
-            [Fun(ColumnNames, Row) | map_s(Fun, Statement)]
-    end.
 
 %%
 -spec fetchone(statement()) -> tuple().
@@ -326,42 +306,6 @@ fetchall(Statement, ChunkSize, Timeout) ->
     case fetchall_internal(Statement, ChunkSize, [], Timeout) of
         {'$done', Rows} -> lists:reverse(Rows);
         {error, _} = E -> E
-    end.
-
-%% return rows in reverse order
--spec fetchall_internal(statement(), pos_integer(), list(row()), timeout()) ->
-                {'$done', list(row())} |
-                {error, _}.
-fetchall_internal(Statement, ChunkSize, Rest, Timeout) ->
-    case try_multi_step(Statement, ChunkSize, Rest, 0, Timeout) of
-        {rows, Rows} -> fetchall_internal(Statement, ChunkSize, Rows, Timeout);
-        Else -> Else
-    end.
-
-%% Try a number of steps, when the database is busy,
-%% return rows in revers order
-try_multi_step(Statement, ChunkSize, Rest, Tries) ->
-    try_multi_step(Statement, ChunkSize, Rest, Tries, ?DEFAULT_TIMEOUT).
-
-%% Try a number of steps, when the database is busy,
-%% return rows in revers order
--spec try_multi_step(statement(), pos_integer(), list(tuple()), non_neg_integer(), timeout()) ->
-                {rows, list(tuple())} |
-                {'$done', list(tuple())} |
-                {error, term()}.
-try_multi_step(_Statement, _ChunkSize, _Rest, Tries, _Timeout) when Tries > 5 ->
-    throw(too_many_tries);
-try_multi_step(Statement, ChunkSize, Rest, Tries, Timeout) ->
-    case multi_step(Statement, ChunkSize, Timeout) of
-        {'$busy', Rows} -> %% core can fetch a number of rows (rows < ChunkSize) per 'multi_step' call and then get busy...
-            erlang:display({"busy", Tries}),
-            timer:sleep(100 * Tries),
-            try_multi_step(Statement, ChunkSize, Rows ++ Rest, Tries + 1, Timeout);
-        {rows, Rows} ->
-            {rows, Rows ++ Rest};
-        {'$done', Rows} ->
-            {'$done', Rows ++ Rest};
-        Else -> Else
     end.
 
 %% @doc Execute Sql statement.
@@ -481,18 +425,6 @@ step(#statement{raw_statement=RawStatement, raw_connection=RawConnection}, Timeo
         Else -> Else
     end.
 
-%% make multiple sqlite steps per call
-%% return rows in reverse order
--spec multi_step(term(), pos_integer(), timeout()) ->
-                {rows, list(tuple())} |
-                {'$busy', list(tuple())} |
-                {'$done', list(tuple())} |
-                {error, _}.
-multi_step(#statement{raw_statement=RawStatement, raw_connection=RawConnection}, ChunkSize, Timeout) ->
-    Ref = make_ref(),
-    ok = esqlite3_nif:multi_step(RawConnection, RawStatement, ChunkSize, Ref, self()),
-    receive_answer(RawConnection, Ref, Timeout).
-
 %% @doc Reset the prepared statement back to its initial state.
 %%
 -spec reset(statement()) -> ok | {error, _}.
@@ -538,12 +470,30 @@ column_types(#statement{raw_statement=RawStatement, raw_connection=RawConnection
     ok = esqlite3_nif:column_types(RawConnection, RawStatement, Ref, self()),
     receive_answer(RawConnection, Ref, Timeout).
 
-%% @doc Initialize a backup procedure.
+%% @doc make multiple sqlite steps per call return rows in reverse order
+%%
+-spec multi_step(term(), pos_integer(), timeout()) ->
+                {rows, list(tuple())} |
+                {'$busy', list(tuple())} |
+                {'$done', list(tuple())} |
+                {error, _}.
+multi_step(#statement{raw_statement=RawStatement, raw_connection=RawConnection}, ChunkSize, Timeout) ->
+    Ref = make_ref(),
+    ok = esqlite3_nif:multi_step(RawConnection, RawStatement, ChunkSize, Ref, self()),
+    receive_answer(RawConnection, Ref, Timeout).
+
+%%
+%% Backup API
+%%
+
+% @doc Initialize a backup procedure. 
+%%
 -spec backup_init(connection(), string(), connection(), string()) -> {ok, backup()} | {error, _}.
 backup_init(Dest, DestName, Src, SrcName) ->
     backup_init(Dest, DestName, Src, SrcName, ?DEFAULT_TIMEOUT).
 
-%% @doc Initialize a backup procedure
+%% @doc Like backup_init/4, but with an extra timeout value.
+%%
 -spec backup_init(connection(), string(), connection(), string(), timeout()) -> {ok, backup()} | {error, _}.
 backup_init(#connection{raw_connection=Dest}, DestName, #connection{raw_connection=Src}, SrcName, Timeout) ->
     Ref = make_ref(),
@@ -603,30 +553,96 @@ backup_pagecount(#backup{raw_connection=Conn, raw_backup=Back}, Timeout) ->
             E
     end.
 
+%%
+%% Helpers
+%%
 
-%% @doc Close the database
--spec close(connection()) -> ok | {error, _}.
-close(Connection) ->
-    close(Connection, ?DEFAULT_TIMEOUT).
+-spec foreach_s(Fun, statement()) -> ok when
+      Fun :: fun((Row) -> any()) | fun((ColumnNames, Row) -> any()),
+      Row :: row(),
+      ColumnNames :: tuple().
+foreach_s(Fun, Statement) when is_function(Fun, 1) ->
+    case try_multi_step(Statement, 1, [], 0) of
+        {'$done', []} ->
+            ok;
+        {error, _} = Error ->
+            Error;
+        {rows, [Row | []]} ->
+            Fun(Row),
+            foreach_s(Fun, Statement)
+    end;
+foreach_s(Fun, Statement) when is_function(Fun, 2) ->
+    ColumnNames = column_names(Statement),
+    case try_multi_step(Statement, 1, [], 0) of
+        {'$done', []} ->
+            ok;
+        {error, _} = Error ->
+            Error;
+        {rows, [Row | []]} ->
+            Fun(ColumnNames, Row),
+            foreach_s(Fun, Statement)
+    end.
 
-%% @doc Close the database
--spec close(connection(), timeout()) -> ok | {error, _}.
-close(#connection{raw_connection=RawConnection}, Timeout) ->
-    Ref = make_ref(),
-    ok = esqlite3_nif:close(RawConnection, Ref, self()),
-    receive_answer(RawConnection, Ref, Timeout).
+-spec map_s(Fun, statement()) -> list(Type) when
+      Fun :: fun((Row) -> Type) | fun((ColumnNames, Row) -> Type),
+      Row :: row(),
+      ColumnNames :: tuple(),
+      Type :: term().
+map_s(Fun, Statement) when is_function(Fun, 1) ->
+    case try_multi_step(Statement, 1, [], 0) of
+        {'$done', []} ->
+            [];
+        {error, _} = Error ->
+            Error;
+        {rows, [Row | []]} ->
+            [Fun(Row) | map_s(Fun, Statement)]
+    end;
+map_s(Fun, Statement) when is_function(Fun, 2) ->
+    ColumnNames = column_names(Statement),
+    case try_multi_step(Statement, 1, [], 0) of
+        {'$done', []} ->
+            [];
+        {error, _} = Error ->
+            Error;
+        {rows, [Row | []]} ->
+            [Fun(ColumnNames, Row) | map_s(Fun, Statement)]
+    end.
 
+%% return rows in reverse order
+-spec fetchall_internal(statement(), pos_integer(), list(row()), timeout()) ->
+                {'$done', list(row())} |
+                {error, _}.
+fetchall_internal(Statement, ChunkSize, Rest, Timeout) ->
+    case try_multi_step(Statement, ChunkSize, Rest, 0, Timeout) of
+        {rows, Rows} -> fetchall_internal(Statement, ChunkSize, Rows, Timeout);
+        Else -> Else
+    end.
 
-%% @doc Flush any stale answers left in the mailbox of the current process.
-%%      This can happen if there has been a timeout. Normally the nif functions
-%%      are called with the default 'infinite' timeout, so calling this is not
-%%      needed.
--spec flush() -> ok.
-flush() ->
-    flush_answers().
+%% Try a number of steps, when the database is busy,
+%% return rows in revers order
+try_multi_step(Statement, ChunkSize, Rest, Tries) ->
+    try_multi_step(Statement, ChunkSize, Rest, Tries, ?DEFAULT_TIMEOUT).
 
-
-%% Internal functions
+%% Try a number of steps, when the database is busy,
+%% return rows in revers order
+-spec try_multi_step(statement(), pos_integer(), list(tuple()), non_neg_integer(), timeout()) ->
+                {rows, list(tuple())} |
+                {'$done', list(tuple())} |
+                {error, term()}.
+try_multi_step(_Statement, _ChunkSize, _Rest, Tries, _Timeout) when Tries > 5 ->
+    throw(too_many_tries);
+try_multi_step(Statement, ChunkSize, Rest, Tries, Timeout) ->
+    case multi_step(Statement, ChunkSize, Timeout) of
+        {'$busy', Rows} -> %% core can fetch a number of rows (rows < ChunkSize) per 'multi_step' call and then get busy...
+            erlang:display({"busy", Tries}),
+            timer:sleep(100 * Tries),
+            try_multi_step(Statement, ChunkSize, Rows ++ Rest, Tries + 1, Timeout);
+        {rows, Rows} ->
+            {rows, Rows ++ Rest};
+        {'$done', Rows} ->
+            {'$done', Rows ++ Rest};
+        Else -> Else
+    end.
 
 receive_answer(RawConnection, Ref, Timeout) ->
     receive

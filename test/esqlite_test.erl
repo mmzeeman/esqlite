@@ -6,6 +6,9 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
+-define(DB1, "./test/dbs/temp_db1.db").
+-define(DB2, "./test/dbs/temp_db2.db").
+
 open_single_database_test() ->
     {ok, _C1} = esqlite3:open("test.db"),
     ok.
@@ -26,13 +29,13 @@ close_test() ->
     ok.
 
 open_multiple_same_databases_test() ->
-    {ok, _C1} = esqlite3:open("test.db"),
-    {ok, _C2} = esqlite3:open("test.db"),
+    {ok, _C1} = esqlite3:open(?DB1),
+    {ok, _C2} = esqlite3:open(?DB1),
     ok.
 
 open_multiple_different_databases_test() ->
-    {ok, _C1} = esqlite3:open("test1.db"),
-    {ok, _C2} = esqlite3:open("test2.db"),
+    {ok, _C1} = esqlite3:open(?DB1),
+    {ok, _C2} = esqlite3:open(?DB2),
     ok.
 
 get_autocommit_test() ->
@@ -441,8 +444,8 @@ prepare_and_close_connection_test() ->
     ok.
 
 backup_test() ->
-    {ok, Dest} = esqlite3:open("test1.db"),
-    {ok, Source} = esqlite3:open("test2.db"),
+    {ok, Dest} = esqlite3:open(?DB1),
+    {ok, Source} = esqlite3:open(?DB2),
 
     {ok, Backup} = esqlite3:backup_init(Dest, "main", Source, "main"),
     {ok, 0} = esqlite3:backup_remaining(Backup),
