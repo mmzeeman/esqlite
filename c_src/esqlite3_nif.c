@@ -1745,7 +1745,7 @@ static ErlNifFunc nif_funcs[] = {
     {"backup_init", 6, esqlite_backup_init},
     {"backup_step", 5, esqlite_backup_step},
     {"backup_remaining", 4, esqlite_backup_remaining},
-    {"backup_pagecount", 4, esqlite_backup_remaining},
+    {"backup_pagecount", 4, esqlite_backup_pagecount},
     {"backup_finish", 4, esqlite_backup_finish},
 
     {"interrupt", 1, esqlite_interrupt, ERL_NIF_DIRTY_JOB_IO_BOUND},

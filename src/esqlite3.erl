@@ -36,6 +36,7 @@
     column_names/1, column_names/2,
     column_types/1, column_types/2,
     backup_init/4, backup_init/5,
+    backup_finish/1, backup_finish/2,
     backup_remaining/1, backup_remaining/2,
     backup_pagecount/1, backup_pagecount/2, 
     backup_step/2, backup_step/3, 
@@ -506,6 +507,17 @@ backup_init(#connection{raw_connection=Dest}, DestName, #connection{raw_connecti
             Error
     end.
 
+
+%% @doc Release the resources held by the backup.
+-spec backup_finish(backup()) -> ok | {error, _}.
+backup_finish(Backup) ->
+    backup_finish(Backup, ?DEFAULT_TIMEOUT).
+%% @doc Like backup_finish/1, but with an extra timeout.    
+-spec backup_finish(backup(), timeout()) -> ok | {error, _}.
+backup_finish(#backup{raw_connection=Conn, raw_backup=Back}, Timeout) ->
+    Ref = make_ref(),
+    ok = esqlite3_nif:backup_finish(Conn, Back, Ref, self()),
+    receive_answer(Conn, Ref, Timeout).
 
 %% @doc Do a backup step. 
 -spec backup_step(backup(), integer()) -> ok | {error, _}.
