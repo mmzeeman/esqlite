@@ -1712,6 +1712,9 @@ on_load(ErlNifEnv* env, void** priv, ERL_NIF_TERM info)
 
     atom_esqlite3 = make_atom(env, "esqlite3");
 
+    if(SQLITE_OK != sqlite3_initialize())
+        return -1;
+
     return 0;
 }
 
