@@ -6,8 +6,12 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
+-define(DB1, "./test/dbs/temp_db1.db").
+-define(DB2, "./test/dbs/temp_db2.db").
+
 open_single_database_test() ->
-    {ok, _C1} = esqlite3:open("test.db"),
+    cleanup(),
+    {ok, _C1} = esqlite3:open(?DB1),
     ok.
 
 close_test() ->
@@ -26,13 +30,19 @@ close_test() ->
     ok.
 
 open_multiple_same_databases_test() ->
-    {ok, _C1} = esqlite3:open("test.db"),
-    {ok, _C2} = esqlite3:open("test.db"),
+    cleanup(),
+
+    {ok, _C1} = esqlite3:open(?DB1),
+    {ok, _C2} = esqlite3:open(?DB1),
+
+    cleanup(),
     ok.
 
 open_multiple_different_databases_test() ->
-    {ok, _C1} = esqlite3:open("test1.db"),
-    {ok, _C2} = esqlite3:open("test2.db"),
+    cleanup(),
+    {ok, _C1} = esqlite3:open(?DB1),
+    {ok, _C2} = esqlite3:open(?DB2),
+    cleanup(),
     ok.
 
 get_autocommit_test() ->
@@ -293,7 +303,6 @@ reset_test() ->
 
     ok.
 
-
 foreach_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
 
@@ -441,6 +450,65 @@ prepare_and_close_connection_test() ->
 
     ok.
 
+backup_test() ->
+    cleanup(),
+
+    {ok, Dest} = esqlite3:open(?DB1),
+    {ok, Source} = esqlite3:open(?DB2),
+
+    {ok, Backup} = esqlite3:backup_init(Dest, "main", Source, "main"),
+    {ok, 0} = esqlite3:backup_remaining(Backup),
+    {ok, 0} = esqlite3:backup_pagecount(Backup),
+    done = esqlite3:backup_step(Backup, 1),
+
+    cleanup(),
+
+    ok.
+
+backup1_test() ->
+    cleanup(),
+
+    {ok, Dest} = esqlite3:open(?DB1),
+    {ok, Source} = esqlite3:open(?DB2),
+
+    [] = esqlite3:q("create table test(one, two)", Source),
+    [] = esqlite3:q("begin;", Source),
+    [] = esqlite3:q("insert into test values(randomblob(10000), randomblob(10000));", Source),
+    [] = esqlite3:q("insert into test values(randomblob(10000), randomblob(10000));", Source),
+    [] = esqlite3:q("insert into test values(randomblob(10000), randomblob(10000));", Source),
+    [] = esqlite3:q("insert into test values(randomblob(10000), randomblob(10000));", Source),
+    [] = esqlite3:q("insert into test values(randomblob(10000), randomblob(10000));", Source),
+    [] = esqlite3:q("commit;", Source),
+    
+    [{5}] = esqlite3:q("select count(*) from test", Source),
+    {error, {sqlite_error, "no such table: test"}} = esqlite3:q("select count(*) from test", Dest),
+
+    {ok, Backup} = esqlite3:backup_init(Dest, "main", Source, "main"),
+
+    {ok, 0} = esqlite3:backup_remaining(Backup),
+    {ok, 0} = esqlite3:backup_pagecount(Backup),
+
+    %% Backup 1 page.
+    ok = esqlite3:backup_step(Backup, 1),
+
+    {ok, 26} = esqlite3:backup_remaining(Backup),
+    {ok, 27} = esqlite3:backup_pagecount(Backup),
+
+    %% Do all the remaining pages.
+    done = esqlite3:backup_step(Backup, -1),
+
+    {ok, 0} = esqlite3:backup_remaining(Backup),
+    {ok, 27} = esqlite3:backup_pagecount(Backup),
+
+    ok = esqlite3:backup_finish(Backup),
+
+    [{5}] = esqlite3:q("select count(*) from test", Dest),
+
+    cleanup(),
+
+    ok.
+    
+
 sqlite_version_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
     {ok, Stmt} = esqlite3:prepare("select sqlite_version() as sqlite_version;", Db),
@@ -496,5 +564,20 @@ garbage_collect_test() ->
     receive after 500 -> ok end,
     erlang:garbage_collect(),
 
+
     ok.
+
+%%
+%% Helpers
+%%
+
+cleanup() ->
+    rm_rf(?DB1),
+    rm_rf(?DB2).
+
+rm_rf(Filename) ->
+    case file:delete(Filename) of
+        ok -> ok;
+        {error, _} -> ok
+    end.
 

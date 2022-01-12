@@ -1,0 +1,47 @@
+@author Maas-Maarten Zeeman <mmzeeman@xs4all.nl>
+
+@title eSqlite Documentation
+
+@doc
+
+eSqlite is a library which makes it possible to use sqlite databases in erlang. It is implemented
+as a NIF, which means that the sqlite database engine is linked to the erlang virtual machine.
+
+<hr />
+ 
+== Why Sqlite? ==
+
+Sqlite is a implementation of SQL as a library. This means that you don't run a separate SQL server
+that your program communicates with, but you embed the SQL implementation directly in your program.
+Sqlite stores its data in a single file. The file format is portable between different machine 
+architectures. It supports atomic transactions and it is possible to access the file by multiple
+processes and different programs.
+
+<hr />
+ 
+== Using == 
+
+The main api is the {@link esqlite3} module. It contains more high level api methods to use the database.
+
+```
+%% Open a database
+{ok, Conn} = esqlite3:open("my-database.db").
+'''
+
+This opens a connection to a database. When the file does not exist yet, it is created. 
+It is possible to share the connection between different processes.
+
+Sqlite supports a URI database naming scheme which makes it possible to open a database
+in read-only mode, or use shared memory databases. More information on this can be found at:
+[https://sqlite.org/uri.html#uri_filenames_in_sqlite]
+
+For example:
+
+```
+%% Open a shared memory database with transactional capabilities
+{ok, Conn} = esqlite3:open("file:memdb1?mode=memory&cache=shared").
+'''
+
+This opens a shared memory database. Other processes can open the same database name and
+access and store data consistently.
+

@@ -1,10 +1,3 @@
-%% @author Maas-Maarten Zeeman <mmzeeman@xs4all.nl>
-%% @copyright 2011 - 2017 Maas-Maarten Zeeman
-
-%% @doc Low level erlang API for sqlite3 databases
-
-%% Copyright 2011 - 2017 Maas-Maarten Zeeman
-%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -16,35 +9,47 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%
+%% @author Maas-Maarten Zeeman <mmzeeman@xs4all.nl>
+%% @copyright 2011 - 2022 Maas-Maarten Zeeman
+%%
+%% @doc Low level erlang API for sqlite3 databases.
 
 -module(esqlite3_nif).
 -author("Maas-Maarten Zeeman <mmzeeman@xs4all.nl>").
 
 %% low-level exports
--export([start/0,
-         open/4,
-         set_update_hook/4,
-         exec/4,
-         changes/3,
-         insert/4,
-         last_insert_rowid/3,
-         get_autocommit/3,
-         prepare/4,
-         multi_step/5,
-         reset/4,
-         finalize/4,
-         bind/5,
-         column_names/4,
-         column_types/4,
-         interrupt/1,
-         close/3
-        ]).
+-export([
+    start/0,
+    open/4,
+    set_update_hook/4,
+    exec/4,
+    changes/3,
+    insert/4,
+    last_insert_rowid/3,
+    get_autocommit/3,
+    prepare/4,
+    multi_step/5,
+    reset/4,
+    finalize/4,
+    bind/5,
+    column_names/4,
+    column_types/4,
+    backup_init/6,
+    backup_step/5,
+    backup_remaining/4,
+    backup_pagecount/4,
+    backup_finish/4,
+    interrupt/1,
+    close/3
+]).
 
 -type raw_connection() :: reference().
 -type raw_statement() :: reference().
+-type raw_backup() :: reference().
 -type sql() :: iodata(). 
 
--export_type([raw_connection/0, raw_statement/0, sql/0]).
+-export_type([raw_connection/0, raw_statement/0, raw_backup/0, sql/0]).
 
 -on_load(init/0).
 
@@ -135,6 +140,31 @@ column_names(_Db, _Stmt, _Ref, _Dest) ->
 %%
 -spec column_types(raw_connection(), raw_statement(), reference(), pid()) -> ok | {error, _}.
 column_types(_Db, _Stmt, _Ref, _Dest) ->
+    erlang:nif_error(nif_library_not_loaded).
+
+%% @doc Initialize a backup procedure of a database.
+-spec backup_init(raw_connection(), string(), raw_connection(), string(), reference(), pid()) -> ok | {error, _}.
+backup_init(_DestDb, _DestName, _SourceDb, _SourceName, _Ref, _Dest) ->
+    erlang:nif_error(nif_library_not_loaded).
+
+%% @doc Do a backup step.
+-spec backup_step(raw_connection(), raw_backup(), integer(), reference(), pid()) -> ok | {error, _}.
+backup_step(_Db, _Backup, _NPages, _Ref, _Dest) ->
+    erlang:nif_error(nif_library_not_loaded).
+
+%% @doc Get the amount of remaining pages which need to be backed up.
+-spec backup_remaining(raw_connection(), raw_backup(), reference(), pid()) -> ok | {error, _}.
+backup_remaining(_Db, _Backup, _Ref, _Dest) ->
+    erlang:nif_error(nif_library_not_loaded).
+
+%% @doc Get the total number of pages which need to be backed up.
+-spec backup_pagecount(raw_connection(), raw_backup(), reference(), pid()) -> ok | {error, _}.
+backup_pagecount(_Db, _Backup, _Ref, _Dest) ->
+    erlang:nif_error(nif_library_not_loaded).
+
+%% @doc Finish the backup.
+-spec backup_finish(raw_connection(), raw_backup(), reference(), pid()) -> ok | {error, _}.
+backup_finish(_Db, _Backup, _Ref, _Dest) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @doc Interrupt all active queries.
