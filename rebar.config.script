@@ -1,7 +1,7 @@
 
 NifSharedSources = ["c_src/esqlite3_nif.c", "c_src/queue.c"].
 NifStaticSources = NifSharedSources ++ ["c_src/sqlite3/sqlite3.c"].
-CFlagsDefault = "$CFLAGS -DSQLITE_THREADSAFE=1 -DSQLITE_USE_URI -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_FTS3_PARENTHESIS".
+CFlagsDefault = "$CFLAGS -DSQLITE_DQS=0 -DSQLITE_THREADSAFE=1 -DSQLITE_USE_URI -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_FTS3_PARENTHESIS".
 DrvLdFlagsDefault = "-shared -lsqlite3".
 
 DrvLdFlags =

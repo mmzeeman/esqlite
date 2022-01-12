@@ -81,14 +81,14 @@ simple_query_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
     ok = esqlite3:exec("begin;", Db),
     ok = esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
-    ok = esqlite3:exec(["insert into test_table values(", "\"hello1\"", ",", "10" ");"], Db),
+    ok = esqlite3:exec("insert into test_table values('hello1', 10);", Db),
     {ok, 1} = esqlite3:changes(Db),
 
-    ok = esqlite3:exec(["insert into test_table values(", "\"hello2\"", ",", "11" ");"], Db),
+    ok = esqlite3:exec("insert into test_table values('hello2', 11);", Db),
     {ok, 1} = esqlite3:changes(Db),
-    ok = esqlite3:exec(["insert into test_table values(", "\"hello3\"", ",", "12" ");"], Db),
+    ok = esqlite3:exec("insert into test_table values('hello3', 12);", Db),
     {ok, 1} = esqlite3:changes(Db),
-    ok = esqlite3:exec(["insert into test_table values(", "\"hello4\"", ",", "13" ");"], Db),
+    ok = esqlite3:exec("insert into test_table values('hello4', 13);", Db),
     {ok, 1} = esqlite3:changes(Db),
     ok = esqlite3:exec("commit;", Db),
     ok = esqlite3:exec("select * from test_table;", Db),
@@ -102,12 +102,12 @@ prepare_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
     esqlite3:exec("begin;", Db),
     esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
-    {ok, Statement} = esqlite3:prepare("insert into test_table values(\"one\", 2)", Db),
+    {ok, Statement} = esqlite3:prepare("insert into test_table values('one', 2)", Db),
 
     '$done' = esqlite3:step(Statement),
     {ok, 1} = esqlite3:changes(Db),
 
-    ok = esqlite3:exec(["insert into test_table values(", "\"hello4\"", ",", "13" ");"], Db),
+    ok = esqlite3:exec("insert into test_table values('hello4', 13);", Db),
 
     %% Check if the values are there.
     [{<<"one">>, 2}, {<<"hello4">>, 13}] = esqlite3:q("select * from test_table order by two", Db),
@@ -201,8 +201,8 @@ column_names_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
     ok = esqlite3:exec("begin;", Db),
     ok = esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
-    ok = esqlite3:exec(["insert into test_table values(", "\"hello1\"", ",", "10" ");"], Db),
-    ok = esqlite3:exec(["insert into test_table values(", "\"hello2\"", ",", "20" ");"], Db),
+    ok = esqlite3:exec("insert into test_table values('hello1', 10);", Db),
+    ok = esqlite3:exec("insert into test_table values('hello2', 20);", Db),
     ok = esqlite3:exec("commit;", Db),
 
     %% All columns
@@ -248,8 +248,8 @@ column_types_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
     ok = esqlite3:exec("begin;", Db),
     ok = esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
-    ok = esqlite3:exec(["insert into test_table values(", "\"hello1\"", ",", "10" ");"], Db),
-    ok = esqlite3:exec(["insert into test_table values(", "\"hello2\"", ",", "20" ");"], Db),
+    ok = esqlite3:exec("insert into test_table values('hello1', 10);", Db),
+    ok = esqlite3:exec("insert into test_table values('hello2', 20);", Db),
     ok = esqlite3:exec("commit;", Db),
 
     %% All columns
@@ -308,10 +308,12 @@ foreach_test() ->
 
     ok = esqlite3:exec("begin;", Db),
     ok = esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
-    ok = esqlite3:exec(["insert into test_table values(", "\"hello1\"", ",", "10" ");"], Db),
-    ok = esqlite3:exec(["insert into test_table values(", "\"hello2\"", ",", "11" ");"], Db),
-    ok = esqlite3:exec(["insert into test_table values(", "\"hello3\"", ",", "12" ");"], Db),
-    ok = esqlite3:exec(["insert into test_table values(", "\"hello4\"", ",", "13" ");"], Db),
+
+    ok = esqlite3:exec("insert into test_table values('hello1', 10);", Db),
+    ok = esqlite3:exec("insert into test_table values('hello2', 11);", Db),
+    ok = esqlite3:exec("insert into test_table values('hello3', 12);", Db),
+    ok = esqlite3:exec("insert into test_table values('hello4', 13);", Db),
+
     ok = esqlite3:exec("commit;", Db),
 
     F = fun(Row) ->
@@ -337,10 +339,10 @@ bind_for_foreach_test() ->
 
     ok = esqlite3:exec("begin;", Db),
     ok = esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
-    ok = esqlite3:exec(["insert into test_table values(", "\"hello1\"", ",", "10" ");"], Db),
-    ok = esqlite3:exec(["insert into test_table values(", "\"hello2\"", ",", "11" ");"], Db),
-    ok = esqlite3:exec(["insert into test_table values(", "\"hello3\"", ",", "12" ");"], Db),
-    ok = esqlite3:exec(["insert into test_table values(", "\"hello4\"", ",", "13" ");"], Db),
+    ok = esqlite3:exec("insert into test_table values('hello1', 10);", Db),
+    ok = esqlite3:exec("insert into test_table values('hello2', 11);", Db),
+    ok = esqlite3:exec("insert into test_table values('hello3', 12);", Db),
+    ok = esqlite3:exec("insert into test_table values('hello4', 13);", Db),
     ok = esqlite3:exec("commit;", Db),
 
     F = fun(Row) ->
@@ -363,10 +365,10 @@ map_test() ->
 
     ok = esqlite3:exec("begin;", Db),
     ok = esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
-    ok = esqlite3:exec(["insert into test_table values(", "\"hello1\"", ",", "10" ");"], Db),
-    ok = esqlite3:exec(["insert into test_table values(", "\"hello2\"", ",", "11" ");"], Db),
-    ok = esqlite3:exec(["insert into test_table values(", "\"hello3\"", ",", "12" ");"], Db),
-    ok = esqlite3:exec(["insert into test_table values(", "\"hello4\"", ",", "13" ");"], Db),
+    ok = esqlite3:exec("insert into test_table values('hello1', 10);", Db),
+    ok = esqlite3:exec("insert into test_table values('hello2', 11);", Db),
+    ok = esqlite3:exec("insert into test_table values('hello3', 12);", Db),
+    ok = esqlite3:exec("insert into test_table values('hello4', 13);", Db),
     ok = esqlite3:exec("commit;", Db),
 
     F = fun(Row) -> Row end,
@@ -393,10 +395,10 @@ bind_for_map_test() ->
 
     ok = esqlite3:exec("begin;", Db),
     ok = esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
-    ok = esqlite3:exec(["insert into test_table values(", "\"hello1\"", ",", "10" ");"], Db),
-    ok = esqlite3:exec(["insert into test_table values(", "\"hello2\"", ",", "11" ");"], Db),
-    ok = esqlite3:exec(["insert into test_table values(", "\"hello3\"", ",", "12" ");"], Db),
-    ok = esqlite3:exec(["insert into test_table values(", "\"hello4\"", ",", "13" ");"], Db),
+    ok = esqlite3:exec("insert into test_table values('hello1', 10);", Db),
+    ok = esqlite3:exec("insert into test_table values('hello2', 11);", Db),
+    ok = esqlite3:exec("insert into test_table values('hello3', 12);", Db),
+    ok = esqlite3:exec("insert into test_table values('hello4', 13);", Db),
     ok = esqlite3:exec("commit;", Db),
 
     F = fun(Row) -> Row end,
