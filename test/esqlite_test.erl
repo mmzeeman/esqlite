@@ -445,14 +445,14 @@ sqlite_version_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
     {ok, Stmt} = esqlite3:prepare("select sqlite_version() as sqlite_version;", Db),
     {sqlite_version} = esqlite3:column_names(Stmt),
-    ?assertEqual({row, {<<"3.37.1">>}}, esqlite3:step(Stmt)),
+    ?assertEqual({row, {<<"3.37.2">>}}, esqlite3:step(Stmt)),
     ok.
 
 sqlite_source_id_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
     {ok, Stmt} = esqlite3:prepare("select sqlite_source_id() as sqlite_source_id;", Db),
     {sqlite_source_id} = esqlite3:column_names(Stmt),
-    ?assertEqual({row, {<<"2021-12-30 15:30:28 378629bf2ea546f73eee84063c5358439a12f7300e433f18c9e1bddd948dea62">>}},
+    ?assertEqual({row, {<<"2022-01-06 13:25:41 872ba256cbf61d9290b571c0e6d82a20c224ca3ad82971edc46b29818d5d17a0">>}},
                  esqlite3:step(Stmt)),
     ok.
 
