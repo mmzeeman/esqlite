@@ -1021,8 +1021,15 @@ esqlite_start(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     }
 
     /* Start command processing thread */
-    conn->opts = enif_thread_opts_create("esqldb_thread_opts");
+    conn->opts = enif_thread_opts_create("esqlite_thread_opts");
+    if(conn->opts == NULL) {
+        return make_error_tuple(env, "thread_opts_failed");
+    }
+
+    conn->opts->suggested_stack_size = 128; 
+
     if(enif_thread_create("esqlite_connection", &conn->tid, esqlite_connection_run, conn, conn->opts) != 0) {
+        enif_thread_opts_destroy(conn->opts);
         enif_release_resource(conn);
         return make_error_tuple(env, "thread_create_failed");
     }
