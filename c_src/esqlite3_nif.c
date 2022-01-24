@@ -202,7 +202,7 @@ command_create()
 {
     esqlite_command *cmd = (esqlite_command *) enif_alloc(sizeof(esqlite_command));
     if(cmd == NULL)
-	   return NULL;
+        return NULL;
 
     cmd->env = enif_alloc_env();
     if(cmd->env == NULL) {
@@ -304,11 +304,11 @@ update_callback(void *arg, int sqlite_operation_type, char const *sqlite_databas
     esqlite_connection *db = (esqlite_connection *)arg;
     esqlite_command *cmd = NULL;
     ERL_NIF_TERM type, table, rowid;
-    cmd = command_create();
 
     if(db == NULL)
         return;
 
+    cmd = command_create();
     if(!cmd)
         return;
 
