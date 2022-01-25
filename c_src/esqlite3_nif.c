@@ -1027,9 +1027,9 @@ esqlite_start(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     }
 
     /* Configure a fixed sized stack, windows uses a default of 1Mb, which 
-     * can be too small for complex queries. Linux and MacOS uses 8Mb, which
-     * is a bit too large, since the largest query is about 1Mb in size. The
-     * stack size depends on that. A value of 3Mb is about right.
+     * can be too small for complex queries. Linux and MacOS uses a stack of about
+     * 8Mb, which is a bit too large, since the largest sqlite query is about 1Mb
+     * in size. The stack size depends on that. A value of 3Mb is about right.
      */
     conn->opts->suggested_stack_size = 3072;
 
