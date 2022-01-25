@@ -1026,7 +1026,12 @@ esqlite_start(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         return make_error_tuple(env, "thread_opts_failed");
     }
 
-    conn->opts->suggested_stack_size = 128; 
+    /* Configure a fixed sized stack, windows uses a default of 1Mb, which 
+     * can be too small for complex queries. Linux and MacOS uses 8Mb, which
+     * is a bit too large, since the largest query is about 1Mb in size. The
+     * stack size depends on that. A value of 3Mb is about right.
+     */
+    conn->opts->suggested_stack_size = 3072;
 
     if(enif_thread_create("esqlite_connection", &conn->tid, esqlite_connection_run, conn, conn->opts) != 0) {
         enif_thread_opts_destroy(conn->opts);
