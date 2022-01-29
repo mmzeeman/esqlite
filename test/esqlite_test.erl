@@ -29,6 +29,14 @@ close_test() ->
 
     ok.
 
+iodata_test() ->
+    {ok, C} = esqlite3:open(":memory:"),
+    {error, no_iodata} = esqlite3:exec(1000, C),
+    {error, no_iodata} = esqlite3:insert(1000, C),
+
+    ok.
+
+
 open_multiple_same_databases_test() ->
     cleanup(),
 

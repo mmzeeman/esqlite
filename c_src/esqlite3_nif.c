@@ -360,7 +360,9 @@ do_exec(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
     int rc;
     ERL_NIF_TERM eos = enif_make_int(env, 0);
 
-    enif_inspect_iolist_as_binary(env, enif_make_list2(env, arg, eos), &bin);
+    if(!enif_inspect_iolist_as_binary(env, enif_make_list2(env, arg, eos), &bin)) {
+        return make_error_tuple(env, "no_iodata");
+    }
 
     rc = sqlite3_exec(conn->db, (char *) bin.data, NULL, NULL, NULL);
     if(rc != SQLITE_OK)
@@ -395,8 +397,9 @@ do_insert(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
     int rc;
     ERL_NIF_TERM eos = enif_make_int(env, 0);
 
-    enif_inspect_iolist_as_binary(env,
-        enif_make_list2(env, arg, eos), &bin);
+    if(!enif_inspect_iolist_as_binary(env, enif_make_list2(env, arg, eos), &bin)) {
+        return make_error_tuple(env, "no_iodata");
+    }
 
     rc = sqlite3_exec(conn->db, (char *) bin.data, NULL, NULL, NULL);
     if(rc != SQLITE_OK)
@@ -435,8 +438,9 @@ do_prepare(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
     int rc;
     ERL_NIF_TERM eos = enif_make_int(env, 0);
 
-    if(!enif_inspect_iolist_as_binary(env, enif_make_list2(env, arg, eos), &bin))
-        return make_error_tuple(env, "not an iolist");
+    if(!enif_inspect_iolist_as_binary(env, enif_make_list2(env, arg, eos), &bin)) {
+        return make_error_tuple(env, "no_iodata");
+    }
 
     stmt = enif_alloc_resource(esqlite_statement_type, sizeof(esqlite_statement));
     if(!stmt)
@@ -487,8 +491,9 @@ bind_cell(ErlNifEnv *env, const ERL_NIF_TERM cell, sqlite3_stmt *stmt, unsigned 
     }
 
     /* Bind as text assume it is utf-8 encoded text */
-    if(enif_inspect_iolist_as_binary(env, cell, &the_blob))
+    if(enif_inspect_iolist_as_binary(env, cell, &the_blob)) {
         return sqlite3_bind_text(stmt, i, (char *) the_blob.data, the_blob.size, SQLITE_TRANSIENT);
+    }
 
     /* Check for blob tuple */
     if(enif_get_tuple(env, cell, &arity, &tuple)) {
