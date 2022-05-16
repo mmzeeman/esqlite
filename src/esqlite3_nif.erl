@@ -20,8 +20,7 @@
 
 %% low-level exports
 -export([
-    start/0,
-    open/4,
+    open/1,
     set_update_hook/4,
     exec/4,
     changes/3,
@@ -61,22 +60,16 @@ init() ->
                   end,
     ok = erlang:load_nif(NifFileName, 0).
 
-%% @doc Start a low level thread which will can handle sqlite3 calls.
-%%
--spec start() -> {ok, raw_connection()} | {error, _}.
-start() ->
-    erlang:nif_error(nif_library_not_loaded).
 
 %% @doc Open the specified sqlite3 database.
 %%
-%% Sends an asynchronous open command over the connection and returns
-%% ok immediately. When the database is opened
-%%
--spec open(raw_connection(), reference(), pid(), string()) -> ok | {error, _}.
-open(_Db, _Ref, _Dest, _Filename) ->
+-spec open(Filename) -> OpenResult
+    when Filename :: string()
+         OpenResult :: {ok, ref()} | {error, _}.
+open(_Filename) ->
     erlang:nif_error(nif_library_not_loaded).
 
--spec set_update_hook(raw_connection(), reference(), pid(), pid()) -> ok | {error, _}.
+-spec set_update_hook(reference(), pid(), pid()) -> ok | {error, _}.
 set_update_hook(_Db, _Ref, _Dest, _Pid) ->
     erlang:nif_error(nif_library_not_loaded).
 

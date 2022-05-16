@@ -105,13 +105,10 @@ open(Filename) ->
 %% @doc Like open/1, but with an additional timeout.
 %%
 -spec open(string(), timeout()) -> {ok, connection()} | {error, _}.
-open(Filename, Timeout) ->
-    {ok, RawConnection} = esqlite3_nif:start(),
-
+open(Filename) ->
     Ref = make_ref(),
-    ok = esqlite3_nif:open(RawConnection, Ref, self(), Filename),
-    case receive_answer(RawConnection, Ref, Timeout) of
-        ok ->
+    case esqlite3_nif:open(Filename) of
+        {ok, RawConnection} ->
             {ok, #connection{raw_connection=RawConnection}};
         {error, _Msg}=Error ->
             Error

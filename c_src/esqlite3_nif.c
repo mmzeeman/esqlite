@@ -35,13 +35,7 @@ static ErlNifResourceType *esqlite_backup_type = NULL;
 
 /* database connection context */
 typedef struct {
-    ErlNifTid tid;
-    ErlNifThreadOpts* opts;
-    ErlNifPid notification_pid;
-
     sqlite3 *db;
-    queue *commands;
-
 } esqlite_connection;
 
 /* prepared statement */
@@ -79,19 +73,7 @@ typedef enum {
     cmd_get_autocommit,
 } command_type;
 
-typedef struct {
-    command_type type;
-
-    ErlNifEnv *env;
-    ERL_NIF_TERM ref;
-    ErlNifPid pid;
-    ERL_NIF_TERM arg;
-    ERL_NIF_TERM stmt;
-} esqlite_command;
-
 static ERL_NIF_TERM atom_esqlite3;
-
-static ERL_NIF_TERM push_command(ErlNifEnv *env, esqlite_connection *conn, esqlite_command *cmd);
 
 static ERL_NIF_TERM
 make_atom(ErlNifEnv *env, const char *atom_name)
@@ -99,7 +81,7 @@ make_atom(ErlNifEnv *env, const char *atom_name)
     ERL_NIF_TERM atom;
 
     if(enif_make_existing_atom(env, atom_name, &atom, ERL_NIF_LATIN1))
-	   return atom;
+        return atom;
 
     return enif_make_atom(env, atom_name);
 }
@@ -186,38 +168,6 @@ make_sqlite3_error_tuple(ErlNifEnv *env, int error_code, sqlite3 *db)
             enif_make_string(env, msg, ERL_NIF_LATIN1)));
 }
 
-static void
-command_destroy(void *obj)
-{
-    esqlite_command *cmd = (esqlite_command *) obj;
-
-    if(cmd->env != NULL)
-        enif_free_env(cmd->env);
-
-    enif_free(cmd);
-}
-
-static esqlite_command *
-command_create()
-{
-    esqlite_command *cmd = (esqlite_command *) enif_alloc(sizeof(esqlite_command));
-    if(cmd == NULL)
-        return NULL;
-
-    cmd->env = enif_alloc_env();
-    if(cmd->env == NULL) {
-        command_destroy(cmd);
-        return NULL;
-    }
-
-    cmd->type = cmd_unknown;
-    cmd->ref = 0;
-    cmd->arg = 0;
-    cmd->stmt = 0;
-
-    return cmd;
-}
-
 /*
  *
  */
@@ -225,27 +175,6 @@ static void
 destruct_esqlite_connection(ErlNifEnv *env, void *arg)
 {
     esqlite_connection *db = (esqlite_connection *) arg;
-    esqlite_command *cmd = command_create();
-
-    /* Send the stop command
-     */
-    cmd->type = cmd_stop;
-    queue_push(db->commands, cmd);
-
-    /* Wait for the thread to finish
-     */
-    enif_thread_join(db->tid, NULL);
-
-    enif_thread_opts_destroy(db->opts);
-
-    /* The thread has finished... now remove the command queue, and close
-     * the database (if it was still open).
-     */
-    while(queue_has_item(db->commands)) {
-        command_destroy(queue_pop(db->commands));
-    }
-    queue_destroy(db->commands);
-
     sqlite3_close_v2(db->db);
     db->db = NULL;
 }
@@ -567,7 +496,6 @@ make_binary(ErlNifEnv *env, const void *bytes, unsigned int size)
     ERL_NIF_TERM term;
 
     if(!enif_alloc_binary(size, &blob)) {
-        /* TODO: fix this */
         return make_atom(env, "error");
     }
 
@@ -905,184 +833,54 @@ do_close(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
     return make_atom(env, "ok");
 }
 
-static ERL_NIF_TERM
-evaluate_command(esqlite_command *cmd, esqlite_connection *conn)
-{
-    esqlite_statement *stmt = NULL;
-
-    if(cmd->stmt) {
-        if(!enif_get_resource(cmd->env, cmd->stmt, esqlite_statement_type, (void **) &stmt)) {
-	    return make_error_tuple(cmd->env, "invalid_statement");
-        }
-    }
-
-    switch(cmd->type) {
-        case cmd_open:
-            return do_open(cmd->env, conn, cmd->arg);
-        case cmd_update_hook_set:
-            return do_set_update_hook(cmd->env, conn, cmd->arg);
-        case cmd_exec:
-            return do_exec(cmd->env, conn, cmd->arg);
-        case cmd_changes:
-            return do_changes(cmd->env, conn, cmd->arg);
-        case cmd_prepare:
-            return do_prepare(cmd->env, conn, cmd->arg);
-        case cmd_multi_step:
-            return do_multi_step(cmd->env, conn->db, stmt->statement, cmd->arg);
-        case cmd_reset:
-            return do_reset(cmd->env, conn->db, stmt->statement);
-        case cmd_bind:
-            return do_bind(cmd->env, conn->db, stmt->statement, cmd->arg);
-        case cmd_column_names:
-            return do_column_names(cmd->env, stmt->statement);
-        case cmd_column_types:
-            return do_column_types(cmd->env, stmt->statement);
-        case cmd_backup_init:
-            return do_backup_init(cmd->env, conn->db, cmd->arg);
-        case cmd_backup_step:
-            return do_backup_step(cmd->env, conn->db, cmd->arg);
-        case cmd_backup_remaining:
-            return do_backup_remaining(cmd->env, cmd->arg);
-        case cmd_backup_pagecount:
-            return do_backup_pagecount(cmd->env, cmd->arg);
-        case cmd_backup_finish:
-            return do_backup_finish(cmd->env, cmd->arg);
-        case cmd_close:
-            return do_close(cmd->env, conn, cmd->arg);
-        case cmd_last_insert_rowid:
-            return do_last_insert_rowid(cmd->env, conn);
-        case cmd_insert:
-            return do_insert(cmd->env, conn, cmd->arg);
-        case cmd_get_autocommit:
-            return do_get_autocommit(cmd->env, conn);
-        case cmd_unknown:      // not handled
-        case cmd_stop:         // not handled here
-        case cmd_notification: // not handled here.
-            break;
-    }
-
-    return make_error_tuple(cmd->env, "invalid_command");
-}
-
-static ERL_NIF_TERM
-push_command(ErlNifEnv *env, esqlite_connection *conn, esqlite_command *cmd) {
-    if(!queue_push(conn->commands, cmd))
-        return make_error_tuple(env, "command_push_failed");
-
-    return make_atom(env, "ok");
-}
-
-static ERL_NIF_TERM
-make_answer(esqlite_command *cmd, ERL_NIF_TERM answer)
-{
-    return enif_make_tuple3(cmd->env, atom_esqlite3, cmd->ref, answer);
-}
-
-static void *
-esqlite_connection_run(void *arg)
-{
-    esqlite_connection *db = (esqlite_connection *) arg;
-    esqlite_command *cmd;
-    int continue_running = 1;
-
-    while(continue_running) {
-        cmd = queue_pop(db->commands);
-
-        if(cmd->type == cmd_stop) {
-            continue_running = 0;
-        } else if(cmd->type == cmd_notification) {
-            enif_send(NULL, &db->notification_pid, cmd->env, cmd->arg);
-        } else {
-            enif_send(NULL, &cmd->pid, cmd->env, make_answer(cmd, evaluate_command(cmd, db)));
-        }
-
-        command_destroy(cmd);
-    }
-
-    return NULL;
-}
-
-/*
- * Start the processing thread
- */
-static ERL_NIF_TERM
-esqlite_start(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-    esqlite_connection *conn;
-    ERL_NIF_TERM db_conn;
-
-    /* Initialize the resource */
-    conn = enif_alloc_resource(esqlite_connection_type, sizeof(esqlite_connection));
-    if(!conn)
-        return make_error_tuple(env, "no_memory");
-
-    conn->db = NULL;
-
-    /* Create command queue */
-    conn->commands = queue_create();
-    if(!conn->commands) {
-        enif_release_resource(conn);
-        return make_error_tuple(env, "command_queue_create_failed");
-    }
-
-    /* Start command processing thread */
-    conn->opts = enif_thread_opts_create("esqlite_thread_opts");
-    if(conn->opts == NULL) {
-        return make_error_tuple(env, "thread_opts_failed");
-    }
-
-    /* Configure a fixed sized stack, windows uses a default of 1Mb, which 
-     * can be too small for complex queries. Linux and MacOS uses a stack of about
-     * 8Mb, which is a bit too large, since the largest sqlite query is about 1Mb
-     * in size. The stack size depends on that. A value of 3Mb is about right.
-     */
-    conn->opts->suggested_stack_size = 3072;
-
-    if(enif_thread_create("esqlite_connection", &conn->tid, esqlite_connection_run, conn, conn->opts) != 0) {
-        enif_thread_opts_destroy(conn->opts);
-        enif_release_resource(conn);
-        return make_error_tuple(env, "thread_create_failed");
-    }
-
-    db_conn = enif_make_resource(env, conn);
-    enif_release_resource(conn);
-
-    return make_ok_tuple(env, db_conn);
-}
-
 /*
  * Open the database
  */
 static ERL_NIF_TERM
 esqlite_open(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
-    esqlite_connection *db;
-    esqlite_command *cmd = NULL;
-    ErlNifPid pid;
+    esqlite_connection *conn;
 
-    if(argc != 4)
+    if(argc != 1) {
         return enif_make_badarg(env);
-    if(!enif_get_resource(env, argv[0], esqlite_connection_type, (void **) &db))
-        return enif_make_badarg(env);
-    if(!enif_is_ref(env, argv[1]))
-        return make_error_tuple(env, "invalid_ref");
-    if(!enif_get_local_pid(env, argv[2], &pid))
-        return make_error_tuple(env, "invalid_pid");
+    }
 
-    if(!sqlite3_threadsafe())
-        return make_error_tuple(env, "sqlite3 not thread safe.");
+    if(!sqlite3_threadsafe()) {
+        return enif_raise_exception(env, make_atom(env, "not_thread_safe"));
+    }
 
-    /* Note, no check is made for the type of the argument */
-    cmd = command_create();
-    if(!cmd)
-        return make_error_tuple(env, "command_create_failed");
+    size = enif_get_string(env, argv[1], filename, MAX_PATHNAME, ERL_NIF_LATIN1);
+    if(size <= 0)
+        return make_error_tuple(env, "invalid_filename");
 
-    cmd->type = cmd_open;
-    cmd->ref = enif_make_copy(cmd->env, argv[1]);
-    cmd->pid = pid;
-    cmd->arg = enif_make_copy(cmd->env, argv[3]);
+    /* Initialize the resource */
+    conn = enif_alloc_resource(esqlite_connection_type, sizeof(esqlite_connection));
+    if(!conn) {
+        return enif_raise_exception(env, make_atom(env, "no_memory"));   
+    }
 
-    return push_command(env, db, cmd);
+    char filename[MAX_PATHNAME];
+    unsigned int size;
+    int rc;
+    ERL_NIF_TERM error;
+
+     /* Open the database.
+     */
+    rc = sqlite3_open(filename, conn->db);
+    if(rc != SQLITE_OK) {
+        error = make_sqlite3_error_tuple(env, rc, db);
+        sqlite3_close_v2(conn->db);
+        enif_release_resource(conn);
+        return error;
+    }
+
+    /* Set a standard busy timeout of 2 seconds */
+    sqlite3_busy_timeout(conn->db, 2000);
+    
+    ERL_NIF_TERM = db_conn = enif_make_resource(env, conn);
+    enif_release_resource(conn);
+
+    return make_ok_tuple(env, db_conn);
 }
 
 static ERL_NIF_TERM
@@ -1746,17 +1544,17 @@ static int on_upgrade(ErlNifEnv* env, void** priv, void** old_priv_data, ERL_NIF
 }
 
 static ErlNifFunc nif_funcs[] = {
-    {"start", 0, esqlite_start},
-    {"open", 4, esqlite_open},
+    {"open", 4, esqlite_open, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"set_update_hook", 4, set_update_hook},
-    {"exec", 4, esqlite_exec},
+    {"exec", 4, esqlite_exec, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"changes", 3, esqlite_changes},
     {"prepare", 4, esqlite_prepare},
     {"insert", 4, esqlite_insert},
     {"last_insert_rowid", 3, esqlite_last_insert_rowid},
     {"get_autocommit", 3, esqlite_get_autocommit},
-    {"multi_step", 5, esqlite_multi_step},
+    {"multi_step", 5, esqlite_multi_step, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"reset", 4, esqlite_reset},
+
     // TODO: {"esqlite_bind", 3, esqlite_bind_named},
     {"bind", 5, esqlite_bind},
     {"column_names", 4, esqlite_column_names},
