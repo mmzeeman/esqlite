@@ -812,7 +812,7 @@ esqlite_open(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
         return enif_raise_exception(env, make_atom(env, "not_thread_safe"));
     }
 
-    int size = enif_get_string(env, argv[1], filename, MAX_PATHNAME, ERL_NIF_LATIN1);
+    int size = enif_get_string(env, argv[0], filename, MAX_PATHNAME, ERL_NIF_LATIN1);
     if(size <= 0) {
         return make_error_tuple(env, "invalid_filename");
     }

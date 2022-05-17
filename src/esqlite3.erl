@@ -19,7 +19,8 @@
 
 %% higher-level export
 -export([
-    open/1, close/1
+    open/1, close/1,
+    prepare/2
 
 %    set_update_hook/2, set_update_hook/3,
 %    exec/2, exec/3, exec/4,
@@ -27,7 +28,6 @@
 %    insert/2, insert/3,
 %    last_insert_rowid/1,
 %    get_autocommit/1, get_autocommit/2,
-%    prepare/2, prepare/3,
 %    step/1, step/2,
 %    reset/1,
 %    bind/2, bind/3,
@@ -160,7 +160,8 @@ close(#esqlite3{db=Connection}) ->
 %%q(Sql, Args, Connection) ->
 %    q(Sql, Args, Connection, ?DEFAULT_TIMEOUT).
 %
-%%% @doc Execute statement, bind args and return a list with tuples as result restricted by timeout.
+
+%% @doc Execute statement, bind args and return a list with tuples as result restricted by timeout.
 %-spec q(sql(), list(), connection(), timeout()) -> list(row()) | {error, _}.
 %q(Sql, [], Connection, Timeout) ->
 %    case prepare(Sql, Connection, Timeout) of
@@ -376,18 +377,27 @@ close(#esqlite3{db=Connection}) ->
 %    ok = esqlite3_nif:get_autocommit(RawConnection, Ref, self()),
 %    receive_answer(RawConnection, Ref, Timeout).
 %
+
 %% @doc Compile a SQL statement. Returns a cached compiled statement which can be used in
 %% queries.
 %%
-%-spec prepare(sql(), connection()) -> {ok, statement()} | {error, _}.
-%prepare(Sql, Connection) ->
-%    prepare(Sql, Connection, ?DEFAULT_TIMEOUT).
+-spec prepare(Connection, Sql) -> PrepareResult
+    when Connection :: esqlite3(),
+         Sql ::  sql(),
+         PrepareResult :: {ok, esqlite3_stmt()} | {error, _}.
+prepare(#esqlite3{db=Connection}, Sql) ->
+    case esqlite3_nif:prepare(Connection, Sql) of
+        {ok, Stmt} ->
+            {ok, #esqlite3_stmt{db=Connection, stmt=Stmt}};
+        {error, _}=Error ->
+            Error
+    end.
+
 
 %% @doc Like prepare/2, but with an extra timeout value.
 %-spec prepare(sql(), connection(), timeout()) -> {ok, statement()} | {error, _}.
 %prepare(Sql, #connection{raw_connection=RawConnection}, Timeout) ->
 %    Ref = make_ref(),
-%    ok = esqlite3_nif:prepare(RawConnection, Ref, self(), Sql),
 %    case receive_answer(RawConnection, Ref, Timeout) of
 %        {ok, Stmt} when is_reference(Stmt) ->
 %            {ok, #statement{raw_statement=Stmt, raw_connection=RawConnection}};
