@@ -48,6 +48,24 @@ prepare_after_close_test() ->
     ?assertMatch({error, {misuse, _}}, esqlite3:prepare(C, "select 1")),
     ok.
 
+column_names_test() ->
+    {ok, C} = esqlite3:open(":memory:"),
+
+    {ok, Stmt} = esqlite3:prepare(C, "select 1 as one"),
+    ?assertEqual([<<"one">>], esqlite3:column_names(Stmt)),
+
+    {ok, Stmt1} = esqlite3:prepare(C, <<"select 1 as 😀"/utf8>>),
+    ?assertEqual([<<"😀"/utf8>>], esqlite3:column_names(Stmt1)),
+    
+    {ok, Stmt2} = esqlite3:prepare(C, <<"select 1">>),
+    ?assertEqual([<<"1">>], esqlite3:column_names(Stmt2)),
+
+    {ok, Stmt3} = esqlite3:prepare(C, <<"select 1, 2, 3">>),
+    ?assertEqual([<<"1">>, <<"2">>, <<"3">>], esqlite3:column_names(Stmt3)),
+
+    ok.
+
+
 
 %iodata_test() ->
 %    {ok, C} = esqlite3:open(":memory:"),

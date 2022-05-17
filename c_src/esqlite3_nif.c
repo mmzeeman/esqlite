@@ -440,7 +440,6 @@ do_get_autocommit(ErlNifEnv *env, esqlite3 *conn)
 }
 */
 
-/*
 static ERL_NIF_TERM
 make_binary(ErlNifEnv *env, const void *bytes, unsigned int size)
 {
@@ -457,7 +456,6 @@ make_binary(ErlNifEnv *env, const void *bytes, unsigned int size)
 
     return term;
 }
-*/
 
 /*
 static ERL_NIF_TERM
@@ -1217,39 +1215,43 @@ esqlite_reset(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
 /*
  * Get the column names of the prepared statement.
+ */
 static ERL_NIF_TERM
 esqlite_column_names(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
-    esqlite3 *conn;
     esqlite3_stmt *stmt;
-    esqlite_command *cmd = NULL;
-    ErlNifPid pid;
 
-    if(argc != 4)
+    if(argc != 1) {
         return enif_make_badarg(env);
-    if(!enif_get_resource(env, argv[0], esqlite3_type, (void **) &conn))
+    }
+
+    if(!enif_get_resource(env, argv[0], esqlite3_stmt_type, (void **) &stmt)) {
         return enif_make_badarg(env);
-    if(!enif_get_resource(env, argv[1], esqlite3_stmt_type, (void **) &stmt))
-        return enif_make_badarg(env);
-    if(!enif_is_ref(env, argv[2]))
-        return make_error_tuple(env, "invalid_ref");
-    if(!enif_get_local_pid(env, argv[3], &pid))
-        return make_error_tuple(env, "invalid_pid");
-    if(!stmt->statement)
-        return make_error_tuple(env, "no_prepared_statement");
+    }
 
-    cmd = command_create();
-    if(!cmd)
-        return make_error_tuple(env, "command_create_failed");
+    if(!stmt->statement) {
+        return enif_raise_exception(env, make_atom(env, "no_prepared_statement"));   
+    }
 
-    cmd->type = cmd_column_names;
-    cmd->ref = enif_make_copy(cmd->env, argv[2]);
-    cmd->pid = pid;
-    cmd->stmt = enif_make_copy(cmd->env, argv[1]);
+    ERL_NIF_TERM column_names = enif_make_list(env, 0);
 
-    return push_command(env, conn, cmd);
+    int size = sqlite3_column_count(stmt->statement);
+    if(size < 0) {
+        return enif_raise_exception(env, make_atom(env, "invalid_column_count"));   
+    }
+
+    for(int i=size; i-- > 0; ) {
+        const char *name = sqlite3_column_name(stmt->statement, i);
+        if(name == NULL) {
+            return enif_raise_exception(env, make_atom(env, "sqlite3_malloc_failure"));   
+        }
+
+        ERL_NIF_TERM ename = make_binary(env, name, strlen(name));
+        column_names = enif_make_list_cell(env, ename, column_names);
+    }
+
+    return column_names;
 }
- */
 
 /*
  * Get the column types of the prepared statement.
@@ -1533,6 +1535,9 @@ static ErlNifFunc nif_funcs[] = {
 
     {"prepare", 2, esqlite_prepare},
 
+    {"column_names", 1, esqlite_column_names},
+    // {"column_types", 1, esqlite_column_types},
+
     {"interrupt", 1, esqlite_interrupt, ERL_NIF_DIRTY_JOB_IO_BOUND}
 
     /*
@@ -1548,8 +1553,6 @@ static ErlNifFunc nif_funcs[] = {
 
     // TODO: {"esqlite_bind", 3, esqlite_bind_named},
     {"bind", 5, esqlite_bind},
-    {"column_names", 4, esqlite_column_names},
-    {"column_types", 4, esqlite_column_types},
 
     {"backup_init", 6, esqlite_backup_init},
     {"backup_step", 5, esqlite_backup_step},

@@ -20,7 +20,9 @@
 %% higher-level export
 -export([
     open/1, close/1,
-    prepare/2
+    prepare/2,
+
+    column_names/1
 
 %    set_update_hook/2, set_update_hook/3,
 %    exec/2, exec/3, exec/4,
@@ -33,7 +35,6 @@
 %    bind/2, bind/3,
 %    fetchone/1,
 %    fetchall/1, fetchall/2, fetchall/3,
-%    column_names/1, column_names/2,
 %    column_types/1, column_types/2,
 %    backup_init/4, backup_init/5,
 %    backup_finish/1, backup_finish/2,
@@ -447,15 +448,9 @@ prepare(#esqlite3{db=Connection}, Sql) ->
 %
 %% @doc Return the column names of the prepared statement.
 %%
-%-spec column_names(statement()) -> {atom()}.
-%column_names(Stmt) ->
-%    column_names(Stmt, ?DEFAULT_TIMEOUT).
-
-%-spec column_names(statement(), timeout()) -> {atom()}.
-%column_names(#statement{raw_statement=RawStatement, raw_connection=RawConnection}, Timeout) ->
-%    Ref = make_ref(),
-%    ok = esqlite3_nif:column_names(RawConnection, RawStatement, Ref, self()),
-%    receive_answer(RawConnection, Ref, Timeout).
+-spec column_names(esqlite3_stmt()) -> [binary()].
+column_names(#esqlite3_stmt{stmt=Stmt}) ->
+     esqlite3_nif:column_names(Stmt).
 
 %% @doc Return the column types of the prepared statement.
 %%

@@ -24,6 +24,8 @@
     close/1,
     prepare/2,
 
+    column_names/1,
+
     interrupt/1
 %    set_update_hook/4,
 %    exec/4,
@@ -36,7 +38,6 @@
 %    finalize/4,
 %    bind/5,
 
-%    column_names/4,
 %    column_types/4,
 
 %    backup_init/6,
@@ -140,9 +141,9 @@ prepare(_Connection, _Sql) ->
 
 %% @doc Retrieve the column names of the prepared statement
 %%
-%-spec column_names(esqlite3(), esqlite3_stmt(), reference(), pid()) -> ok | {error, _}.
-%column_names(_Db, _Stmt, _Ref, _Dest) ->
-%    erlang:nif_error(nif_library_not_loaded).
+-spec column_names(esqlite3_stmt()) -> list() | {error, _}.
+column_names(_Stmt) ->
+    erlang:nif_error(nif_library_not_loaded).
 
 %% @doc Retrieve the column types of the prepared statement
 %%
