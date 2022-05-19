@@ -44,7 +44,7 @@ prepare_test() ->
 
 prepare_after_close_test() ->
     {ok, C} = esqlite3:open(":memory:"),
-    ok = esqlite3:close(C),
+    ?assertEqual(ok, esqlite3:close(C)),
     ?assertMatch({error, {misuse, _}}, esqlite3:prepare(C, "select 1")),
     ok.
 
@@ -65,6 +65,16 @@ column_names_test() ->
 
     ok.
 
+column_decltypes_test() ->
+    {ok, C} = esqlite3:open(":memory:"),
+
+    {ok, Stmt} = esqlite3:prepare(C, "select 1, 2, 3"),
+
+    ?assertEqual([undefined, undefined, undefined], esqlite3:column_decltypes(Stmt)),
+
+    %% Need to be able to define tables.
+
+    ok.
 
 
 %iodata_test() ->
@@ -77,6 +87,8 @@ column_names_test() ->
 open_multiple_same_databases_test() ->
     cleanup(),
 
+    %% Sqlite allows opening the same file multiple
+    %% times
     {ok, _C1} = esqlite3:open(?DB1),
     {ok, _C2} = esqlite3:open(?DB1),
 

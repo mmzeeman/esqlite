@@ -25,6 +25,7 @@
     prepare/2,
 
     column_names/1,
+    column_decltypes/1,
 
     interrupt/1
 %    set_update_hook/4,
@@ -141,15 +142,16 @@ prepare(_Connection, _Sql) ->
 
 %% @doc Retrieve the column names of the prepared statement
 %%
--spec column_names(esqlite3_stmt()) -> list() | {error, _}.
+-spec column_names(esqlite3_stmt()) -> list(binary()) | {error, _}.
 column_names(_Stmt) ->
     erlang:nif_error(nif_library_not_loaded).
 
-%% @doc Retrieve the column types of the prepared statement
+%% @doc Retrieve the declared datatypes of all columns.
 %%
-%-spec column_types(esqlite3(), esqlite3_stmt(), reference(), pid()) -> ok | {error, _}.
-%column_types(_Db, _Stmt, _Ref, _Dest) ->
-%    erlang:nif_error(nif_library_not_loaded).
+-spec column_decltypes(esqlite3_stmt()) -> list(undefined | binary()) | {error, _}.
+column_decltypes(_Stmt) ->
+    erlang:nif_error(nif_library_not_loaded).
+
 
 %% @doc Initialize a backup procedure of a database.
 %-spec backup_init(esqlite3(), string(), esqlite3_stmt(), string(), reference(), pid()) -> ok | {error, _}.

@@ -47,33 +47,6 @@ typedef struct {
     sqlite3_backup *backup;
 } esqlite3_backup;
 
-/*
-typedef enum {
-    cmd_unknown,
-    cmd_open,
-    cmd_update_hook_set,
-    cmd_notification,
-    cmd_exec,
-    cmd_changes,
-    cmd_prepare,
-    cmd_bind,
-    cmd_multi_step,
-    cmd_reset,
-    cmd_column_names,
-    cmd_column_types,
-    cmd_backup_init,
-    cmd_backup_step,
-    cmd_backup_remaining,
-    cmd_backup_pagecount,
-    cmd_backup_finish,
-    cmd_close,
-    cmd_stop,
-    cmd_insert,
-    cmd_last_insert_rowid,
-    cmd_get_autocommit,
-} command_type;
-*/
-
 static ERL_NIF_TERM atom_esqlite3;
 
 static ERL_NIF_TERM
@@ -562,74 +535,6 @@ do_reset(ErlNifEnv *env, sqlite3 *db, sqlite3_stmt *stmt)
 }
 */
 
-/*
-static ERL_NIF_TERM
-do_column_names(ErlNifEnv *env, sqlite3_stmt *stmt)
-{
-    int i, size;
-    const char *name;
-    ERL_NIF_TERM *array;
-    ERL_NIF_TERM column_names;
-
-    size = sqlite3_column_count(stmt);
-    if(size == 0)
-        return enif_make_tuple(env, 0);
-    else if(size < 0)
-        return make_error_tuple(env, "invalid_column_count");
-
-    array = (ERL_NIF_TERM *) enif_alloc(sizeof(ERL_NIF_TERM) * size);
-    if(!array)
-        return make_error_tuple(env, "no_memory");
-
-    for(i = 0; i < size; i++) {
-        name = sqlite3_column_name(stmt, i);
-        if(name == NULL) {
-            enif_free(array);
-            return make_error_tuple(env, "sqlite3_malloc_failure");
-        }
-
-        array[i] = make_atom(env, name);
-    }
-
-    column_names = enif_make_tuple_from_array(env, array, size);
-    enif_free(array);
-    return column_names;
-}
-*/
-
-/*
-static ERL_NIF_TERM
-do_column_types(ErlNifEnv *env, sqlite3_stmt *stmt)
-{
-    int i, size;
-    const char *type;
-    ERL_NIF_TERM *array;
-    ERL_NIF_TERM column_types;
-
-    size = sqlite3_column_count(stmt);
-    if(size == 0)
-        return enif_make_tuple(env, 0);
-    else if(size < 0)
-        return make_error_tuple(env, "invalid_column_count");
-
-    array = (ERL_NIF_TERM *) enif_alloc(sizeof(ERL_NIF_TERM) * size);
-    if(!array)
-        return make_error_tuple(env, "no_memory");
-
-    for(i = 0; i < size; i++) {
-        type = sqlite3_column_decltype(stmt, i);
-        if(type == NULL) {
-	    type = "nil";
-        }
-
-        array[i] = make_atom(env, type);
-    }
-
-    column_types = enif_make_tuple_from_array(env, array, size);
-    enif_free(array);
-    return column_types;
-}
-*/
 
 /*
 static ERL_NIF_TERM
@@ -833,6 +738,9 @@ esqlite_open(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
     /* Set a standard busy timeout of 2 seconds */
     sqlite3_busy_timeout(conn->db, 2000);
+
+    /* Turn on extended error codes for better error reporting */
+    sqlite3_extended_result_codes(conn->db, 1);
     
     ERL_NIF_TERM  db_conn = enif_make_resource(env, conn);
     enif_release_resource(conn);
@@ -1254,42 +1162,84 @@ esqlite_column_names(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 }
 
 /*
- * Get the column types of the prepared statement.
-static ERL_NIF_TERM
-esqlite_column_types(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
-{
-    esqlite3 *conn;
-    esqlite3_stmt *stmt;
-    esqlite_command *cmd = NULL;
-    ErlNifPid pid;
-
-    if(argc != 4)
-        return enif_make_badarg(env);
-
-    if(!enif_get_resource(env, argv[0], esqlite3_type, (void **) &conn))
-        return enif_make_badarg(env);
-    if(!enif_get_resource(env, argv[1], esqlite3_stmt_type, (void **) &stmt))
-        return enif_make_badarg(env);
-    if(!enif_is_ref(env, argv[2]))
-        return make_error_tuple(env, "invalid_ref");
-    if(!enif_get_local_pid(env, argv[3], &pid))
-        return make_error_tuple(env, "invalid_pid");
-
-    if(!stmt->statement)
-        return make_error_tuple(env, "no_prepared_statement");
-
-    cmd = command_create();
-    if(!cmd)
-        return make_error_tuple(env, "command_create_failed");
-
-    cmd->type = cmd_column_types;
-    cmd->ref = enif_make_copy(cmd->env, argv[2]);
-    cmd->pid = pid;
-    cmd->stmt = enif_make_copy(cmd->env, argv[1]);
-
-    return push_command(env, conn, cmd);
-}
+ * Get the column's declared datatypes of a statement.
  */
+static ERL_NIF_TERM
+esqlite_column_decltypes(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    esqlite3_stmt *stmt;
+
+    if(argc != 1) {
+        return enif_make_badarg(env);
+    }
+
+    if(!enif_get_resource(env, argv[0], esqlite3_stmt_type, (void **) &stmt)) {
+        return enif_make_badarg(env);
+    }
+
+    if(!stmt->statement) {
+        return enif_raise_exception(env, make_atom(env, "no_prepared_statement"));   
+    }
+
+    ERL_NIF_TERM column_types = enif_make_list(env, 0);
+
+    int size = sqlite3_column_count(stmt->statement);
+    if(size < 0) {
+        return enif_raise_exception(env, make_atom(env, "invalid_column_count"));   
+    }
+
+    for(int i=size; i-- > 0; ) {
+        ERL_NIF_TERM type_name;
+
+        const char *type = sqlite3_column_decltype(stmt->statement, i);
+
+        if(type == NULL) {
+            type_name = make_atom(env, "undefined");
+        } else {
+            type_name = make_binary(env, type, strlen(type));
+        }
+
+        column_types = enif_make_list_cell(env, type_name, column_types);
+    }
+
+    return column_types;
+}
+
+static ERL_NIF_TERM
+esqlite_bind_int(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    esqlite3_stmt *stmt;
+    int index;
+    int value;
+
+    if(argc != 3) {
+        return enif_make_badarg(env);
+    }
+
+    if(!enif_get_resource(env, argv[0], esqlite3_stmt_type, (void **) &stmt)) {
+        return enif_make_badarg(env);
+    }
+
+    if(!stmt->statement) {
+        return enif_raise_exception(env, make_atom(env, "no_prepared_statement"));   
+    }
+
+    if(!enif_get_int(env, argv[1], &index)) {
+        return enif_make_badarg(env);
+    }
+
+    if(!enif_get_int(env, argv[2], &value)) {
+        return enif_make_badarg(env);
+    }
+
+    int rc = sqlite3_bind_int(stmt->statement, index, value);
+    if(rc != SQLITE_OK) {
+        return make_sqlite3_error_tuple(env, rc, conn->db);
+    }
+
+    return make_atom(env, ok);
+}
+
 
 /*
  * Backup functions
@@ -1536,7 +1486,16 @@ static ErlNifFunc nif_funcs[] = {
     {"prepare", 2, esqlite_prepare},
 
     {"column_names", 1, esqlite_column_names},
-    // {"column_types", 1, esqlite_column_types},
+    {"column_decltypes", 1, esqlite_column_decltypes},
+    
+    {"bind_int", 3, esqlite_bind_int},
+    /*
+    {"bind_int64", 3, esqlite_bind_blob},
+    {"bind_double", 3, esqlite_bind_blob},
+    {"bind_text", 3, esqlite_bind_blob},
+    {"bind_blob", 3, esqlite_bind_blob},
+    {"bind_null", 2, esqlite_bind_blob},
+    */
 
     {"interrupt", 1, esqlite_interrupt, ERL_NIF_DIRTY_JOB_IO_BOUND}
 

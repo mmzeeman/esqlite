@@ -22,7 +22,8 @@
     open/1, close/1,
     prepare/2,
 
-    column_names/1
+    column_names/1,
+    column_decltypes/1
 
 %    set_update_hook/2, set_update_hook/3,
 %    exec/2, exec/3, exec/4,
@@ -448,21 +449,20 @@ prepare(#esqlite3{db=Connection}, Sql) ->
 %
 %% @doc Return the column names of the prepared statement.
 %%
--spec column_names(esqlite3_stmt()) -> [binary()].
+-spec column_names(Statement) -> Names
+    when Statement :: esqlite3_stmt(),
+         Names :: list(binary()).
 column_names(#esqlite3_stmt{stmt=Stmt}) ->
      esqlite3_nif:column_names(Stmt).
 
 %% @doc Return the column types of the prepared statement.
 %%
-%-spec column_types(statement()) -> {atom()}.
-%column_types(Statement) ->
-%    column_types(Statement, ?DEFAULT_TIMEOUT).
+-spec column_decltypes(Statement) -> Types
+      when Statement :: esqlite3_stmt(),
+           Types :: list(binary() | undefined).
+column_decltypes(#esqlite3_stmt{stmt=Stmt}) ->
+    esqlite3_nif:column_decltypes(Stmt).
 
-%-spec column_types(statement(), timeout()) -> {atom()}.
-%column_types(#statement{raw_statement=RawStatement, raw_connection=RawConnection}, Timeout) ->
-%    Ref = make_ref(),
-%    ok = esqlite3_nif:column_types(RawConnection, RawStatement, Ref, self()),
-%    receive_answer(RawConnection, Ref, Timeout).
 
 %% @doc make multiple sqlite steps per call return rows in reverse order
 %%

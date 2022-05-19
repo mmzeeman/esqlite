@@ -23,7 +23,7 @@ CFlags =
     end.
 
 [
-    {minimum_otp_vsn, "21.0"},
+    {minimum_otp_vsn, "22.0"},
 
     {erl_opts, [debug_info, warnings_as_errors]},
 
