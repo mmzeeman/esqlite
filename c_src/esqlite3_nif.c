@@ -116,6 +116,172 @@ get_sqlite3_return_code_msg(int r)
     return  "unknown";
 }
 
+ERL_NIF_TERM
+make_two_atom_tuple(ErlNifEnv *env, const char *one, const char *two) {
+    return enif_make_tuple2(env, make_atom(env, one), make_atom(env, two));
+}
+
+ERL_NIF_TERM
+make_extended_error_tuple(ErlNifEnv *env, int code) {
+    switch(code) {
+        case SQLITE_MISUSE:
+            return make_two_atom_tuple(env, "misuse", "invoked_incorrectly");
+        case SQLITE_ERROR_MISSING_COLLSEQ:
+            return make_two_atom_tuple(env, "error", "missing_collesq");
+        case SQLITE_ERROR_RETRY:
+            return make_two_atom_tuple(env, "error", "retry");
+        case SQLITE_ERROR_SNAPSHOT:
+            return make_two_atom_tuple(env, "error", "snapshot");
+        case SQLITE_IOERR_READ:
+            return make_two_atom_tuple(env, "ioerr", "read");
+        case SQLITE_IOERR_SHORT_READ:
+            return make_two_atom_tuple(env, "ioerr", "short_read");
+        case SQLITE_IOERR_WRITE:
+            return make_two_atom_tuple(env, "ioerr", "write");
+        case SQLITE_IOERR_FSYNC:
+            return make_two_atom_tuple(env, "ioerr", "fsync");
+        case SQLITE_IOERR_DIR_FSYNC:
+            return make_two_atom_tuple(env, "ioerr", "dir_fsync");
+        case SQLITE_IOERR_TRUNCATE:
+            return make_two_atom_tuple(env, "ioerr", "truncate");
+        case SQLITE_IOERR_FSTAT:
+            return make_two_atom_tuple(env, "ioerr", "fstat");
+        case SQLITE_IOERR_UNLOCK:
+            return make_two_atom_tuple(env, "ioerr", "unlock");
+        case SQLITE_IOERR_RDLOCK:
+            return make_two_atom_tuple(env, "ioerr", "rdlock");
+        case SQLITE_IOERR_DELETE:
+            return make_two_atom_tuple(env, "ioerr", "delete");
+        case SQLITE_IOERR_BLOCKED:
+            return make_two_atom_tuple(env, "ioerr", "blocked");
+        case SQLITE_IOERR_NOMEM:
+            return make_two_atom_tuple(env, "ioerr", "nomem");
+        case SQLITE_IOERR_ACCESS:
+            return make_two_atom_tuple(env, "ioerr", "access");
+        case SQLITE_IOERR_CHECKRESERVEDLOCK:
+            return make_two_atom_tuple(env, "ioerr", "checkreservedlock");
+        case SQLITE_IOERR_LOCK:
+            return make_two_atom_tuple(env, "ioerr", "lock");
+        case SQLITE_IOERR_CLOSE:
+            return make_two_atom_tuple(env, "ioerr", "close");
+        case SQLITE_IOERR_DIR_CLOSE:
+            return make_two_atom_tuple(env, "ioerr", "dir_close");
+        case SQLITE_IOERR_SHMOPEN:
+            return make_two_atom_tuple(env, "ioerr", "shmopen"); 
+        case SQLITE_IOERR_SHMSIZE:
+            return make_two_atom_tuple(env, "ioerr", "shmsize"); 
+        case SQLITE_IOERR_SHMLOCK:
+            return make_two_atom_tuple(env, "ioerr", "shmlock");
+        case SQLITE_IOERR_SHMMAP:
+            return make_two_atom_tuple(env, "ioerr", "shmmap");
+        case SQLITE_IOERR_SEEK:
+            return make_two_atom_tuple(env, "ioerr", "seek");
+        case SQLITE_IOERR_DELETE_NOENT:
+            return make_two_atom_tuple(env, "ioerr", "delete_noent");
+        case SQLITE_IOERR_MMAP:
+            return make_two_atom_tuple(env, "ioerr", "mmap");
+        case SQLITE_IOERR_GETTEMPPATH:
+            return make_two_atom_tuple(env, "ioerr", "gettemppath");
+        case SQLITE_IOERR_CONVPATH:
+            return make_two_atom_tuple(env, "ioerr", "convpath");
+        case SQLITE_IOERR_VNODE:
+            return make_two_atom_tuple(env, "ioerr", "vnode");
+        case SQLITE_IOERR_AUTH:
+            return make_two_atom_tuple(env, "ioerr", "auth");
+        case SQLITE_IOERR_BEGIN_ATOMIC:
+            return make_two_atom_tuple(env, "ioerr", "begin_atomic");
+        case SQLITE_IOERR_COMMIT_ATOMIC:
+            return make_two_atom_tuple(env, "ioerr", "commit_atomic");
+        case SQLITE_IOERR_ROLLBACK_ATOMIC:
+            return make_two_atom_tuple(env, "ioerr", "rollback_atomic");
+        case SQLITE_IOERR_DATA:
+            return make_two_atom_tuple(env, "ioerr", "data");
+        case SQLITE_IOERR_CORRUPTFS:
+            return make_two_atom_tuple(env, "ioerr", "corruptfs");
+        case SQLITE_LOCKED_SHAREDCACHE:
+            return make_two_atom_tuple(env, "locked", "sharedcache");
+        case SQLITE_LOCKED_VTAB:
+            return make_two_atom_tuple(env, "locked", "vtab");
+        case SQLITE_BUSY_RECOVERY:
+            return make_two_atom_tuple(env, "busy", "recovery");
+        case SQLITE_BUSY_SNAPSHOT:
+            return make_two_atom_tuple(env, "busy", "snapshot");
+        case SQLITE_BUSY_TIMEOUT:
+            return make_two_atom_tuple(env,"busy", "timeout");
+        case SQLITE_CANTOPEN_NOTEMPDIR:
+            return make_two_atom_tuple(env, "cantopen", "notempdir");
+        case SQLITE_CANTOPEN_ISDIR:
+            return make_two_atom_tuple(env,  "cantopen", "isdir");
+        case SQLITE_CANTOPEN_FULLPATH:
+            return make_two_atom_tuple(env, "cantopen", "fullpath");
+        case SQLITE_CANTOPEN_CONVPATH:
+            return make_two_atom_tuple(env, "cantopen", "convpath");
+        case SQLITE_CANTOPEN_DIRTYWAL:
+            return make_two_atom_tuple(env,  "cantopen", "dirtywal");
+        case SQLITE_CANTOPEN_SYMLINK:
+            return make_two_atom_tuple(env, "cantopen", "symlink");
+        case SQLITE_CORRUPT_VTAB:
+            return make_two_atom_tuple(env, "corrupt", "vtab");
+        case SQLITE_CORRUPT_SEQUENCE:
+            return make_two_atom_tuple(env, "corrupt", "sequence");
+        case SQLITE_CORRUPT_INDEX:
+            return make_two_atom_tuple(env, "corrupt", "index");
+        case SQLITE_READONLY_RECOVERY:
+            return make_two_atom_tuple(env, "readonly", "recovery");
+        case SQLITE_READONLY_CANTLOCK:
+            return make_two_atom_tuple(env,  "readonly", "cantlock");
+        case SQLITE_READONLY_ROLLBACK:
+            return make_two_atom_tuple(env, "readonly", "rollback");
+        case SQLITE_READONLY_DBMOVED:
+            return make_two_atom_tuple(env, "readonly", "dbmoved");
+        case SQLITE_READONLY_CANTINIT:
+            return make_two_atom_tuple(env, "readonly", "cantinit");
+        case SQLITE_READONLY_DIRECTORY:
+            return make_two_atom_tuple(env, "readonly", "directory");
+        case SQLITE_ABORT_ROLLBACK:
+            return make_two_atom_tuple(env, "abort", "rollback");
+        case SQLITE_CONSTRAINT_CHECK:
+            return make_two_atom_tuple(env, "constraint", "check");
+        case SQLITE_CONSTRAINT_COMMITHOOK:
+            return make_two_atom_tuple(env, "constraint", "commithook");
+        case SQLITE_CONSTRAINT_FOREIGNKEY:
+            return make_two_atom_tuple(env, "constraint", "foreignkey");
+        case SQLITE_CONSTRAINT_FUNCTION:
+            return make_two_atom_tuple(env, "constraint", "function");
+        case SQLITE_CONSTRAINT_NOTNULL:
+            return make_two_atom_tuple(env, "constraint", "notnull");
+        case SQLITE_CONSTRAINT_PRIMARYKEY:
+            return make_two_atom_tuple(env, "constraint", "primarykey");
+        case SQLITE_CONSTRAINT_TRIGGER:
+            return make_two_atom_tuple(env, "constraint", "trigger");
+        case SQLITE_CONSTRAINT_UNIQUE:
+            return make_two_atom_tuple(env, "constraint", "unique");
+        case SQLITE_CONSTRAINT_VTAB:
+            return make_two_atom_tuple(env, "constraint", "vtab");
+        case SQLITE_CONSTRAINT_ROWID:
+            return make_two_atom_tuple(env,  "constraint", "rowid");
+        case SQLITE_CONSTRAINT_PINNED:
+            return make_two_atom_tuple(env, "constraint", "pinned");
+        case SQLITE_CONSTRAINT_DATATYPE:
+            return make_two_atom_tuple(env, "constraint", "datatype");
+        case SQLITE_NOTICE_RECOVER_WAL:
+            return make_two_atom_tuple(env, "notice", "recover_wal");
+        case SQLITE_NOTICE_RECOVER_ROLLBACK:
+            return make_two_atom_tuple(env, "notice", "recover_rollback");
+        case SQLITE_WARNING_AUTOINDEX:
+            return make_two_atom_tuple(env, "warning", "autoindex");
+        case SQLITE_AUTH_USER:
+            return make_two_atom_tuple(env, "auth", "user");
+        case SQLITE_OK_LOAD_PERMANENTLY:
+            return make_two_atom_tuple(env, "ok", "load_permanently");
+        case SQLITE_OK_SYMLINK:
+            /* internal use only */
+            return make_two_atom_tuple(env, "ok", "symlink");
+        default:
+            return make_two_atom_tuple(env, "error", "unknown");
+    }
+}
+
 static const char *
 get_sqlite3_error_msg(int error_code, sqlite3 *db)
 {
@@ -132,14 +298,8 @@ get_sqlite3_error_msg(int error_code, sqlite3 *db)
 }
 
 static ERL_NIF_TERM
-make_sqlite3_error_tuple(ErlNifEnv *env, int error_code, sqlite3 *db)
-{
-    const char *error_code_msg = get_sqlite3_return_code_msg(error_code);
-    const char *msg = get_sqlite3_error_msg(error_code, db);
-
-    return enif_make_tuple2(env, make_atom(env, "error"),
-        enif_make_tuple2(env, make_atom(env, error_code_msg),
-            enif_make_string(env, msg, ERL_NIF_LATIN1)));
+make_sqlite3_error_tuple(ErlNifEnv *env, int error_code) {
+    return enif_make_tuple2(env, make_atom(env, "error"), make_extended_error_tuple(env, error_code));
 }
 
 /*
@@ -730,7 +890,7 @@ esqlite_open(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
      */
     int rc = sqlite3_open(filename, &conn->db);
     if(rc != SQLITE_OK) {
-        ERL_NIF_TERM error = make_sqlite3_error_tuple(env, rc, conn->db);
+        ERL_NIF_TERM error = make_sqlite3_error_tuple(env, rc);
         sqlite3_close_v2(conn->db);
         enif_release_resource(conn);
         return error;
@@ -766,7 +926,7 @@ esqlite_close(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
     rc = sqlite3_close_v2(conn->db);
     if(rc != SQLITE_OK)
-        return make_sqlite3_error_tuple(env, rc, conn->db);
+        return make_sqlite3_error_tuple(env, rc);
 
     conn->db = NULL;
     return make_atom(env, "ok");
@@ -805,7 +965,7 @@ esqlite_prepare(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     rc = sqlite3_prepare_v2(conn->db, (char *) bin.data, bin.size, &(stmt->statement), &tail);
     if(rc != SQLITE_OK) {
         enif_release_resource(stmt);
-        return make_sqlite3_error_tuple(env, rc, conn->db);
+        return make_sqlite3_error_tuple(env, rc);
     }
 
     esqlite_stmt = enif_make_resource(env, stmt);
@@ -1234,10 +1394,10 @@ esqlite_bind_int(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
     int rc = sqlite3_bind_int(stmt->statement, index, value);
     if(rc != SQLITE_OK) {
-        return make_sqlite3_error_tuple(env, rc, conn->db);
+        return make_sqlite3_error_tuple(env, rc);
     }
 
-    return make_atom(env, ok);
+    return make_atom(env, "ok");
 }
 
 
@@ -1487,8 +1647,9 @@ static ErlNifFunc nif_funcs[] = {
 
     {"column_names", 1, esqlite_column_names},
     {"column_decltypes", 1, esqlite_column_decltypes},
-    
+
     {"bind_int", 3, esqlite_bind_int},
+
     /*
     {"bind_int64", 3, esqlite_bind_blob},
     {"bind_double", 3, esqlite_bind_blob},

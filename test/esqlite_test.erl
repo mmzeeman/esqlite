@@ -45,7 +45,9 @@ prepare_test() ->
 prepare_after_close_test() ->
     {ok, C} = esqlite3:open(":memory:"),
     ?assertEqual(ok, esqlite3:close(C)),
+
     ?assertMatch({error, {misuse, _}}, esqlite3:prepare(C, "select 1")),
+
     ok.
 
 column_names_test() ->

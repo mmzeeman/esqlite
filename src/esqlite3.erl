@@ -23,7 +23,9 @@
     prepare/2,
 
     column_names/1,
-    column_decltypes/1
+    column_decltypes/1,
+
+    bind_int/3
 
 %    set_update_hook/2, set_update_hook/3,
 %    exec/2, exec/3, exec/4,
@@ -395,6 +397,13 @@ prepare(#esqlite3{db=Connection}, Sql) ->
             Error
     end.
 
+-spec bind_int(Statement, Index, Value) -> BindResult
+    when Statement :: esqlite3_stmt(),
+         Index :: integer(),
+         Value :: integer(),
+         BindResult :: ok | {error, _}.
+bind_int(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
+    esqlite3_nif:bind_int(Stmt, Index, Value).
 
 %% @doc Like prepare/2, but with an extra timeout value.
 %-spec prepare(sql(), connection(), timeout()) -> {ok, statement()} | {error, _}.

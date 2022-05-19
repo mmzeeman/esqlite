@@ -27,6 +27,8 @@
     column_names/1,
     column_decltypes/1,
 
+    bind_int/3,
+
     interrupt/1
 %    set_update_hook/4,
 %    exec/4,
@@ -90,6 +92,11 @@ close(_Db) ->
          Sql :: sql(),
          PrepareResult :: {ok, esqlite3_stmt()} | {error, _}.
 prepare(_Connection, _Sql) ->
+    erlang:nif_error(nif_library_not_loaded).
+
+
+
+bind_int(_Statement, _Index, _Value) ->
     erlang:nif_error(nif_library_not_loaded).
 
 % -spec set_update_hook((), pid(), pid()) -> ok | {error, _}.
