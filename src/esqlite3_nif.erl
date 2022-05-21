@@ -27,6 +27,7 @@
     last_insert_rowid/1,
     changes/1,
 
+    exec/2,
     prepare/3,
 
     column_names/1,
@@ -96,6 +97,16 @@ open(_Filename) ->
           CloseResult :: ok | {error, _}.
 close(_Db) ->
     erlang:nif_error(nif_library_not_loaded).
+
+%% @doc Execute a sql statement
+%%
+-spec exec(Connection, Sql) -> ExecResult 
+    when Connection :: esqlite3(),
+         Sql :: sql(),
+         ExecResult :: ok | {error, _}.
+exec(_Connection, _Sql) ->
+    erlang:nif_error(nif_library_not_loaded).
+
 
 %% @doc Compile a sql statement. 
 %%

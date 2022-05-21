@@ -89,7 +89,7 @@ get_sqlite3_return_code_msg(int r)
         case SQLITE_INTERNAL: return "internal";
         case SQLITE_PERM: return "perm";
         case SQLITE_ABORT: return "abort";
-        case SQLITE_BUSY: return "busy";
+        case SQLITE_BUSY: return "$busy";
         case SQLITE_LOCKED: return  "locked";
         case SQLITE_NOMEM: return  "nomem";
         case SQLITE_READONLY: return  "readonly";
@@ -112,7 +112,7 @@ get_sqlite3_return_code_msg(int r)
         case SQLITE_RANGE: return  "range";
         case SQLITE_NOTADB: return  "notadb";
         case SQLITE_ROW: return  "row";
-        case SQLITE_DONE: return  "done";
+        case SQLITE_DONE: return  "$done";
     }
     
     return  "unknown";
@@ -866,6 +866,38 @@ esqlite_close(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 }
 
 /*
+ * Exec a sql statement
+ */
+static ERL_NIF_TERM
+esqlite_exec(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    esqlite3 *conn;
+    ErlNifBinary bin;
+    int rc;
+    ERL_NIF_TERM eos = enif_make_int(env, 0);
+
+    if(argc != 2) {
+        return enif_make_badarg(env);
+    }
+
+    if(!enif_get_resource(env, argv[0], esqlite3_type, (void **) &conn)) {
+        return enif_make_badarg(env);
+    }
+
+    if(!enif_inspect_iolist_as_binary(env, enif_make_list2(env, argv[1], eos), &bin)) {
+        return enif_make_badarg(env);
+    }
+
+    rc = sqlite3_exec(conn->db, (char *) bin.data, NULL, NULL, NULL);
+    if(rc != SQLITE_OK) {
+        return make_sqlite3_error_tuple(env, rc);
+    }
+
+    return make_atom(env, "ok");
+}
+
+
+/*
  * Prepare the sql statement
  */
 static ERL_NIF_TERM
@@ -1353,9 +1385,9 @@ esqlite_step(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
         case SQLITE_DONE:
             /* since  3.6.23.1 it is no longer required to do an explict reset.
              */
-            return make_atom(env, "done");
+            return make_atom(env, "$done");
         case SQLITE_BUSY:
-            return make_atom(env, "busy");
+            return make_atom(env, "$busy");
     }
 
     return make_sqlite3_error_tuple(env, rc);
@@ -1685,6 +1717,7 @@ static ErlNifFunc nif_funcs[] = {
     {"open", 1, esqlite_open, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"close", 1, esqlite_close, ERL_NIF_DIRTY_JOB_IO_BOUND},
 
+    {"exec", 2, esqlite_exec},
     {"prepare", 3, esqlite_prepare},
 
     {"column_names", 1, esqlite_column_names},

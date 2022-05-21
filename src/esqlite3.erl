@@ -28,6 +28,7 @@
 
 %    set_update_hook/2, set_update_hook/3,
 
+    exec/2,
     prepare/2,
     prepare/3,
 
@@ -45,7 +46,6 @@
     step/1,
     reset/1
 
-%    exec/2, exec/3, exec/4,
 %    insert/2, insert/3,
 %
 %    fetchone/1,
@@ -394,6 +394,17 @@ get_autocommit(#esqlite3{db=Connection}) ->
 %% @doc Compile a SQL statement. Returns a cached compiled statement which can be used in
 %% queries.
 %%
+-spec exec(Connection, Sql) -> ExecResult
+    when Connection :: esqlite3(),
+         Sql ::  sql(),
+         ExecResult :: ok | {error, _}.
+exec(#esqlite3{db=Connection}, Sql) ->
+    esqlite3_nif:exec(Connection, Sql).
+
+
+%% @doc Compile a SQL statement. Returns a cached compiled statement which can be used in
+%% queries.
+%%
 -spec prepare(Connection, Sql) -> PrepareResult
     when Connection :: esqlite3(),
          Sql ::  sql(),
@@ -475,8 +486,6 @@ column_names(#esqlite3_stmt{stmt=Stmt}) ->
            Types :: list(binary() | undefined).
 column_decltypes(#esqlite3_stmt{stmt=Stmt}) ->
     esqlite3_nif:column_decltypes(Stmt).
-
-
 
 %%
 %% Backup API

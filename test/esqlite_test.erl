@@ -83,21 +83,21 @@ step_test() ->
     {ok, Stmt} = esqlite3:prepare(C, "select 1, 2, 3;" ),
 
     ?assertEqual([1,2,3], esqlite3:step(Stmt)),
-    ?assertEqual(done, esqlite3:step(Stmt)),
+    ?assertEqual('$done', esqlite3:step(Stmt)),
 
     %% After the done, the statement is reset and 
     ?assertEqual([1,2,3], esqlite3:step(Stmt)),
-    ?assertEqual(done, esqlite3:step(Stmt)),
+    ?assertEqual('$done', esqlite3:step(Stmt)),
 
     ok.
 
+iodata_test() ->
+    {ok, C} = esqlite3:open(":memory:"),
 
-%iodata_test() ->
-%    {ok, C} = esqlite3:open(":memory:"),
-%    {error, no_iodata} = esqlite3:exec(1000, C),
-%    {error, no_iodata} = esqlite3:insert(1000, C),
+    ?assertError(badarg, esqlite3:exec(C, 1000)),
+    ?assertError(badarg, esqlite3:exec(C, 1000)),
 
-%    ok.
+    ok.
 
 open_multiple_same_databases_test() ->
     cleanup(),
@@ -117,25 +117,25 @@ open_multiple_different_databases_test() ->
     cleanup(),
     ok.
 
-%get_autocommit_test() ->
-%    {ok, Db} = esqlite3:open(":memory:"),
-%    ok = esqlite3:exec("CREATE TABLE test (id INTEGER PRIMARY KEY, val STRING);", Db),
-%    true = esqlite3:get_autocommit(Db),
-%    ok = esqlite3:exec("BEGIN;", Db),
-%    false = esqlite3:get_autocommit(Db),
-%    ok = esqlite3:exec("INSERT INTO test (val) VALUES ('this is a test');", Db),
-%    ok = esqlite3:exec("COMMIT;", Db),
-%    true = esqlite3:get_autocommit(Db),
-%    ok.
+get_autocommit_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+    ok = esqlite3:exec(Db, "CREATE TABLE test (id INTEGER PRIMARY KEY, val STRING);"),
+    true = esqlite3:get_autocommit(Db),
+    ok = esqlite3:exec(Db, "BEGIN;"),
+    false = esqlite3:get_autocommit(Db),
+    ok = esqlite3:exec(Db, "INSERT INTO test (val) VALUES ('this is a test');"),
+    ok = esqlite3:exec(Db, "COMMIT;"),
+    true = esqlite3:get_autocommit(Db),
+    ok.
 
-%last_insert_rowid_test() ->
-%    {ok, Db} = esqlite3:open(":memory:"),
-%    ok = esqlite3:exec("CREATE TABLE test (id INTEGER PRIMARY KEY, val STRING);", Db),
-%    ok = esqlite3:exec("INSERT INTO test (val) VALUES ('this is a test');", Db),
-%    {ok, 1} = esqlite3:last_insert_rowid(Db),
-%    ok = esqlite3:exec("INSERT INTO test (val) VALUES ('this is another test');", Db),
-%    {ok, 2} = esqlite3:last_insert_rowid(Db),
-%    ok.
+last_insert_rowid_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+    ok = esqlite3:exec(Db, "CREATE TABLE test (id INTEGER PRIMARY KEY, val STRING);"),
+    ok = esqlite3:exec(Db, "INSERT INTO test (val) VALUES ('this is a test');"),
+    1 = esqlite3:last_insert_rowid(Db),
+    ok = esqlite3:exec(Db, "INSERT INTO test (val) VALUES ('this is another test');"),
+    2 = esqlite3:last_insert_rowid(Db),
+    ok.
 
 %update_hook_test() ->
 %    {ok, Db} = esqlite3:open(":memory:"),
@@ -149,44 +149,44 @@ open_multiple_different_databases_test() ->
 %    ok = receive {delete, "test", 1} -> ok after 150 -> no_message end,
 %    ok.
 
-%simple_query_test() ->
-%    {ok, Db} = esqlite3:open(":memory:"),
-%    ok = esqlite3:exec("begin;", Db),
-%    ok = esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
-%    ok = esqlite3:exec("insert into test_table values('hello1', 10);", Db),
-%    {ok, 1} = esqlite3:changes(Db),
-%
-%    ok = esqlite3:exec("insert into test_table values('hello2', 11);", Db),
-%    {ok, 1} = esqlite3:changes(Db),
-%    ok = esqlite3:exec("insert into test_table values('hello3', 12);", Db),
-%    {ok, 1} = esqlite3:changes(Db),
-%    ok = esqlite3:exec("insert into test_table values('hello4', 13);", Db),
-%    {ok, 1} = esqlite3:changes(Db),
-%    ok = esqlite3:exec("commit;", Db),
-%    ok = esqlite3:exec("select * from test_table;", Db),
-%
-%    ok = esqlite3:exec("delete from test_table;", Db),
-%    {ok, 4} = esqlite3:changes(Db),
+simple_query_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+    ok = esqlite3:exec(Db, "begin;"),
+    ok = esqlite3:exec(Db, "create table test_table(one varchar(10), two int);"),
+    ok = esqlite3:exec(Db, "insert into test_table values('hello1', 10);"),
+    ?assertEqual(1, esqlite3:changes(Db)),
 
-%    ok.
+    ok = esqlite3:exec(Db, "insert into test_table values('hello2', 11);"),
+    ?assertEqual(1, esqlite3:changes(Db)),
+    ok = esqlite3:exec(Db, "insert into test_table values('hello3', 12);"),
+    ?assertEqual(1, esqlite3:changes(Db)),
+    ok = esqlite3:exec(Db, "insert into test_table values('hello4', 13);"),
+    ?assertEqual(1, esqlite3:changes(Db)),
+    ok = esqlite3:exec(Db, "commit;"),
+    ok = esqlite3:exec(Db, "select * from test_table;"),
 
-%prepare_test() ->
-%    {ok, Db} = esqlite3:open(":memory:"),
-%    esqlite3:exec("begin;", Db),
-%    esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
-%    {ok, Statement} = esqlite3:prepare("insert into test_table values('one', 2)", Db),
-%
-%    '$done' = esqlite3:step(Statement),
-%    {ok, 1} = esqlite3:changes(Db),
-%
-%    ok = esqlite3:exec("insert into test_table values('hello4', 13);", Db),
-%
+    ok = esqlite3:exec(Db, "delete from test_table;"),
+    ?assertEqual(4, esqlite3:changes(Db)),
+
+    ok.
+
+prepare2_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+    esqlite3:exec(Db, "begin;"),
+    esqlite3:exec(Db, "create table test_table(one varchar(10), two int);"),
+    {ok, Statement} = esqlite3:prepare(Db, "insert into test_table values('one', 2)"),
+
+    '$done' = esqlite3:step(Statement),
+    1 = esqlite3:changes(Db),
+
+    ok = esqlite3:exec(Db, "insert into test_table values('hello4', 13);"),
+
     %% Check if the values are there.
-%    [{<<"one">>, 2}, {<<"hello4">>, 13}] = esqlite3:q("select * from test_table order by two", Db),
-%    esqlite3:exec("commit;", Db),
-%    esqlite3:close(Db),
+    %% [{<<"one">>, 2}, {<<"hello4">>, 13}] = esqlite3:q(Db, "select * from test_table order by two"),
+    esqlite3:exec(Db, "commit;"),
+    esqlite3:close(Db),
 
-%    ok.
+    ok.
 
 %bind_test() ->
 %    {ok, Db} = esqlite3:open(":memory:"),
@@ -339,41 +339,43 @@ open_multiple_different_databases_test() ->
 %    {} = esqlite3:column_types(Stmt2),
 %
 %    ok.
-%
-%nil_column_types_test() ->
-%    {ok, Db} = esqlite3:open(":memory:"),
-%    ok = esqlite3:exec("begin;", Db),
-%    ok = esqlite3:exec("create table t1(c1 variant);", Db),
-%    ok = esqlite3:exec("commit;", Db),
 
-%    {ok, Stmt} = esqlite3:prepare("select c1 + 1, c1 from t1", Db),
-%    {nil, variant} =  esqlite3:column_types(Stmt),
-%    ok.
+nil_column_decltypes_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+    ok = esqlite3:exec(Db, "begin;"),
+    ok = esqlite3:exec(Db, "create table t1(c1 variant);"),
+    ok = esqlite3:exec(Db, "commit;"),
 
-%reset_test() ->
-%    {ok, Db} = esqlite3:open(":memory:"),
+    {ok, Stmt} = esqlite3:prepare(Db, "select c1 + 1, c1 from t1"),
+    ?assertEqual([undefined, <<"variant">>], esqlite3:column_decltypes(Stmt)),
 
-%    {ok, Stmt} = esqlite3:prepare("select * from (values (1), (2));", Db),
-%    {row, {1}} = esqlite3:step(Stmt),
-%
-%    ok = esqlite3:reset(Stmt),
-%    {row, {1}} = esqlite3:step(Stmt),
-%    {row, {2}} = esqlite3:step(Stmt),
-%    '$done' = esqlite3:step(Stmt),
-%
-%    % After a done the statement is automatically reset.
-%    {row, {1}} = esqlite3:step(Stmt),
-%
-%    % Calling reset multiple times...
-%    ok = esqlite3:reset(Stmt),
-%    ok = esqlite3:reset(Stmt),
-%    ok = esqlite3:reset(Stmt),
-%    ok = esqlite3:reset(Stmt),
-%
+    ok.
+
+reset_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+
+    {ok, Stmt} = esqlite3:prepare(Db, "select * from (values (1), (2));"),
+    [1] = esqlite3:step(Stmt),
+
+    ok = esqlite3:reset(Stmt),
+
+    [1] = esqlite3:step(Stmt),
+    [2] = esqlite3:step(Stmt),
+    '$done' = esqlite3:step(Stmt),
+
+    % After a done the statement is automatically reset.
+    [1] = esqlite3:step(Stmt),
+
+    % Calling reset multiple times...
+    ok = esqlite3:reset(Stmt),
+    ok = esqlite3:reset(Stmt),
+    ok = esqlite3:reset(Stmt),
+    ok = esqlite3:reset(Stmt),
+
     % The statement should still be reset.
-%    {row, {1}} = esqlite3:step(Stmt),
-%
-%    ok.
+    [1] = esqlite3:step(Stmt),
+
+    ok.
 %
 %foreach_test() ->
 %    {ok, Db} = esqlite3:open(":memory:"),
@@ -583,20 +585,20 @@ open_multiple_different_databases_test() ->
 %    ok.
     
 
-%sqlite_version_test() ->
-%    {ok, Db} = esqlite3:open(":memory:"),
-%    {ok, Stmt} = esqlite3:prepare("select sqlite_version() as sqlite_version;", Db),
-%    {sqlite_version} = esqlite3:column_names(Stmt),
-%%    ?assertEqual({row, {<<"3.38.0">>}}, esqlite3:step(Stmt)),
-%    ok.
+sqlite_version_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+    {ok, Stmt} = esqlite3:prepare(Db, "select sqlite_version() as sqlite_version;"),
+    [<<"sqlite_version">>] = esqlite3:column_names(Stmt),
+    ?assertEqual([<<"3.38.0">>], esqlite3:step(Stmt)),
+    ok.
 
-%sqlite_source_id_test() ->
-%    {ok, Db} = esqlite3:open(":memory:"),
-%    {ok, Stmt} = esqlite3:prepare("select sqlite_source_id() as sqlite_source_id;", Db),
-%    {sqlite_source_id} = esqlite3:column_names(Stmt),
-%    ?assertEqual({row, {<<"2022-02-22 18:58:40 40fa792d359f84c3b9e9d6623743e1a59826274e221df1bde8f47086968a1bab">>}},
-%                 esqlite3:step(Stmt)),
-%    ok.
+sqlite_source_id_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+    {ok, Stmt} = esqlite3:prepare(Db, "select sqlite_source_id() as sqlite_source_id;"),
+    [<<"sqlite_source_id">>] = esqlite3:column_names(Stmt),
+    ?assertEqual([<<"2022-02-22 18:58:40 40fa792d359f84c3b9e9d6623743e1a59826274e221df1bde8f47086968a1bab">>],
+                 esqlite3:step(Stmt)),
+    ok.
 
 %interrupt_on_timeout_test() ->
 %    {ok, Db} = esqlite3:open(":memory:"),
