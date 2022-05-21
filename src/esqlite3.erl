@@ -20,30 +20,41 @@
 %% higher-level export
 -export([
     open/1, close/1,
+
     prepare/2,
+    prepare/3,
 
     column_names/1,
     column_decltypes/1,
 
-    bind_int/3
+    bind_int/3,
+    bind_int64/3,
+    bind_double/3,
+
+    step/1
 
 %    set_update_hook/2, set_update_hook/3,
 %    exec/2, exec/3, exec/4,
 %    changes/1, changes/2,
 %    insert/2, insert/3,
 %    last_insert_rowid/1,
+%
 %    get_autocommit/1, get_autocommit/2,
+%
 %    step/1, step/2,
+%
 %    reset/1,
 %    bind/2, bind/3,
 %    fetchone/1,
 %    fetchall/1, fetchall/2, fetchall/3,
-%    column_types/1, column_types/2,
+%
+%
 %    backup_init/4, backup_init/5,
 %    backup_finish/1, backup_finish/2,
 %    backup_remaining/1, backup_remaining/2,
 %    backup_pagecount/1, backup_pagecount/2, 
 %    backup_step/2, backup_step/3, 
+%
 %    flush/0
 ]).
 
@@ -51,6 +62,10 @@
 
 -define(DEFAULT_TIMEOUT, infinity).
 -define(DEFAULT_CHUNK_SIZE, 5000).
+
+
+-define(SQLITE_PREPARE_PERSISTENT, 16#01).
+-define(SQLITE_PREPARE_NO_VTAB, 16#04).
 
 -record(esqlite3, {
     db :: esqlite3_nif:esqlite3()
@@ -71,6 +86,8 @@
 %-type esqlite3_backup() :: #esqlite3_backup{}.
 -type sql() :: esqlite3_nif:sql().
 
+-type prepare_flags() :: persistent | no_vtab.
+
 %% erlang -> sqlite type conversions
 %%
 %% 'undefined' -> null
@@ -85,7 +102,7 @@
 -type row() :: tuple(). % tuple of cell_type
 -type cell_type() :: undefined | integer() | binary() | float(). 
 
--export_type([esqlite3/0, esqlite3_stmt/0, sql/0, row/0, rowid/0, cell_type/0]).
+-export_type([esqlite3/0, esqlite3_stmt/0, prepare_flags/0, sql/0, row/0, rowid/0, cell_type/0]).
 
 %% @doc Opens a sqlite3 database mentioned in Filename.
 %%
@@ -389,8 +406,19 @@ close(#esqlite3{db=Connection}) ->
     when Connection :: esqlite3(),
          Sql ::  sql(),
          PrepareResult :: {ok, esqlite3_stmt()} | {error, _}.
-prepare(#esqlite3{db=Connection}, Sql) ->
-    case esqlite3_nif:prepare(Connection, Sql) of
+prepare(Connection, Sql) ->
+    prepare(Connection, Sql, []).
+
+%% @doc Compile a SQL statement. Returns a cached compiled statement which can be used in
+%% queries.
+%%
+-spec prepare(Connection, Sql, PrepareFlags) -> PrepareResult
+    when Connection :: esqlite3(),
+         Sql ::  sql(),
+         PrepareFlags :: list(prepare_flags()),
+         PrepareResult :: {ok, esqlite3_stmt()} | {error, _}.
+prepare(#esqlite3{db=Connection}, Sql, PrepareFlags) ->
+    case esqlite3_nif:prepare(Connection, Sql, props_to_prepare_flag(PrepareFlags)) of
         {ok, Stmt} ->
             {ok, #esqlite3_stmt{db=Connection, stmt=Stmt}};
         {error, _}=Error ->
@@ -404,6 +432,29 @@ prepare(#esqlite3{db=Connection}, Sql) ->
          BindResult :: ok | {error, _}.
 bind_int(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
     esqlite3_nif:bind_int(Stmt, Index, Value).
+
+-spec bind_int64(Statement, Index, Value) -> BindResult
+    when Statement :: esqlite3_stmt(),
+         Index :: integer(),
+         Value :: integer(),
+         BindResult :: ok | {error, _}.
+bind_int64(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
+    esqlite3_nif:bind_int64(Stmt, Index, Value).
+
+-spec bind_double(Statement, Index, Value) -> BindResult
+    when Statement :: esqlite3_stmt(),
+         Index :: integer(),
+         Value :: float(),
+         BindResult :: ok | {error, _}.
+bind_double(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
+    esqlite3_nif:bind_double(Stmt, Index, Value).
+
+-spec step(Statement) -> StepResult 
+    when Statement :: esqlite3_stmt(),
+         StepResult:: ok | {error, _}.
+step(#esqlite3_stmt{stmt=Stmt}) ->
+    esqlite3_nif:step(Stmt).
+
 
 %% @doc Like prepare/2, but with an extra timeout value.
 %-spec prepare(sql(), connection(), timeout()) -> {ok, statement()} | {error, _}.
@@ -673,3 +724,25 @@ column_decltypes(#esqlite3_stmt{stmt=Stmt}) ->
 %    after
 %        0 -> ok
 %    end.
+
+%%
+%% Helpers
+%%
+
+
+props_to_prepare_flag(Props) ->
+    Flag = case proplists:get_value(no_vtab, Props, false) of
+         true -> ?SQLITE_PREPARE_NO_VTAB;
+         false -> 0
+    end,
+    case proplists:get_value(persistent, Props, false) of
+        true -> Flag bor ?SQLITE_PREPARE_PERSISTENT;
+        false -> Flag
+    end.
+
+
+
+
+
+
+

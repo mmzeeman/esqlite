@@ -22,12 +22,16 @@
 -export([
     open/1,
     close/1,
-    prepare/2,
+    prepare/3,
 
     column_names/1,
     column_decltypes/1,
 
     bind_int/3,
+    bind_int64/3,
+    bind_double/3,
+
+    step/1,
 
     interrupt/1
 %    set_update_hook/4,
@@ -87,16 +91,24 @@ close(_Db) ->
 
 %% @doc Compile a sql statement. 
 %%
--spec prepare(Connection, Sql) -> PrepareResult
+-spec prepare(Connection, Sql, PrepareFlags) -> PrepareResult
     when Connection :: esqlite3(),
          Sql :: sql(),
+         PrepareFlags :: non_neg_integer(),
          PrepareResult :: {ok, esqlite3_stmt()} | {error, _}.
-prepare(_Connection, _Sql) ->
+prepare(_Connection, _Sql, _PrepareFlags) ->
     erlang:nif_error(nif_library_not_loaded).
 
-
-
 bind_int(_Statement, _Index, _Value) ->
+    erlang:nif_error(nif_library_not_loaded).
+
+bind_int64(_Statement, _Index, _Value) ->
+    erlang:nif_error(nif_library_not_loaded).
+
+bind_double(_Statement, _Index, _Value) ->
+    erlang:nif_error(nif_library_not_loaded).
+
+step(_Statement) ->
     erlang:nif_error(nif_library_not_loaded).
 
 % -spec set_update_hook((), pid(), pid()) -> ok | {error, _}.

@@ -40,6 +40,8 @@ typedef struct {
 /* prepared statement */
 typedef struct {
     sqlite3_stmt *statement;
+
+    int column_count;
 } esqlite3_stmt;
 
 /* data associated with ongoing backup */
@@ -590,7 +592,6 @@ make_binary(ErlNifEnv *env, const void *bytes, unsigned int size)
     return term;
 }
 
-/*
 static ERL_NIF_TERM
 make_cell(ErlNifEnv *env, sqlite3_stmt *statement, unsigned int i)
 {
@@ -610,78 +611,10 @@ make_cell(ErlNifEnv *env, sqlite3_stmt *statement, unsigned int i)
         case SQLITE_TEXT:
             return make_binary(env, sqlite3_column_text(statement, i),
                     sqlite3_column_bytes(statement, i));
-        default:
-            return make_atom(env, "should_not_happen");
     }
+    return enif_raise_exception(env, make_atom(env, "internal_error"));
 }
-*/
 
-/*
-static ERL_NIF_TERM
-make_row(ErlNifEnv *env, sqlite3_stmt *statement, ERL_NIF_TERM *array, int size)
-{
-    if(!array)
-        return make_error_tuple(env, "no_memory");
-
-    for(int i = 0; i < size; i++)
-        array[i] = make_cell(env, statement, i);
-
-    return enif_make_tuple_from_array(env, array, size);
-}
-*/
-
-/*
-static ERL_NIF_TERM
-do_multi_step(ErlNifEnv *env, sqlite3 *db, sqlite3_stmt *stmt, const ERL_NIF_TERM arg)
-{
-    ERL_NIF_TERM status;
-    ERL_NIF_TERM rows = enif_make_list_from_array(env, NULL, 0);
-    ERL_NIF_TERM *rowBuffer = NULL;
-    int rowBufferSize = 0;
-
-    int chunk_size = 0;
-    enif_get_int(env, arg, &chunk_size);
-
-    int rc = sqlite3_step(stmt);
-    while (rc == SQLITE_ROW && chunk_size-- > 0)
-    {
-        if (!rowBufferSize)
-            rowBufferSize = sqlite3_column_count(stmt);
-        if (rowBuffer == NULL)
-            rowBuffer = (ERL_NIF_TERM *) enif_alloc(sizeof(ERL_NIF_TERM)*rowBufferSize);
-
-        rows = enif_make_list_cell(env, make_row(env, stmt, rowBuffer, rowBufferSize), rows);
-
-        if (chunk_size > 0)
-            rc = sqlite3_step(stmt);
-    }
-
-    switch(rc) {
-        case SQLITE_ROW:
-            status = make_atom(env, "rows");
-            break;
-        case SQLITE_BUSY:
-            status = make_atom(env, "$busy");
-            break;
-        case SQLITE_DONE:
-             // 
-             // Automatically reset the statement after a done so
-             // column_names will work after the statement is done.
-             // 
-             // Not resetting the statement can lead to vm crashes.
-             //
-            sqlite3_reset(stmt);
-            status = make_atom(env, "$done");
-            break;
-        default:
-            // We use prepare_v2, so any error code can be returned. 
-            return make_sqlite3_error_tuple(env, rc, db);
-    }
-
-    enif_free(rowBuffer);
-    return enif_make_tuple2(env, status, rows);
-}
-*/
 
 /*
 static ERL_NIF_TERM
@@ -940,11 +873,13 @@ esqlite_prepare(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
     esqlite3 *conn;
 
-    if(argc != 2)
+    if(argc != 3) {
         return enif_make_badarg(env);
+    }
 
-    if(!enif_get_resource(env, argv[0], esqlite3_type, (void **) &conn))
+    if(!enif_get_resource(env, argv[0], esqlite3_type, (void **) &conn)) {
         return enif_make_badarg(env);
+    }
 
     ErlNifBinary bin;
     esqlite3_stmt *stmt;
@@ -957,16 +892,23 @@ esqlite_prepare(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
         return enif_make_badarg(env);
     }
 
+    unsigned int prep_flags;
+    if(!enif_get_uint(env, argv[2], &prep_flags)) {
+        return make_error_tuple(env, "invalid_chunk_size");
+    }
+
     stmt = enif_alloc_resource(esqlite3_stmt_type, sizeof(esqlite3_stmt));
     if(!stmt) {
         return enif_raise_exception(env, make_atom(env, "no_memory"));   
     }
 
-    rc = sqlite3_prepare_v2(conn->db, (char *) bin.data, bin.size, &(stmt->statement), &tail);
+    rc = sqlite3_prepare_v3(conn->db, (char *) bin.data, bin.size, prep_flags, &(stmt->statement), &tail);
     if(rc != SQLITE_OK) {
         enif_release_resource(stmt);
         return make_sqlite3_error_tuple(env, rc);
     }
+
+    stmt->column_count = sqlite3_column_count(stmt->statement);
 
     esqlite_stmt = enif_make_resource(env, stmt);
     enif_release_resource(stmt);
@@ -1400,6 +1342,115 @@ esqlite_bind_int(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     return make_atom(env, "ok");
 }
 
+static ERL_NIF_TERM
+esqlite_bind_int64(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    esqlite3_stmt *stmt;
+    int index;
+    ErlNifSInt64 value;
+
+    if(argc != 3) {
+        return enif_make_badarg(env);
+    }
+
+    if(!enif_get_resource(env, argv[0], esqlite3_stmt_type, (void **) &stmt)) {
+        return enif_make_badarg(env);
+    }
+
+    if(!stmt->statement) {
+        return enif_raise_exception(env, make_atom(env, "no_prepared_statement"));   
+    }
+
+    if(!enif_get_int(env, argv[1], &index)) {
+        return enif_make_badarg(env);
+    }
+
+    if(!enif_get_int64(env, argv[2], &value)) {
+        return enif_make_badarg(env);
+    }
+
+    int rc = sqlite3_bind_int64(stmt->statement, index, value);
+    if(rc != SQLITE_OK) {
+        return make_sqlite3_error_tuple(env, rc);
+    }
+
+    return make_atom(env, "ok");
+}
+
+static ERL_NIF_TERM
+esqlite_bind_double(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    esqlite3_stmt *stmt;
+    int index;
+    double value;
+
+    if(argc != 3) {
+        return enif_make_badarg(env);
+    }
+
+    if(!enif_get_resource(env, argv[0], esqlite3_stmt_type, (void **) &stmt)) {
+        return enif_make_badarg(env);
+    }
+
+    if(!stmt->statement) {
+        return enif_raise_exception(env, make_atom(env, "no_prepared_statement"));   
+    }
+
+    if(!enif_get_int(env, argv[1], &index)) {
+        return enif_make_badarg(env);
+    }
+
+    if(!enif_get_double(env, argv[2], &value)) {
+        return enif_make_badarg(env);
+    }
+
+    int rc = sqlite3_bind_double(stmt->statement, index, value);
+    if(rc != SQLITE_OK) {
+        return make_sqlite3_error_tuple(env, rc);
+    }
+
+    return make_atom(env, "ok");
+}
+
+static ERL_NIF_TERM
+esqlite_step(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    esqlite3_stmt *stmt;
+
+    if(argc != 1) {
+        return enif_make_badarg(env);
+    }
+
+    if(!enif_get_resource(env, argv[0], esqlite3_stmt_type, (void **) &stmt)) {
+        return enif_make_badarg(env);
+    }
+
+    if(!stmt->statement) {
+        return enif_raise_exception(env, make_atom(env, "no_prepared_statement"));   
+    }
+
+    int rc = sqlite3_step(stmt->statement);
+    switch(rc) {
+        case SQLITE_ROW:
+            {
+                ERL_NIF_TERM row = enif_make_list(env, 0);
+                for(int i=stmt->column_count; i-- > 0; ) {
+                    row = enif_make_list_cell(env, make_cell(env, stmt->statement, i), row);
+                }
+                return row;
+            }
+        case SQLITE_DONE:
+            /* since  3.6.23.1 it is no longer required to do an explict reset.
+             */
+            return make_atom(env, "done");
+        case SQLITE_BUSY:
+            return make_atom(env, "busy");
+    }
+
+    return make_sqlite3_error_tuple(env, rc);
+}
+
+
 
 /*
  * Backup functions
@@ -1643,16 +1694,19 @@ static ErlNifFunc nif_funcs[] = {
     {"open", 1, esqlite_open, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"close", 1, esqlite_close, ERL_NIF_DIRTY_JOB_IO_BOUND},
 
-    {"prepare", 2, esqlite_prepare},
+    {"prepare", 3, esqlite_prepare},
 
     {"column_names", 1, esqlite_column_names},
     {"column_decltypes", 1, esqlite_column_decltypes},
 
     {"bind_int", 3, esqlite_bind_int},
+    {"bind_int64", 3, esqlite_bind_int64},
+    {"bind_double", 3, esqlite_bind_double},
+
+    {"step", 1, esqlite_step},
+
 
     /*
-    {"bind_int64", 3, esqlite_bind_blob},
-    {"bind_double", 3, esqlite_bind_blob},
     {"bind_text", 3, esqlite_bind_blob},
     {"bind_blob", 3, esqlite_bind_blob},
     {"bind_null", 2, esqlite_bind_blob},
@@ -1668,7 +1722,6 @@ static ErlNifFunc nif_funcs[] = {
     {"insert", 4, esqlite_insert},
     {"last_insert_rowid", 3, esqlite_last_insert_rowid},
     {"get_autocommit", 3, esqlite_get_autocommit},
-    {"multi_step", 5, esqlite_multi_step, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"reset", 4, esqlite_reset},
 
     // TODO: {"esqlite_bind", 3, esqlite_bind_named},

@@ -78,6 +78,19 @@ column_decltypes_test() ->
 
     ok.
 
+step_test() ->
+    {ok, C} = esqlite3:open(":memory:"),
+    {ok, Stmt} = esqlite3:prepare(C, "select 1, 2, 3;" ),
+
+    ?assertEqual([1,2,3], esqlite3:step(Stmt)),
+    ?assertEqual(done, esqlite3:step(Stmt)),
+
+    %% After the done, the statement is reset and 
+    ?assertEqual([1,2,3], esqlite3:step(Stmt)),
+    ?assertEqual(done, esqlite3:step(Stmt)),
+
+    ok.
+
 
 %iodata_test() ->
 %    {ok, C} = esqlite3:open(":memory:"),
