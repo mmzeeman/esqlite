@@ -21,41 +21,40 @@
 -export([
     open/1, close/1,
 
+    %% db connection functions
+    get_autocommit/1,
+    last_insert_rowid/1,
+%    set_update_hook/2, set_update_hook/3,
+
     prepare/2,
     prepare/3,
 
+    %% prepared statement functions
     column_names/1,
     column_decltypes/1,
 
     bind_int/3,
     bind_int64/3,
     bind_double/3,
+    % bind_text/3,
+    % bind_blob/3,
+    bind_null/2,
 
-    step/1
+    step/1,
+    reset/1
 
-%    set_update_hook/2, set_update_hook/3,
 %    exec/2, exec/3, exec/4,
 %    changes/1, changes/2,
 %    insert/2, insert/3,
-%    last_insert_rowid/1,
 %
-%    get_autocommit/1, get_autocommit/2,
-%
-%    step/1, step/2,
-%
-%    reset/1,
-%    bind/2, bind/3,
 %    fetchone/1,
 %    fetchall/1, fetchall/2, fetchall/3,
-%
 %
 %    backup_init/4, backup_init/5,
 %    backup_finish/1, backup_finish/2,
 %    backup_remaining/1, backup_remaining/2,
 %    backup_pagecount/1, backup_pagecount/2, 
 %    backup_step/2, backup_step/3, 
-%
-%    flush/0
 ]).
 
 % -export([q/2, q/3, q/4, map/3, map/4, foreach/3, foreach/4]).
@@ -137,15 +136,7 @@ open(Filename) ->
 close(#esqlite3{db=Connection}) ->
     esqlite3_nif:close(Connection).
 
-%% @doc Flush any stale answers left in the mailbox of the current process.
-%%      This can happen if there has been a timeout. Normally the nif functions
-%%      are called with the default 'infinite' timeout, so calling this is not
-%%      needed.
-%-spec flush() -> ok.
-%flush() ->
-%    flush_answers().
-%
-%
+
 %%% @doc Subscribe to database notifications. When rows are inserted deleted
 %%% or updates, the process will receive messages:
 %%% ```{insert, string(), rowid()}'''
@@ -378,26 +369,20 @@ close(#esqlite3{db=Connection}) ->
 
 %% @doc Get the last insert rowid.
 %%
-%-spec last_insert_rowid(connection(), timeout()) -> {ok, rowid()} | {error, _}.
-%last_insert_rowid(#connection{raw_connection=RawConnection}, Timeout) ->
-%    Ref = make_ref(),
-%    ok = esqlite3_nif:last_insert_rowid(RawConnection, Ref, self()),
-%    receive_answer(RawConnection, Ref, Timeout).
+-spec last_insert_rowid(Connection) -> RowidResult
+    when Connection :: esqlite3(),
+         RowidResult :: integer() | {error, closed}.
+last_insert_rowid(#esqlite3{db=Connection}) ->
+    esqlite3_nif:last_insert_rowid(Connection).
 
 %% @doc Check if the connection is in auto-commit mode.
 %% See: [https://sqlite.org/c3ref/get_autocommit.html] for more details.
 %%
-%-spec get_autocommit(connection()) -> true | false.
-%get_autocommit(Connection) ->
-%    get_autocommit(Connection, ?DEFAULT_TIMEOUT).
-
-%% @doc Like autocommit/1, but with an extra timeout attribute.
-%-spec get_autocommit(connection(), timeout()) -> true | false.
-%get_autocommit(#connection{raw_connection=RawConnection}, Timeout) ->
-%    Ref = make_ref(),
-%    ok = esqlite3_nif:get_autocommit(RawConnection, Ref, self()),
-%    receive_answer(RawConnection, Ref, Timeout).
-%
+-spec get_autocommit(Connection) -> AutocommitResult
+    when Connection :: esqlite3(),
+         AutocommitResult ::  true | false | {error, closed}.
+get_autocommit(#esqlite3{db=Connection}) ->
+    esqlite3_nif:get_autocommit(Connection).
 
 %% @doc Compile a SQL statement. Returns a cached compiled statement which can be used in
 %% queries.
@@ -449,64 +434,25 @@ bind_int64(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
 bind_double(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
     esqlite3_nif:bind_double(Stmt, Index, Value).
 
+-spec bind_null(Statement, Index) -> BindResult
+    when Statement :: esqlite3_stmt(),
+         Index :: integer(),
+         BindResult :: ok | {error, _}.
+bind_null(#esqlite3_stmt{stmt=Stmt}, Index) ->
+    esqlite3_nif:bind_null(Stmt, Index).
+
 -spec step(Statement) -> StepResult 
     when Statement :: esqlite3_stmt(),
          StepResult:: ok | {error, _}.
 step(#esqlite3_stmt{stmt=Stmt}) ->
     esqlite3_nif:step(Stmt).
 
+-spec reset(Statement) -> ResetResult 
+    when Statement :: esqlite3_stmt(),
+         ResetResult:: ok | {error, _}.
+reset(#esqlite3_stmt{stmt=Stmt}) ->
+    esqlite3_nif:reset(Stmt).
 
-%% @doc Like prepare/2, but with an extra timeout value.
-%-spec prepare(sql(), connection(), timeout()) -> {ok, statement()} | {error, _}.
-%prepare(Sql, #connection{raw_connection=RawConnection}, Timeout) ->
-%    Ref = make_ref(),
-%    case receive_answer(RawConnection, Ref, Timeout) of
-%        {ok, Stmt} when is_reference(Stmt) ->
-%            {ok, #statement{raw_statement=Stmt, raw_connection=RawConnection}};
-%        {error, _}=Error ->
-%%            Error 
-%    end.
-
-%% @doc Step
-%%
-%-spec step(statement()) -> tuple() | '$busy' | '$done'.
-%step(Stmt) ->
-%    step(Stmt, ?DEFAULT_TIMEOUT).
-%
-%% @doc
-%%
-%-spec step(statement(), timeout()) -> tuple() | '$busy' | '$done'.
-%step(#statement{raw_statement=RawStatement, raw_connection=RawConnection}, Timeout) ->
-%    Ref = make_ref(),
-%    ok = esqlite3_nif:multi_step(RawConnection, RawStatement, 1, Ref, self()),
-%    case receive_answer(RawConnection, Ref, Timeout) of
-%        {rows, [Row | []]} -> {row, Row};
-%        {'$done', []} -> '$done';
-%        {'$busy', []} -> '$busy';
-%        Else -> Else
-%    end.
-
-%% @doc Reset the prepared statement back to its initial state.
-%%
-%-spec reset(statement()) -> ok | {error, _}.
-%reset(#statement{raw_statement=RawStatement, raw_connection=RawConnection}) ->
-%    Ref = make_ref(),
-%    ok = esqlite3_nif:reset(RawConnection, RawStatement, Ref, self()),
-%    receive_answer(RawConnection, Ref, ?DEFAULT_TIMEOUT).
-
-%% @doc Bind values to prepared statements
-%%
-%-spec bind(statement(), list(cell_type())) -> ok | {error, _}.
-%bind(Stmt, Args) ->
-%    bind(Stmt, Args, ?DEFAULT_TIMEOUT).
-
-%% @doc Bind values to prepared statements
-%-spec bind(statement(), list(cell_type()), timeout()) -> ok | {error, _}.
-%bind(#statement{raw_statement=RawStatement, raw_connection=RawConnection}, Args, Timeout) ->
-%    Ref = make_ref(),
-%    ok = esqlite3_nif:bind(RawConnection, RawStatement, Ref, self(), Args),
-%    receive_answer(RawConnection, Ref, Timeout).
-%
 %% @doc Return the column names of the prepared statement.
 %%
 -spec column_names(Statement) -> Names
@@ -524,17 +470,6 @@ column_decltypes(#esqlite3_stmt{stmt=Stmt}) ->
     esqlite3_nif:column_decltypes(Stmt).
 
 
-%% @doc make multiple sqlite steps per call return rows in reverse order
-%%
-%-spec multi_step(term(), pos_integer(), timeout()) ->
-%                {rows, list(tuple())} |
-%                {'$busy', list(tuple())} |
-%                {'$done', list(tuple())} |
-%                {error, _}.
-%multi_step(#statement{raw_statement=RawStatement, raw_connection=RawConnection}, ChunkSize, Timeout) ->
-%    Ref = make_ref(),
-%%    ok = esqlite3_nif:multi_step(RawConnection, RawStatement, ChunkSize, Ref, self()),
-%    receive_answer(RawConnection, Ref, Timeout).
 
 %%
 %% Backup API

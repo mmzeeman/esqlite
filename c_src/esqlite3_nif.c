@@ -1413,6 +1413,38 @@ esqlite_bind_double(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 }
 
 static ERL_NIF_TERM
+esqlite_bind_null(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    esqlite3_stmt *stmt;
+    int index;
+    double value;
+
+    if(argc != 2) {
+        return enif_make_badarg(env);
+    }
+
+    if(!enif_get_resource(env, argv[0], esqlite3_stmt_type, (void **) &stmt)) {
+        return enif_make_badarg(env);
+    }
+
+    if(!stmt->statement) {
+        return enif_raise_exception(env, make_atom(env, "no_prepared_statement"));   
+    }
+
+    if(!enif_get_int(env, argv[1], &index)) {
+        return enif_make_badarg(env);
+    }
+
+    int rc = sqlite3_bind_null(stmt->statement, index);
+    if(rc != SQLITE_OK) {
+        return make_sqlite3_error_tuple(env, rc);
+    }
+
+    return make_atom(env, "ok");
+}
+
+
+static ERL_NIF_TERM
 esqlite_step(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
     esqlite3_stmt *stmt;
@@ -1450,6 +1482,26 @@ esqlite_step(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     return make_sqlite3_error_tuple(env, rc);
 }
 
+static ERL_NIF_TERM
+esqlite_reset(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    esqlite3_stmt *stmt;
+
+    if(argc != 1) {
+        return enif_make_badarg(env);
+    }
+
+    if(!enif_get_resource(env, argv[0], esqlite3_stmt_type, (void **) &stmt)) {
+        return enif_make_badarg(env);
+    }
+
+    if(!stmt->statement) {
+        return enif_raise_exception(env, make_atom(env, "no_prepared_statement"));   
+    }
+
+    int rc = sqlite3_reset(stmt->statement);
+    return make_sqlite3_error_tuple(env, rc);
+}
 
 
 /*
@@ -1643,10 +1695,53 @@ esqlite_interrupt(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
         return enif_make_badarg(env);
 
     esqlite3 *db = (esqlite3 *) conn;
-    sqlite3_interrupt(db->db);
+    if(db->db == NULL) {
+        return make_error_tuple(env, "closed");
+    }
 
+    sqlite3_interrupt(db->db);
     return enif_make_atom(env, "ok");
 }
+
+static ERL_NIF_TERM
+esqlite_get_autocommit(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    esqlite3 *conn;
+
+    if(!enif_get_resource(env, argv[0], esqlite3_type, (void **) &conn))
+        return enif_make_badarg(env);
+
+    esqlite3 *db = (esqlite3 *) conn;
+
+    if(db->db == NULL) {
+        return make_error_tuple(env, "closed");
+    }
+
+    if(sqlite3_get_autocommit(db->db)) {
+        return make_atom(env, "true");
+    } 
+
+    return make_atom(env, "false");
+}
+
+static ERL_NIF_TERM
+esqlite_last_insert_rowid(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    esqlite3 *conn;
+
+    if(!enif_get_resource(env, argv[0], esqlite3_type, (void **) &conn))
+        return enif_make_badarg(env);
+
+    esqlite3 *db = (esqlite3 *) conn;
+
+    if(db->db == NULL) {
+        return make_error_tuple(env, "closed");
+    }
+
+    sqlite3_int64 last_rowid = sqlite3_last_insert_rowid(db->db);
+    return enif_make_int64(env, last_rowid);
+}
+
 
 /*
  * Load the nif. Initialize some stuff and such
@@ -1703,8 +1798,7 @@ static ErlNifFunc nif_funcs[] = {
     {"bind_int64", 3, esqlite_bind_int64},
     {"bind_double", 3, esqlite_bind_double},
 
-    {"step", 1, esqlite_step},
-
+    {"bind_null", 2, esqlite_bind_null},
 
     /*
     {"bind_text", 3, esqlite_bind_blob},
@@ -1712,7 +1806,18 @@ static ErlNifFunc nif_funcs[] = {
     {"bind_null", 2, esqlite_bind_blob},
     */
 
-    {"interrupt", 1, esqlite_interrupt, ERL_NIF_DIRTY_JOB_IO_BOUND}
+    {"step", 1, esqlite_step},
+    {"reset", 1, esqlite_reset},
+
+    /*
+    Other interesting additions... trace.
+    wal_hook triggered after every commit.
+    also interesting commit and rollback_hooks
+    */
+
+    {"interrupt", 1, esqlite_interrupt, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"last_insert_rowid", 1, esqlite_last_insert_rowid},
+    {"get_autocommit", 1, esqlite_get_autocommit},
 
     /*
     {"set_update_hook", 4, set_update_hook},
@@ -1720,12 +1825,6 @@ static ErlNifFunc nif_funcs[] = {
     {"exec", 4, esqlite_exec, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"changes", 3, esqlite_changes},
     {"insert", 4, esqlite_insert},
-    {"last_insert_rowid", 3, esqlite_last_insert_rowid},
-    {"get_autocommit", 3, esqlite_get_autocommit},
-    {"reset", 4, esqlite_reset},
-
-    // TODO: {"esqlite_bind", 3, esqlite_bind_named},
-    {"bind", 5, esqlite_bind},
 
     {"backup_init", 6, esqlite_backup_init},
     {"backup_step", 5, esqlite_backup_step},

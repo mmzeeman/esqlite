@@ -22,6 +22,10 @@
 -export([
     open/1,
     close/1,
+
+    get_autocommit/1,
+    last_insert_rowid/1,
+
     prepare/3,
 
     column_names/1,
@@ -30,16 +34,20 @@
     bind_int/3,
     bind_int64/3,
     bind_double/3,
+    %bind_text/3,
+    %bind_blob/3,
+    bind_null/2,
 
     step/1,
+
+    reset/1,
 
     interrupt/1
 %    set_update_hook/4,
 %    exec/4,
 %    changes/3,
 %    insert/4,
-%    last_insert_rowid/3,
-%    get_autocommit/3,
+%
 %    multi_step/5,
 %    reset/4,
 %    finalize/4,
@@ -108,7 +116,13 @@ bind_int64(_Statement, _Index, _Value) ->
 bind_double(_Statement, _Index, _Value) ->
     erlang:nif_error(nif_library_not_loaded).
 
+bind_null(_Statement, _Index) ->
+    erlang:nif_error(nif_library_not_loaded).
+
 step(_Statement) ->
+    erlang:nif_error(nif_library_not_loaded).
+
+reset(_Statement) ->
     erlang:nif_error(nif_library_not_loaded).
 
 % -spec set_update_hook((), pid(), pid()) -> ok | {error, _}.
@@ -210,13 +224,13 @@ interrupt(_Db) ->
 
 %% @doc Get the last insert rowid.
 %%
-%-spec last_insert_rowid(esqlite3(), reference(), pid()) -> ok | {error, _}.
-%last_insert_rowid(_Db, _Ref, _Dest) ->
-%    erlang:nif_error(nif_library_not_loaded).
+-spec last_insert_rowid(esqlite3()) -> integer() | {error, _}.
+last_insert_rowid(_Connection) ->
+    erlang:nif_error(nif_library_not_loaded).
 
-%% @doc Get automcommit
+%% @doc Get autocommit
 %%
-%-spec get_autocommit(esqlite3(), reference(), pid()) -> ok | {error, _}.
-%get_autocommit(_Db, _Ref, _Dest) ->
-%    erlang:nif_error(nif_library_not_loaded).
+-spec get_autocommit(esqlite3()) -> true | false | {error, _}.
+get_autocommit(_Connection) ->
+    erlang:nif_error(nif_library_not_loaded).
 
