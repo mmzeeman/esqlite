@@ -22,19 +22,15 @@ close_test() ->
     %% Double close should also work.
     ok = esqlite3:close(C),
 
-    ok.
-
-
     %% Check if functions still return sensible values.
 %    {error, closed} = esqlite3:set_update_hook(self(), C),
-%    {error, closed} = esqlite3:changes(C),
-%    {error, closed} = esqlite3:get_autocommit(C),
-%    {error, closed} = esqlite3:last_insert_rowid(C),
+    {error, closed} = esqlite3:changes(C),
+    {error, closed} = esqlite3:get_autocommit(C),
+    {error, closed} = esqlite3:last_insert_rowid(C),
 
-%    {error, _} = esqlite3:exec("create table test(one, two, three)", C),
+    ?assertEqual({error, {misuse, invoked_incorrectly}}, esqlite3:exec(C, "create table test(one, two, three)")),
 
-%    ok.
-
+    ok.
 
 prepare_test() ->
     {ok, C} = esqlite3:open(":memory:"),
@@ -45,9 +41,7 @@ prepare_test() ->
 prepare_after_close_test() ->
     {ok, C} = esqlite3:open(":memory:"),
     ?assertEqual(ok, esqlite3:close(C)),
-
-    ?assertMatch({error, {misuse, _}}, esqlite3:prepare(C, "select 1")),
-
+    ?assertMatch({error, {misuse, invoked_incorrectly}}, esqlite3:prepare(C, "select 1")),
     ok.
 
 column_names_test() ->
@@ -119,13 +113,21 @@ open_multiple_different_databases_test() ->
 
 get_autocommit_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
+
+    %% By default, the database is in autocommit mode
+    true = esqlite3:get_autocommit(Db),
     ok = esqlite3:exec(Db, "CREATE TABLE test (id INTEGER PRIMARY KEY, val STRING);"),
     true = esqlite3:get_autocommit(Db),
+
+    %% After a begin statement, the connection will not be in autocommit mode anymore
     ok = esqlite3:exec(Db, "BEGIN;"),
     false = esqlite3:get_autocommit(Db),
     ok = esqlite3:exec(Db, "INSERT INTO test (val) VALUES ('this is a test');"),
     ok = esqlite3:exec(Db, "COMMIT;"),
+
+    %% After a commit statement, the connection will be in autocommit mode
     true = esqlite3:get_autocommit(Db),
+
     ok.
 
 last_insert_rowid_test() ->
