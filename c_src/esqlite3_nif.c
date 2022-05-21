@@ -951,37 +951,6 @@ set_update_hook(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 }
 */
 
-/*
- * Execute the sql statement
-static ERL_NIF_TERM
-esqlite_exec(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
-{
-    esqlite3 *db;
-    esqlite_command *cmd = NULL;
-    ErlNifPid pid;
-
-    if(argc != 4)
-        return enif_make_badarg(env);
-    if(!enif_get_resource(env, argv[0], esqlite3_type, (void **) &db))
-        return enif_make_badarg(env);
-    if(!enif_is_ref(env, argv[1]))
-        return make_error_tuple(env, "invalid_ref");
-    if(!enif_get_local_pid(env, argv[2], &pid))
-        return make_error_tuple(env, "invalid_pid");
-
-    cmd = command_create();
-    if(!cmd)
-        return make_error_tuple(env, "command_create_failed");
-
-    // command 
-    cmd->type = cmd_exec;
-    cmd->ref = enif_make_copy(cmd->env, argv[1]);
-    cmd->pid = pid;
-    cmd->arg = enif_make_copy(cmd->env, argv[3]);
-
-    return push_command(env, db, cmd);
-}
- */
 
 /*
  * Count the nr of changes of last statement
@@ -1014,96 +983,6 @@ esqlite_changes(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 }
  */
 
-/*
-static ERL_NIF_TERM
-esqlite_insert(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
-{
-    esqlite3 *db;
-    esqlite_command *cmd = NULL;
-    ErlNifPid pid;
-
-    if(argc != 4)
-        return enif_make_badarg(env);
-    if(!enif_get_resource(env, argv[0], esqlite3_type, (void **) &db))
-        return enif_make_badarg(env);
-    if(!enif_is_ref(env, argv[1]))
-        return make_error_tuple(env, "invalid_ref");
-    if(!enif_get_local_pid(env, argv[2], &pid))
-        return make_error_tuple(env, "invalid_pid");
-
-    cmd = command_create();
-    if(!cmd)
-        return make_error_tuple(env, "command_create_failed");
-
-    // command 
-    cmd->type = cmd_insert;
-    cmd->ref = enif_make_copy(cmd->env, argv[1]);
-    cmd->pid = pid;
-    cmd->arg = enif_make_copy(cmd->env, argv[3]);
-
-    return push_command(env, db, cmd);
-}
-*/
-
-/*
-static ERL_NIF_TERM
-esqlite_last_insert_rowid(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
-{
-    esqlite3 *db;
-    esqlite_command *cmd = NULL;
-    ErlNifPid pid;
-
-    if(argc != 3)
-        return enif_make_badarg(env);
-    if(!enif_get_resource(env, argv[0], esqlite3_type, (void **) &db))
-        return enif_make_badarg(env);
-    if(!enif_is_ref(env, argv[1]))
-        return make_error_tuple(env, "invalid_ref");
-    if(!enif_get_local_pid(env, argv[2], &pid))
-        return make_error_tuple(env, "invalid_pid");
-
-    cmd = command_create();
-    if(!cmd)
-        return make_error_tuple(env, "command_create_failed");
-
-    // command 
-    cmd->type = cmd_last_insert_rowid;
-    cmd->ref = enif_make_copy(cmd->env, argv[1]);
-    cmd->pid = pid;
-
-    return push_command(env, db, cmd);
-}
-*/
-
-/*
-static ERL_NIF_TERM
-esqlite_get_autocommit(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
-{
-    esqlite3 *db;
-    esqlite_command *cmd = NULL;
-    ErlNifPid pid;
-
-    if(argc != 3)
-        return enif_make_badarg(env);
-    if(!enif_get_resource(env, argv[0], esqlite3_type, (void **) &db))
-        return enif_make_badarg(env);
-    if(!enif_is_ref(env, argv[1]))
-        return make_error_tuple(env, "invalid_ref");
-    if(!enif_get_local_pid(env, argv[2], &pid))
-        return make_error_tuple(env, "invalid_pid");
-
-    cmd = command_create();
-    if(!cmd)
-        return make_error_tuple(env, "command_create_failed");
-
-    // command 
-    cmd->type = cmd_get_autocommit;
-    cmd->ref = enif_make_copy(cmd->env, argv[1]);
-    cmd->pid = pid;
-
-    return push_command(env, db, cmd);
-}
-*/
 
 /*
  * Bind a variable to a prepared statement
@@ -1742,6 +1621,23 @@ esqlite_last_insert_rowid(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     return enif_make_int64(env, last_rowid);
 }
 
+static ERL_NIF_TERM
+esqlite_changes(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    esqlite3 *conn;
+
+    if(!enif_get_resource(env, argv[0], esqlite3_type, (void **) &conn))
+        return enif_make_badarg(env);
+
+    esqlite3 *db = (esqlite3 *) conn;
+
+    if(db->db == NULL) {
+        return make_error_tuple(env, "closed");
+    }
+
+    sqlite3_int64 changes = sqlite3_changes64(db->db);
+    return enif_make_int64(env, changes);
+}
 
 /*
  * Load the nif. Initialize some stuff and such
@@ -1818,13 +1714,12 @@ static ErlNifFunc nif_funcs[] = {
     {"interrupt", 1, esqlite_interrupt, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"last_insert_rowid", 1, esqlite_last_insert_rowid},
     {"get_autocommit", 1, esqlite_get_autocommit},
+    {"changes", 1, esqlite_changes},
 
     /*
     {"set_update_hook", 4, set_update_hook},
 
     {"exec", 4, esqlite_exec, ERL_NIF_DIRTY_JOB_IO_BOUND},
-    {"changes", 3, esqlite_changes},
-    {"insert", 4, esqlite_insert},
 
     {"backup_init", 6, esqlite_backup_init},
     {"backup_step", 5, esqlite_backup_step},

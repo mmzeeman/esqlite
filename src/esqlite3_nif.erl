@@ -25,6 +25,7 @@
 
     get_autocommit/1,
     last_insert_rowid/1,
+    changes/1,
 
     prepare/3,
 
@@ -46,7 +47,6 @@
 %    set_update_hook/4,
 %    exec/4,
 %    changes/3,
-%    insert/4,
 %
 %    multi_step/5,
 %    reset/4,
@@ -216,17 +216,19 @@ column_decltypes(_Stmt) ->
 interrupt(_Db) ->
     erlang:nif_error(nif_library_not_loaded).
 
-%% @doc Insert record
-%%
-%-spec insert(esqlite3(), reference(), pid(), sql()) -> ok | {error, _}.
-%insert(_Db, _Ref, _Dest, _Sql) ->
-%    erlang:nif_error(nif_library_not_loaded).
-
 %% @doc Get the last insert rowid.
 %%
 -spec last_insert_rowid(esqlite3()) -> integer() | {error, _}.
 last_insert_rowid(_Connection) ->
     erlang:nif_error(nif_library_not_loaded).
+
+%% @doc Get number of changes insert, delete of the most recent completed
+%%      INSERT, DELETE or UPDATE statement.
+%%
+-spec changes(esqlite3()) -> integer() | {error, _}.
+changes(_Connection) ->
+    erlang:nif_error(nif_library_not_loaded).
+
 
 %% @doc Get autocommit
 %%

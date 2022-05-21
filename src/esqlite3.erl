@@ -24,6 +24,8 @@
     %% db connection functions
     get_autocommit/1,
     last_insert_rowid/1,
+    changes/1,
+
 %    set_update_hook/2, set_update_hook/3,
 
     prepare/2,
@@ -44,7 +46,6 @@
     reset/1
 
 %    exec/2, exec/3, exec/4,
-%    changes/1, changes/2,
 %    insert/2, insert/3,
 %
 %    fetchone/1,
@@ -347,7 +348,8 @@ close(#esqlite3{db=Connection}) ->
 %    Ref = make_ref(),
 %    ok = esqlite3_nif:changes(RawConnection, Ref, self()),
 %    receive_answer(RawConnection, Ref, Timeout).
-%
+
+
 %%% @doc Insert records, returns the last rowid.
 %%
 %-spec insert(sql(), connection()) -> {ok, rowid()} |  {error, _}.
@@ -357,15 +359,11 @@ close(#esqlite3{db=Connection}) ->
 %% @doc Like insert/2, but with extra timeout parameter.
 %-spec insert(sql(), connection(), timeout()) -> {ok, rowid()} |  {error, _}.
 %insert(Sql, #connection{raw_connection=RawConnection}, Timeout) ->
+% [NOTE] it is an exec followed by a last_insert_rowid.
 %    Ref = make_ref(),
 %    ok = esqlite3_nif:insert(RawConnection, Ref, self(), Sql),
 %    receive_answer(RawConnection, Ref, Timeout).
 
-%% @doc Get the last insert rowid, using the default timeout.
-%%
-%-spec last_insert_rowid(connection()) -> {ok, rowid()} | {error, _}.
-%last_insert_rowid(Connection) ->
-%    last_insert_rowid(Connection, ?DEFAULT_TIMEOUT).
 
 %% @doc Get the last insert rowid.
 %%
@@ -374,6 +372,15 @@ close(#esqlite3{db=Connection}) ->
          RowidResult :: integer() | {error, closed}.
 last_insert_rowid(#esqlite3{db=Connection}) ->
     esqlite3_nif:last_insert_rowid(Connection).
+
+%% @doc Get the number of changes in the most recent INSERT, UPDATE or DELETE.
+%%
+-spec changes(Connection) -> ChangesResult
+    when Connection :: esqlite3(),
+         ChangesResult :: integer() | {error, closed}.
+changes(#esqlite3{db=Connection}) ->
+    esqlite3_nif:changes(Connection).
+
 
 %% @doc Check if the connection is in auto-commit mode.
 %% See: [https://sqlite.org/c3ref/get_autocommit.html] for more details.
