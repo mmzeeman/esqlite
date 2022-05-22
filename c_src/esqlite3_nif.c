@@ -336,133 +336,6 @@ destruct_esqlite3_backup(ErlNifEnv *env, void *arg)
     backup->backup = NULL;
 }
 
-/*
-static ERL_NIF_TERM
-do_set_update_hook(ErlNifEnv *env, esqlite3 *conn, const ERL_NIF_TERM arg)
-{
-    if(!enif_get_local_pid(env, arg, &conn->notification_pid)) {
-        return make_error_tuple(env, "invalid_pid");
-    }
-
-    if(!conn->db) {
-        return make_error_tuple(env, "closed");
-    }
-
-    sqlite3_update_hook(conn->db, update_callback, conn);
-
-    return make_atom(env, "ok");
-}
-*/
-
-
-/*
-static int
-bind_cell(ErlNifEnv *env, const ERL_NIF_TERM cell, sqlite3_stmt *stmt, unsigned int i)
-{
-    int the_int;
-    ErlNifSInt64 the_long_int;
-    double the_double;
-    char the_atom[MAX_ATOM_LENGTH+1];
-    ErlNifBinary the_blob;
-    int arity;
-    const ERL_NIF_TERM* tuple;
-
-    if(enif_get_int(env, cell, &the_int))
-        return sqlite3_bind_int(stmt, i, the_int);
-
-    if(enif_get_int64(env, cell, &the_long_int))
-        return sqlite3_bind_int64(stmt, i, the_long_int);
-
-    if(enif_get_double(env, cell, &the_double))
-        return sqlite3_bind_double(stmt, i, the_double);
-
-    if(enif_get_atom(env, cell, the_atom, sizeof(the_atom), ERL_NIF_LATIN1)) {
-        if(strncmp("undefined", the_atom, strlen("undefined")) == 0) {
-            return sqlite3_bind_null(stmt, i);
-        }  
-
-        if(strncmp("null", the_atom, strlen("null")) == 0) {
-            return sqlite3_bind_null(stmt, i);
-        }
-
-        return sqlite3_bind_text(stmt, i, the_atom, strlen(the_atom), SQLITE_TRANSIENT);
-    }
-
-    // Bind as text assume it is utf-8 encoded text
-    if(enif_inspect_iolist_as_binary(env, cell, &the_blob)) {
-        return sqlite3_bind_text(stmt, i, (char *) the_blob.data, the_blob.size, SQLITE_TRANSIENT);
-    }
-
-    // Check for blob tuple 
-    if(enif_get_tuple(env, cell, &arity, &tuple)) {
-        if(arity != 2)
-            return -1;
-
-        // length 2! 
-        if(enif_get_atom(env, tuple[0], the_atom, sizeof(the_atom), ERL_NIF_LATIN1)) {
-            // its a blob... 
-            if(0 == strncmp("blob", the_atom, strlen("blob"))) {
-                // with a iolist as argument 
-                if(enif_inspect_iolist_as_binary(env, tuple[1], &the_blob)) {
-                    // kaboom... get the blob 
-                    return sqlite3_bind_blob(stmt, i, the_blob.data, the_blob.size, SQLITE_TRANSIENT);
-                }
-            }
-        }
-    }
-
-    return -1;
-}
-*/
-
-/*
-static ERL_NIF_TERM
-do_bind(ErlNifEnv *env, sqlite3 *db, sqlite3_stmt *stmt, const ERL_NIF_TERM arg)
-{
-    int parameter_count = sqlite3_bind_parameter_count(stmt);
-    int i, is_list, r;
-    ERL_NIF_TERM list, head, tail;
-    unsigned int list_length;
-
-    is_list = enif_get_list_length(env, arg, &list_length);
-    if(!is_list)
-        return make_error_tuple(env, "bad_arg_list");
-    if(parameter_count != list_length)
-        return make_error_tuple(env, "args_wrong_length");
-
-    sqlite3_reset(stmt);
-
-    list = arg;
-    for(i=0; i < list_length; i++) {
-        enif_get_list_cell(env, list, &head, &tail);
-        r = bind_cell(env, head, stmt, i+1);
-        if(r == -1)
-            return make_error_tuple(env, "wrong_type");
-        if(r != SQLITE_OK)
-            return make_sqlite3_error_tuple(env, r, db);
-        list = tail;
-    }
-
-    return make_atom(env, "ok");
-}
-*/
-
-/*
-static ERL_NIF_TERM
-do_get_autocommit(ErlNifEnv *env, esqlite3 *conn)
-{
-    if(!conn->db) {
-        return make_error_tuple(env, "closed");
-    }
-
-    if(sqlite3_get_autocommit(conn->db) != 0) {
-        return make_atom(env, "true");
-    } 
-
-    return make_atom(env, "false");
-}
-*/
-
 static ERL_NIF_TERM
 make_binary(ErlNifEnv *env, const void *bytes, unsigned int size)
 {
@@ -896,42 +769,6 @@ esqlite_prepare(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
     return make_ok_tuple(env, esqlite_stmt);
 }
-
-
-/*
-static ERL_NIF_TERM
-set_update_hook(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
-{
-    esqlite3 *db;
-    esqlite_command *cmd = NULL;
-    ErlNifPid pid;
-
-    if(argc != 4)
-        return enif_make_badarg(env);
-
-    if(!enif_get_resource(env, argv[0], esqlite3_type, (void **) &db))
-        return enif_make_badarg(env);
-
-    if(!enif_is_ref(env, argv[1]))
-        return make_error_tuple(env, "invalid_ref");
-
-    if(!enif_get_local_pid(env, argv[2], &pid))
-        return make_error_tuple(env, "invalid_pid");
-
-    cmd = command_create();
-    if(!cmd)
-        return make_error_tuple(env, "command_create_failed");
-
-    // command 
-    cmd->type = cmd_update_hook_set;
-    cmd->ref = enif_make_copy(cmd->env, argv[1]);
-    cmd->pid = pid;
-    cmd->arg = enif_make_copy(cmd->env, argv[3]);
-
-    return push_command(env, db, cmd);
-}
-*/
-
 
 /*
  * Get the column names of the prepared statement.
@@ -1594,6 +1431,11 @@ static ErlNifFunc nif_funcs[] = {
     {"open", 1, esqlite_open, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"close", 1, esqlite_close, ERL_NIF_DIRTY_JOB_IO_BOUND},
 
+    /*
+     * Other interesting additions... trace.
+     * wal_hook triggered after every commit.
+     * also interesting commit and rollback_hooks
+     */
     {"set_update_hook", 2, esqlite_set_update_hook},
 
     {"exec", 2, esqlite_exec},
@@ -1609,18 +1451,8 @@ static ErlNifFunc nif_funcs[] = {
     {"bind_blob", 3, esqlite_bind_blob},
     {"bind_null", 2, esqlite_bind_null},
 
-    /*
-    {"bind_text", 3, esqlite_bind_blob},
-    */
-
     {"step", 1, esqlite_step},
     {"reset", 1, esqlite_reset},
-
-    /*
-     * Other interesting additions... trace.
-     * wal_hook triggered after every commit.
-     * also interesting commit and rollback_hooks
-     */
 
     {"interrupt", 1, esqlite_interrupt, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"last_insert_rowid", 1, esqlite_last_insert_rowid},
