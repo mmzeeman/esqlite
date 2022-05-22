@@ -28,7 +28,7 @@ close_test() ->
     {error, closed} = esqlite3:get_autocommit(C),
     {error, closed} = esqlite3:last_insert_rowid(C),
 
-    ?assertEqual({error, {misuse, invoked_incorrectly}},
+    ?assertEqual({error, 21},
                  esqlite3:exec(C, "create table test(one, two, three)")),
 
     ok.
@@ -42,7 +42,7 @@ prepare_test() ->
 prepare_after_close_test() ->
     {ok, C} = esqlite3:open(":memory:"),
     ?assertEqual(ok, esqlite3:close(C)),
-    ?assertMatch({error, {misuse, invoked_incorrectly}}, esqlite3:prepare(C, "select 1")),
+    ?assertMatch({error, 21}, esqlite3:prepare(C, "select 1")),
     ok.
 
 column_names_test() ->
