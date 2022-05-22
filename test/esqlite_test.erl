@@ -23,12 +23,13 @@ close_test() ->
     ok = esqlite3:close(C),
 
     %% Check if functions still return sensible values.
-%    {error, closed} = esqlite3:set_update_hook(self(), C),
+    {error, closed} = esqlite3:set_update_hook(C, self()),
     {error, closed} = esqlite3:changes(C),
     {error, closed} = esqlite3:get_autocommit(C),
     {error, closed} = esqlite3:last_insert_rowid(C),
 
-    ?assertEqual({error, {misuse, invoked_incorrectly}}, esqlite3:exec(C, "create table test(one, two, three)")),
+    ?assertEqual({error, {misuse, invoked_incorrectly}},
+                 esqlite3:exec(C, "create table test(one, two, three)")),
 
     ok.
 

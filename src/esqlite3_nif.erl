@@ -37,8 +37,8 @@
     bind_int/3,
     bind_int64/3,
     bind_double/3,
-    %bind_text/3,
-    %bind_blob/3,
+    bind_text/3,
+    bind_blob/3,
     bind_null/2,
 
     step/1,
@@ -46,16 +46,7 @@
     reset/1,
 
     interrupt/1
-%    exec/4,
-%    changes/3,
-%
-%    multi_step/5,
-%    reset/4,
-%    finalize/4,
-%    bind/5,
-
-%    column_types/4,
-
+    
 %    backup_init/6,
 %    backup_step/5,
 %    backup_remaining/4,
@@ -135,6 +126,12 @@ bind_int64(_Statement, _Index, _Value) ->
     erlang:nif_error(nif_library_not_loaded).
 
 bind_double(_Statement, _Index, _Value) ->
+    erlang:nif_error(nif_library_not_loaded).
+
+bind_blob(_Statement, _Index, _Value) ->
+    erlang:nif_error(nif_library_not_loaded).
+
+bind_text(_Statement, _Index, _Value) ->
     erlang:nif_error(nif_library_not_loaded).
 
 bind_null(_Statement, _Index) ->

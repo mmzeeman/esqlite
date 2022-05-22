@@ -22,13 +22,13 @@
     open/1, close/1,
 
     %% db connection functions
-
     set_update_hook/2,
 
     get_autocommit/1,
     last_insert_rowid/1,
     changes/1,
 
+    %% queries
     exec/2,
     prepare/2,
     prepare/3,
@@ -41,13 +41,13 @@
     bind_int64/3,
     bind_double/3,
     % bind_text/3,
-    % bind_blob/3,
+    bind_blob/3,
     bind_null/2,
 
     step/1,
     reset/1
 
-%
+
 %    fetchone/1,
 %    fetchall/1, fetchall/2, fetchall/3,
 %
@@ -62,7 +62,6 @@
 
 -define(DEFAULT_TIMEOUT, infinity).
 -define(DEFAULT_CHUNK_SIZE, 5000).
-
 
 -define(SQLITE_PREPARE_PERSISTENT, 16#01).
 -define(SQLITE_PREPARE_NO_VTAB, 16#04).
@@ -390,6 +389,14 @@ bind_int64(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
          BindResult :: ok | {error, _}.
 bind_double(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
     esqlite3_nif:bind_double(Stmt, Index, Value).
+
+-spec bind_blob(Statement, Index, Value) -> BindResult
+    when Statement :: esqlite3_stmt(),
+         Index :: integer(),
+         Value :: iodata(),
+         BindResult :: ok | {error, _}.
+bind_blob(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
+    esqlite3_nif:bind_blob(Stmt, Index, Value).
 
 -spec bind_null(Statement, Index) -> BindResult
     when Statement :: esqlite3_stmt(),

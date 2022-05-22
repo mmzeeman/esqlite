@@ -486,36 +486,22 @@ make_cell(ErlNifEnv *env, sqlite3_stmt *statement, unsigned int i)
     int type = sqlite3_column_type(statement, i);
 
     switch(type) {
+        case SQLITE_NULL:
+            return make_atom(env, "undefined");
         case SQLITE_INTEGER:
             return enif_make_int64(env, sqlite3_column_int64(statement, i));
         case SQLITE_FLOAT:
             return enif_make_double(env, sqlite3_column_double(statement, i));
         case SQLITE_BLOB:
-            return enif_make_tuple2(env, make_atom(env, "blob"),
-                    make_binary(env, sqlite3_column_blob(statement, i),
-                        sqlite3_column_bytes(statement, i)));
-        case SQLITE_NULL:
-            return make_atom(env, "undefined");
+            return make_binary(env, sqlite3_column_blob(statement, i),
+                        sqlite3_column_bytes(statement, i));
         case SQLITE_TEXT:
             return make_binary(env, sqlite3_column_text(statement, i),
                     sqlite3_column_bytes(statement, i));
     }
+
     return enif_raise_exception(env, make_atom(env, "internal_error"));
 }
-
-
-/*
-static ERL_NIF_TERM
-do_reset(ErlNifEnv *env, sqlite3 *db, sqlite3_stmt *stmt)
-{
-    int rc = sqlite3_reset(stmt);
-    if(rc != SQLITE_OK)
-        return make_sqlite3_error_tuple(env, rc, db);
-
-    return make_atom(env, "ok");
-}
-*/
-
 
 /*
 static ERL_NIF_TERM
@@ -1137,6 +1123,82 @@ esqlite_bind_double(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 }
 
 static ERL_NIF_TERM
+esqlite_bind_text(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    esqlite3_stmt *stmt;
+    int index;
+    ErlNifBinary text;
+
+    if(argc != 3) {
+        return enif_make_badarg(env);
+    }
+
+    if(!enif_get_resource(env, argv[0], esqlite3_stmt_type, (void **) &stmt)) {
+        return enif_make_badarg(env);
+    }
+
+    if(!stmt->statement) {
+        return enif_raise_exception(env, make_atom(env, "no_prepared_statement"));   
+    }
+
+    if(!enif_get_int(env, argv[1], &index)) {
+        return enif_make_badarg(env);
+    }
+
+    if(!enif_inspect_iolist_as_binary(env, argv[1], &text)) {
+        return enif_make_badarg(env);
+    }
+
+    /* 
+     * Don't do any checks on the input data, sqlite handes all kinds of input. It is
+     * garbage-in, garbage-out.
+     * 
+     */
+
+    int rc = sqlite3_bind_text64(stmt->statement, index, text.data, text.size, SQLITE_TRANSIENT, SQLITE_UTF8);
+    if(rc != SQLITE_OK) {
+        return make_sqlite3_error_tuple(env, rc);
+    }
+
+    return make_atom(env, "ok");
+}
+
+static ERL_NIF_TERM
+esqlite_bind_blob(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    esqlite3_stmt *stmt;
+    int index;
+    ErlNifBinary blob;
+
+    if(argc != 3) {
+        return enif_make_badarg(env);
+    }
+
+    if(!enif_get_resource(env, argv[0], esqlite3_stmt_type, (void **) &stmt)) {
+        return enif_make_badarg(env);
+    }
+
+    if(!stmt->statement) {
+        return enif_raise_exception(env, make_atom(env, "no_prepared_statement"));   
+    }
+
+    if(!enif_get_int(env, argv[1], &index)) {
+        return enif_make_badarg(env);
+    }
+
+    if(!enif_inspect_iolist_as_binary(env, argv[1], &blob)) {
+        return enif_make_badarg(env);
+    }
+
+    int rc = sqlite3_bind_blob64(stmt->statement, index, blob.data, blob.size, SQLITE_TRANSIENT);
+    if(rc != SQLITE_OK) {
+        return make_sqlite3_error_tuple(env, rc);
+    }
+
+    return make_atom(env, "ok");
+}
+
+static ERL_NIF_TERM
 esqlite_bind_null(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
     esqlite3_stmt *stmt;
@@ -1543,23 +1605,22 @@ static ErlNifFunc nif_funcs[] = {
     {"bind_int", 3, esqlite_bind_int},
     {"bind_int64", 3, esqlite_bind_int64},
     {"bind_double", 3, esqlite_bind_double},
-
+    {"bind_text", 3, esqlite_bind_text},
+    {"bind_blob", 3, esqlite_bind_blob},
     {"bind_null", 2, esqlite_bind_null},
 
     /*
     {"bind_text", 3, esqlite_bind_blob},
-    {"bind_blob", 3, esqlite_bind_blob},
-    {"bind_null", 2, esqlite_bind_blob},
     */
 
     {"step", 1, esqlite_step},
     {"reset", 1, esqlite_reset},
 
     /*
-    Other interesting additions... trace.
-    wal_hook triggered after every commit.
-    also interesting commit and rollback_hooks
-    */
+     * Other interesting additions... trace.
+     * wal_hook triggered after every commit.
+     * also interesting commit and rollback_hooks
+     */
 
     {"interrupt", 1, esqlite_interrupt, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"last_insert_rowid", 1, esqlite_last_insert_rowid},
@@ -1567,9 +1628,6 @@ static ErlNifFunc nif_funcs[] = {
     {"changes", 1, esqlite_changes},
 
     /*
-
-    {"exec", 4, esqlite_exec, ERL_NIF_DIRTY_JOB_IO_BOUND},
-
     {"backup_init", 6, esqlite_backup_init},
     {"backup_step", 5, esqlite_backup_step},
     {"backup_remaining", 4, esqlite_backup_remaining},
