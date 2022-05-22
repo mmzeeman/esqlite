@@ -282,7 +282,8 @@ make_extended_error_tuple(ErlNifEnv *env, int code) {
             /* internal use only */
             return make_two_atom_tuple(env, "ok", "symlink");
     }
-    return enif_make_tuple2(env, make_atom(env, "error"), enif_make_int(env, code));
+
+    return enif_make_tuple2(env, make_atom(env, "code"), enif_make_int(env, code));
 }
 
 static const char *
@@ -612,6 +613,42 @@ esqlite_close(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
     conn->db = NULL;
     return make_atom(env, "ok");
+}
+
+/*
+ * Return a description of the last occurred error.
+ */
+static ERL_NIF_TERM
+esqlite_error_info(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    esqlite3 *conn;
+    int rc;
+
+    if(argc != 1) {
+        return enif_make_badarg(env);
+    }
+
+    if(!enif_get_resource(env, argv[0], esqlite3_type, (void **) &conn)) {
+        return enif_make_badarg(env);
+    }
+
+    if(conn->db == NULL) {
+        enif_make_badarg(env);
+    }
+
+    int code = sqlite3_extended_errcode(conn->db);
+    int extended_code = sqlite3_extended_errcode(conn->db);
+    const char *errstr = sqlite3_errstr(extended_code);
+    const char *errmsg = sqlite3_errmsg(conn->db);
+
+    ERL_NIF_TERM info = enif_make_new_map(env);
+    enif_make_map_put(env, info, make_atom(env, "errcode"), enif_make_int(env, code), &info);
+    enif_make_map_put(env, info, make_atom(env, "extended_errcode"), enif_make_int(env, extended_code), &info);
+    enif_make_map_put(env, info, make_atom(env, "errstr"), make_binary(env, errstr, strlen(errstr)), &info);
+    enif_make_map_put(env, info, make_atom(env, "errmsg"), make_binary(env, errmsg, strlen(errmsg)), &info);
+    enif_make_map_put(env, info, make_atom(env, "error_offset"), enif_make_int(env, sqlite3_error_offset(conn->db)), &info);
+
+    return info;
 }
 
 void
@@ -1430,6 +1467,8 @@ static int on_upgrade(ErlNifEnv* env, void** priv, void** old_priv_data, ERL_NIF
 static ErlNifFunc nif_funcs[] = {
     {"open", 1, esqlite_open, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"close", 1, esqlite_close, ERL_NIF_DIRTY_JOB_IO_BOUND},
+
+    {"error_info", 1, esqlite_error_info},
 
     /*
      * Other interesting additions... trace.

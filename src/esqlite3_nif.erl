@@ -22,6 +22,7 @@
 -export([
     open/1,
     close/1,
+    error_info/1,
 
     set_update_hook/2,
 
@@ -88,6 +89,15 @@ open(_Filename) ->
          CloseResult :: ok | {error, _}.
 close(_Db) ->
     erlang:nif_error(nif_library_not_loaded).
+
+%% @doc Get an error messages for the last occurred error.
+%%
+-spec error_info(Connection) -> ErrorMsg 
+    when Connection :: esqlite3(),
+         ErrorMsg :: map().
+error_info(_Db) ->
+    erlang:nif_error(nif_library_not_loaded).
+
 
 %% @doc Set an update hook
 %%

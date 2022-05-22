@@ -19,7 +19,10 @@
 
 %% higher-level export
 -export([
-    open/1, close/1,
+    open/1,
+    close/1,
+
+    error_info/1,
 
     %% db connection functions
     set_update_hook/2,
@@ -135,6 +138,13 @@ open(Filename) ->
          CloseResult :: ok | {error, _}.
 close(#esqlite3{db=Connection}) ->
     esqlite3_nif:close(Connection).
+
+%% @doc Return a description of the last occurred error. 
+-spec error_info(Connection) -> ErrorMsg 
+    when Connection :: esqlite3(),
+         ErrorMsg :: undefined | binary().
+error_info(#esqlite3{db=Connection}) ->
+    esqlite3_nif:error_info(Connection).
 
 
 %% @doc Subscribe to database notifications. When rows are inserted deleted
