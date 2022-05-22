@@ -304,59 +304,6 @@ set_update_hook(#esqlite3{db=Connection}, MaybePid) when is_pid(MaybePid) orelse
 %        {error, _} = E -> E
 %    end.
 
-%% @doc Execute Sql statement.
-%%
-%-spec exec(sql(), connection()) -> ok |  {error, _}.
-%exec(Sql, Connection) ->
-%    exec(Sql, [], Connection, ?DEFAULT_TIMEOUT).
-%
-%-spec exec(sql(), list(cell_type()) | connection(), connection() | timeout()) -> ok | {error, _}.
-%exec(Sql, #connection{}=Connection, Timeout) ->
-%    exec(Sql, [], Connection, Timeout);
-%exec(Sql, Params, #connection{}=Connection) ->
-%    exec(Sql, Params, Connection, ?DEFAULT_TIMEOUT).
-
-%-spec exec(sql(), list(cell_type()), connection(), timeout()) -> ok | {error, _}.
-%exec(Sql, [], #connection{raw_connection=RawConnection}, Timeout) ->
-%    Ref = make_ref(),
-%    ok = esqlite3_nif:exec(RawConnection, Ref, self(), Sql),
-%    receive_answer(RawConnection, Ref, Timeout);
-%exec(Sql, Params, Connection, Timeout) ->
-%    {ok, Statement} = prepare(Sql, Connection, Timeout),
-%    case bind(Statement, Params) of
-%        ok ->
-%            step(Statement, Timeout);
-%        {error, _}=Error ->
-%            Error
-%    end.
-
-
-%% @doc Return the number of affected rows of last statement.
-%-spec changes(connection()) -> non_neg_integer().
-%changes(Connection) ->
-%    changes(Connection, ?DEFAULT_TIMEOUT).
-%
-%-spec changes(connection(), timeout()) -> non_neg_integer().
-%changes(#connection{raw_connection=RawConnection}, Timeout) ->
-%    Ref = make_ref(),
-%    ok = esqlite3_nif:changes(RawConnection, Ref, self()),
-%    receive_answer(RawConnection, Ref, Timeout).
-
-
-%%% @doc Insert records, returns the last rowid.
-%%
-%-spec insert(sql(), connection()) -> {ok, rowid()} |  {error, _}.
-%insert(Sql, Connection) ->
-%    insert(Sql, Connection, ?DEFAULT_TIMEOUT).
-
-%% @doc Like insert/2, but with extra timeout parameter.
-%-spec insert(sql(), connection(), timeout()) -> {ok, rowid()} |  {error, _}.
-%insert(Sql, #connection{raw_connection=RawConnection}, Timeout) ->
-% [NOTE] it is an exec followed by a last_insert_rowid.
-%    Ref = make_ref(),
-%    ok = esqlite3_nif:insert(RawConnection, Ref, self(), Sql),
-%    receive_answer(RawConnection, Ref, Timeout).
-
 
 %% @doc Get the last insert rowid.
 %%
@@ -652,26 +599,9 @@ column_decltypes(#esqlite3_stmt{stmt=Stmt}) ->
 %        Else -> Else
 %    end.
 
-%receive_answer(RawConnection, Ref, Timeout) ->
-%    receive
-%        {esqlite3, Ref, Resp} -> Resp
-%    after
-%        Timeout ->
-%            ok = esqlite3_nif:interrupt(RawConnection),
-%            throw({error, timeout, Ref})
-%    end.
-
-%flush_answers() ->
-%    receive
-%        {esqlite3, _, _} -> flush_answers()
-%    after
-%        0 -> ok
-%    end.
-
 %%
 %% Helpers
 %%
-
 
 props_to_prepare_flag(Props) ->
     Flag = case proplists:get_value(no_vtab, Props, false) of
