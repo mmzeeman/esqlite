@@ -23,10 +23,11 @@
     open/1,
     close/1,
 
+    set_update_hook/2,
+
     get_autocommit/1,
     last_insert_rowid/1,
     changes/1,
-
     exec/2,
     prepare/3,
 
@@ -45,7 +46,6 @@
     reset/1,
 
     interrupt/1
-%    set_update_hook/4,
 %    exec/4,
 %    changes/3,
 %
@@ -94,9 +94,19 @@ open(_Filename) ->
 %%
 -spec close(Connection) -> CloseResult
     when Connection :: esqlite3(),
-          CloseResult :: ok | {error, _}.
+         CloseResult :: ok | {error, _}.
 close(_Db) ->
     erlang:nif_error(nif_library_not_loaded).
+
+%% @doc Set an update hook
+%%
+-spec set_update_hook(Connection, Pid) -> Result
+    when Connection :: esqlite3(),
+         Pid :: pid(),
+         Result :: ok | {error, _}.
+set_update_hook(_Db, _Pid) ->
+    erlang:nif_error(nif_library_not_loaded).
+
 
 %% @doc Execute a sql statement
 %%
@@ -136,9 +146,6 @@ step(_Statement) ->
 reset(_Statement) ->
     erlang:nif_error(nif_library_not_loaded).
 
-% -spec set_update_hook((), pid(), pid()) -> ok | {error, _}.
-%set_update_hook(_Db, _Ref, _Dest, _Pid) ->
-%    erlang:nif_error(nif_library_not_loaded).
 
 %% @doc Exec the query.
 %%

@@ -139,17 +139,29 @@ last_insert_rowid_test() ->
     2 = esqlite3:last_insert_rowid(Db),
     ok.
 
-%update_hook_test() ->
-%    {ok, Db} = esqlite3:open(":memory:"),
-%    ok = esqlite3:set_update_hook(self(), Db),
-%    ok = esqlite3:exec("CREATE TABLE test (id INTEGER PRIMARY KEY, val STRING);", Db),
-%    ok = esqlite3:exec("INSERT INTO test (val) VALUES ('this is a test');", Db),
-%    ok = receive {insert, "test", 1} -> ok after 150 -> no_message end,
-%    ok = esqlite3:exec("UPDATE test SET val = 'a new test' WHERE id = 1;", Db),
-%    ok = receive {update, "test", 1} -> ok after 150 -> no_message end,
-%    ok = esqlite3:exec("DELETE FROM test WHERE id = 1;", Db),
-%    ok = receive {delete, "test", 1} -> ok after 150 -> no_message end,
-%    ok.
+update_hook_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+    ok = esqlite3:set_update_hook(Db, self()),
+
+    ok = esqlite3:exec(Db, "CREATE TABLE test (id INTEGER PRIMARY KEY, val STRING);"),
+    ok = esqlite3:exec(Db, "INSERT INTO test (val) VALUES ('this is a test');"),
+
+    ok = receive {insert, <<"main">>, <<"test">>, 1} -> ok after 150 -> no_message end,
+
+    ok = esqlite3:exec(Db, "UPDATE test SET val = 'a new test' WHERE id = 1;"),
+
+    ok = receive {update, <<"main">>, <<"test">>, 1} -> ok after 150 -> no_message end,
+
+    ok = esqlite3:exec(Db, "DELETE FROM test WHERE id = 1;"),
+
+    ok = receive {delete, <<"main">>, <<"test">>, 1} -> ok after 150 -> no_message end,
+
+    ok = esqlite3:set_update_hook(Db, undefined),
+
+    ok = esqlite3:exec(Db, "INSERT INTO test (val) VALUES ('this is a test');"),
+    no_message = receive {insert, <<"main">>, <<"test">>, 1} -> ok after 150 -> no_message end,
+
+    ok.
 
 simple_query_test() ->
     {ok, Db} = esqlite3:open(":memory:"),

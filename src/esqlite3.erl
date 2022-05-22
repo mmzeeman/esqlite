@@ -22,11 +22,12 @@
     open/1, close/1,
 
     %% db connection functions
+
+    set_update_hook/2,
+
     get_autocommit/1,
     last_insert_rowid/1,
     changes/1,
-
-%    set_update_hook/2, set_update_hook/3,
 
     exec/2,
     prepare/2,
@@ -46,7 +47,6 @@
     step/1,
     reset/1
 
-%    insert/2, insert/3,
 %
 %    fetchone/1,
 %    fetchall/1, fetchall/2, fetchall/3,
@@ -138,27 +138,20 @@ close(#esqlite3{db=Connection}) ->
     esqlite3_nif:close(Connection).
 
 
-%%% @doc Subscribe to database notifications. When rows are inserted deleted
-%%% or updates, the process will receive messages:
-%%% ```{insert, string(), rowid()}'''
-%%% When a new row has been inserted.
-%%% ```{delete, string(), rowid()}''' 
-%%% When a new row has been deleted.
-%%% ```{update, string(), rowid()}''' 
-%%% When a row has been updated.
-%%%
-%-spec set_update_hook(pid(), connection()) -> ok | {error, term()}.
-%set_update_hook(Pid, Connection) ->
-%    set_update_hook(Pid, Connection, ?DEFAULT_TIMEOUT).
-%
-%%% @doc Same as set_update_hook/2, but with an additional timeout parameter.
-%%%
-%-spec set_update_hook(pid(), connection(), timeout()) -> ok | {error, term()}.
-%set_update_hook(Pid, #connection{raw_connection=RawConnection}, Timeout) ->
-%    Ref = make_ref(),
-%    ok = esqlite3_nif:set_update_hook(RawConnection, Ref, self(), Pid),
-%    receive_answer(RawConnection, Ref, Timeout).
-%
+%% @doc Subscribe to database notifications. When rows are inserted deleted
+%% or updates, the process will receive messages:
+%% ```{insert, binary(), binary(), rowid()}'''
+%% When a new row has been inserted.
+%% ```{delete, binary(), binary(), rowid()}''' 
+%% When a new row has been deleted.
+%% ```{update, binary(), binary(), rowid()}''' 
+%% When a row has been updated.
+%%
+-spec set_update_hook(esqlite3(), pid() | undefined) -> ok | {error, term()}.
+set_update_hook(#esqlite3{db=Connection}, MaybePid) when is_pid(MaybePid) orelse MaybePid =:= undefined ->
+    esqlite3_nif:set_update_hook(Connection, MaybePid).
+
+
 %%%
 %%% q
 %%%
@@ -202,7 +195,7 @@ close(#esqlite3{db=Connection}) ->
 %
 %%% @doc Execute statement and return a list with the result of F for each row.
 %-spec map(Fun, sql(), connection()) -> list(Type) when
-%%      Fun :: fun((Row) -> Type) | fun((ColumnNames, Row) -> Type),
+%      Fun :: fun((Row) -> Type) | fun((ColumnNames, Row) -> Type),
 %      Row :: row(),
 %      ColumnNames :: tuple(),
 %      Type :: any().
@@ -400,7 +393,6 @@ get_autocommit(#esqlite3{db=Connection}) ->
          ExecResult :: ok | {error, _}.
 exec(#esqlite3{db=Connection}, Sql) ->
     esqlite3_nif:exec(Connection, Sql).
-
 
 %% @doc Compile a SQL statement. Returns a cached compiled statement which can be used in
 %% queries.
