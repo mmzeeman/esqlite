@@ -46,13 +46,16 @@
 
     reset/1,
 
-    interrupt/1
+    interrupt/1,
     
 %    backup_init/6,
 %    backup_step/5,
 %    backup_remaining/4,
 %    backup_pagecount/4,
 %    backup_finish/4,
+
+    memory_stats/1,
+    status/2
 ]).
 
 -type esqlite3() :: reference().
@@ -254,10 +257,34 @@ last_insert_rowid(_Connection) ->
 changes(_Connection) ->
     erlang:nif_error(nif_library_not_loaded).
 
-
 %% @doc Get autocommit
 %%
 -spec get_autocommit(esqlite3()) -> true | false | {error, _}.
 get_autocommit(_Connection) ->
+    erlang:nif_error(nif_library_not_loaded).
+
+%% @doc Get memory statistics 
+%%
+-spec memory_stats(HighwaterResetFlag) -> Stats when 
+      HighwaterResetFlag :: integer(),
+      Stats :: #{ used := integer(), highwater := integer() }.
+memory_stats(_Flag) ->
+    erlang:nif_error(nif_library_not_loaded).
+
+%% @doc Get sqlite status information.
+%%
+%% MEMORY_USED        0
+%% PAGECACHE_USED     1
+%% PAGECACHE_OVERFLOW 2
+%% MALLOC_SIZE        5
+%% PARSER_STACK       6
+%% PAGECACHE_SIZE     7
+%% MALLOC_COUNT       8
+%%
+-spec status(Op, HighwaterResetFlag) -> Stats when 
+      Op :: integer(),
+      HighwaterResetFlag :: integer(),
+      Stats :: #{ used := integer(), highwater := integer() }.
+status(_Op, _Flag) ->
     erlang:nif_error(nif_library_not_loaded).
 

@@ -36,7 +36,7 @@ static ErlNifResourceType *esqlite3_backup_type = NULL;
 typedef struct {
     sqlite3 *db;
 
-    ErlNifPid *update_hook_pid;
+    ErlNifPid update_hook_pid;
 } esqlite3;
 
 /* prepared statement */
@@ -104,6 +104,7 @@ destruct_esqlite3_stmt(ErlNifEnv *env, void *arg)
     esqlite3_stmt *stmt = (esqlite3_stmt *) arg;
     sqlite3_finalize(stmt->statement);
     stmt->statement = NULL;
+    stmt->column_count = 0;
 }
 
 static void
@@ -387,6 +388,22 @@ esqlite_close(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
         return enif_make_badarg(env);
     }
 
+    if(conn->db == NULL) {
+        return make_atom(env, "ok");
+    }
+
+    /* 
+     * close_v2 is not guaranteed to close the connection. There could be
+     * an open transaction. Rollback this transaction first, before trying 
+     * to close the connection.
+     */
+    if(!sqlite3_get_autocommit(conn->db)) {
+        rc = sqlite3_exec(conn->db, "ROLLBACK;", NULL, NULL, NULL);
+        if (rc != SQLITE_OK) {
+            return make_sqlite3_error_tuple(env, rc);
+        }
+    }
+
     rc = sqlite3_close_v2(conn->db);
     if(rc != SQLITE_OK) {
         return make_sqlite3_error_tuple(env, rc);
@@ -403,7 +420,6 @@ static ERL_NIF_TERM
 esqlite_error_info(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
     esqlite3 *conn;
-    int rc;
 
     if(argc != 1) {
         return enif_make_badarg(env);
@@ -475,7 +491,6 @@ static ERL_NIF_TERM
 esqlite_set_update_hook(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
     esqlite3 *conn;
-    int rc;
 
     if(argc != 2) {
         return enif_make_badarg(env);
@@ -810,7 +825,7 @@ esqlite_bind_text(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
      * 
      */
 
-    int rc = sqlite3_bind_text64(stmt->statement, index, text.data, text.size, SQLITE_TRANSIENT, SQLITE_UTF8);
+    int rc = sqlite3_bind_text64(stmt->statement, index, (char *) text.data, text.size, SQLITE_TRANSIENT, SQLITE_UTF8);
     if(rc != SQLITE_OK) {
         return make_sqlite3_error_tuple(env, rc);
     }
@@ -858,7 +873,6 @@ esqlite_bind_null(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
     esqlite3_stmt *stmt;
     int index;
-    double value;
 
     if(argc != 2) {
         return enif_make_badarg(env);
@@ -1134,6 +1148,9 @@ esqlite_interrupt(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
     esqlite3 *conn;
 
+    if(argc != 1)
+        return enif_make_badarg(env);
+
     if(!enif_get_resource(env, argv[0], esqlite3_type, (void **) &conn))
         return enif_make_badarg(env);
 
@@ -1150,6 +1167,9 @@ static ERL_NIF_TERM
 esqlite_get_autocommit(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
     esqlite3 *conn;
+
+    if(argc != 1)
+        return enif_make_badarg(env);
 
     if(!enif_get_resource(env, argv[0], esqlite3_type, (void **) &conn))
         return enif_make_badarg(env);
@@ -1172,6 +1192,9 @@ esqlite_last_insert_rowid(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
     esqlite3 *conn;
 
+    if(argc != 1)
+        return enif_make_badarg(env);
+
     if(!enif_get_resource(env, argv[0], esqlite3_type, (void **) &conn))
         return enif_make_badarg(env);
 
@@ -1190,6 +1213,9 @@ esqlite_changes(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
     esqlite3 *conn;
 
+    if(argc != 1)
+        return enif_make_badarg(env);
+
     if(!enif_get_resource(env, argv[0], esqlite3_type, (void **) &conn))
         return enif_make_badarg(env);
 
@@ -1201,6 +1227,60 @@ esqlite_changes(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
     sqlite3_int64 changes = sqlite3_changes64(db->db);
     return enif_make_int64(env, changes);
+}
+
+static ERL_NIF_TERM
+esqlite_memory_stats(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    int highwater_reset_flag = 0;
+
+    if(argc != 1)
+        return enif_make_badarg(env);
+
+    if(!enif_get_int(env, argv[0], &highwater_reset_flag)) {
+        return enif_make_badarg(env);
+    }
+
+    int used = sqlite3_memory_used();
+    int highwater = sqlite3_memory_highwater(highwater_reset_flag);
+
+    ERL_NIF_TERM stats = enif_make_new_map(env);
+    enif_make_map_put(env, stats, make_atom(env, "used"), enif_make_int64(env, used), &stats);
+    enif_make_map_put(env, stats, make_atom(env, "highwater"), enif_make_int64(env, highwater), &stats);
+    
+    return stats;
+}
+
+static ERL_NIF_TERM
+esqlite_status(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    int op = 0;
+    int highwater_reset_flag = 0;
+
+    if(argc != 2)
+        return enif_make_badarg(env);
+
+    if(!enif_get_int(env, argv[0], &op)) {
+        return enif_make_badarg(env);
+    }
+
+    if(!enif_get_int(env, argv[0], &highwater_reset_flag)) {
+        return enif_make_badarg(env);
+    }
+
+    sqlite3_int64 used;
+    sqlite3_int64 highwater;
+
+    int rc = sqlite3_status64(op, &used, &highwater, highwater_reset_flag);
+    if(rc != SQLITE_OK) {
+        return make_sqlite3_error_tuple(env, rc);
+    }
+
+    ERL_NIF_TERM stats = enif_make_new_map(env);
+    enif_make_map_put(env, stats, make_atom(env, "used"), enif_make_int64(env, used), &stats);
+    enif_make_map_put(env, stats, make_atom(env, "highwater"), enif_make_int64(env, highwater), &stats);
+    
+    return stats;
 }
 
 /*
@@ -1286,6 +1366,9 @@ static ErlNifFunc nif_funcs[] = {
     {"backup_pagecount", 4, esqlite_backup_pagecount},
     {"backup_finish", 4, esqlite_backup_finish},
     */
+
+    {"memory_stats", 1, esqlite_memory_stats},
+    {"status", 2, esqlite_status}
 
 };
 
