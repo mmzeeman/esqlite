@@ -48,11 +48,12 @@
     bind_null/2,
 
     step/1,
-    reset/1
+    reset/1,
 
+    q/2, q/3,
 
-%    fetchone/1,
-%    fetchall/1, fetchall/2, fetchall/3,
+    fetchone/1,
+    fetchall/1
 %
 %    backup_init/4, backup_init/5,
 %    backup_finish/1, backup_finish/2,
@@ -160,44 +161,38 @@ error_info(#esqlite3{db=Connection}) ->
 set_update_hook(#esqlite3{db=Connection}, MaybePid) when is_pid(MaybePid) orelse MaybePid =:= undefined ->
     esqlite3_nif:set_update_hook(Connection, MaybePid).
 
-
 %%%
 %%% q
 %%%
-%
+
 %%% @doc Execute a sql statement, returns a list with tuples.
 %-spec q(sql(), connection()) -> list(row()) | {error, _}.
-%q(Sql, Connection) ->
-%    q(Sql, [], Connection, ?DEFAULT_TIMEOUT).
-%
-%%% @doc Execute statement, bind args and return a list with tuples as result.
-%-spec q(sql(), list(), connection()) -> list(row()) | {error, _}.
-%%q(Sql, Args, Connection) ->
-%    q(Sql, Args, Connection, ?DEFAULT_TIMEOUT).
-%
+q(Connection, Sql) ->
+    q(Connection, Sql, []).
 
 %% @doc Execute statement, bind args and return a list with tuples as result restricted by timeout.
 %-spec q(sql(), list(), connection(), timeout()) -> list(row()) | {error, _}.
-%q(Sql, [], Connection, Timeout) ->
-%    case prepare(Sql, Connection, Timeout) of
-%        {ok, Statement} ->
-%            fetchall(Statement, ?DEFAULT_CHUNK_SIZE, Timeout);
-%        {error, _Msg}=Error ->
-%            Error
-%    end;
-%q(Sql, Args, Connection, Timeout) ->
-%    case prepare(Sql, Connection, Timeout) of
-%        {ok, Statement} ->
-%            case bind(Statement, Args, Timeout) of
-%                ok ->
-%                    fetchall(Statement, ?DEFAULT_CHUNK_SIZE, Timeout);
-%                {error, _}=Error ->
-%                    Error
-%            end;
-%        {error, _Msg}=Error ->
-%            Error
-%    end.
-%
+q(Connection, Sql, []) ->
+    case prepare(Connection, Sql) of
+        {ok, Statement} ->
+            fetchall(Statement);
+        {error, _Msg}=Error ->
+            Error
+    end;
+
+q(Connection, Sql, Args) ->
+    case prepare(Connection, Sql) of
+        {ok, Statement} ->
+            case bind(Statement, Args) of
+                ok ->
+                    fetchall(Statement);
+                {error, _}=Error ->
+                    Error
+            end;
+        {error, _Msg}=Error ->
+            Error
+    end.
+
 %%%
 %% map
 %%%
@@ -280,45 +275,63 @@ set_update_hook(#esqlite3{db=Connection}, MaybePid) when is_pid(MaybePid) orelse
 
 %%
 %-spec fetchone(statement()) -> tuple().
-%fetchone(Statement) ->
-%    case try_multi_step(Statement, 1, [], 0) of
-%        {'$done', []} -> ok;
-%        {error, _} = E -> E;
-%        {rows, [Row | []]} -> Row
-%    end.
+fetchone(Statement) ->
+    case step(Statement) of
+        Row when is_list(Row) ->
+            Row;
+        '$done' ->
+            ok;
+        {error, _} = E ->
+            E
+    end.
 %
 %%% @doc Fetch all records
 %%% @param Statement is prepared sql statement
 %-spec fetchall(statement()) -> list(row()) | {error, _}.
-%fetchall(Statement) ->
-%    fetchall(Statement, ?DEFAULT_CHUNK_SIZE, ?DEFAULT_TIMEOUT).
-%
-%% @doc Fetch all records
-%% @param Statement is prepared sql statement
-%% @param ChunkSize is a count of rows to read from sqlite and send to erlang process in one bulk.
-%%        Decrease this value if rows are heavy. Default value is 5000 (DEFAULT_CHUNK_SIZE).
-%-spec fetchall(statement(), pos_integer()) -> list(row()) | {error, _}.
-%fetchall(Statement, ChunkSize) ->
-%    fetchall(Statement, ChunkSize, ?DEFAULT_TIMEOUT).
-%
-%%% @doc Fetch all records
-%%% @param Statement is prepared sql statement
-%% @param ChunkSize is a count of rows to read from sqlite and send to erlang process in one bulk.
-%%        Decrease this value if rows are heavy. Default value is 5000 (DEFAULT_CHUNK_SIZE).
-%% @param Timeout is timeout per each request of the one bulk
-%-spec fetchall(statement(), pos_integer(), timeout()) -> list(row()) | {error, _}.
-%fetchall(Statement, ChunkSize, Timeout) ->
-%    case fetchall_internal(Statement, ChunkSize, [], Timeout) of
-%        {'$done', Rows} -> lists:reverse(Rows);
-%        {error, _} = E -> E
-%    end.
+fetchall(Statement) ->
+    fetchall1(Statement, []).
+
+fetchall1(Statement, Acc) ->
+    case step(Statement) of
+        Row when is_list(Row) ->
+            fetchall1(Statement, [Row|Acc]);
+        '$done' -> 
+            lists:reverse(Acc);
+        {error, _} = E ->
+            E
+    end.
+
+bind(Statement, Args) ->
+    bind1(Statement, 1, Args).
+
+bind1(_Statement, _Column, []) ->
+    ok;
+bind1(Statement, Column, [Arg | Args]) ->
+    bind_arg(Statement, Column, Arg),
+    bind1(Statement, Column + 1, Args).
+
+% Do automatic conversion
+bind_arg(Statement, Column, undefined) ->
+    bind_null(Statement, Column);
+bind_arg(Statement, Column, null) ->
+    bind_null(Statement, Column);
+bind_arg(Statement, Column, Atom) when is_atom(Atom) ->
+    bind_text(Statement, Column, atom_to_binary(Atom, utf8)); 
+bind_arg(Statement, Column, Int) when is_integer(Int) ->
+    bind_int64(Statement, Column, Int);
+bind_arg(Statement, Column, Float) when is_float(Float) ->
+    bind_double(Statement, Column, Float);
+bind_arg(Statement, Column, Bin) when is_binary(Bin) ->
+    bind_text(Statement, Column, Bin);
+bind_arg(Statement, Column, String) when is_list(String) ->
+    bind_text(Statement, Column, String).
 
 
 %% @doc Get the last insert rowid.
 %%
--spec last_insert_rowid(Connection) -> RowidResult
-    when Connection :: esqlite3(),
-         RowidResult :: integer() | {error, closed}.
+-spec last_insert_rowid(Connection) -> RowidResult when
+      Connection :: esqlite3(),
+      RowidResult :: integer() | {error, closed}.
 last_insert_rowid(#esqlite3{db=Connection}) ->
     esqlite3_nif:last_insert_rowid(Connection).
 
@@ -399,6 +412,14 @@ bind_int64(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
          BindResult :: ok | {error, _}.
 bind_double(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
     esqlite3_nif:bind_double(Stmt, Index, Value).
+
+-spec bind_text(Statement, Index, Value) -> BindResult
+    when Statement :: esqlite3_stmt(),
+         Index :: integer(),
+         Value :: iodata(),
+         BindResult :: ok | {error, _}.
+bind_text(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
+    esqlite3_nif:bind_text(Stmt, Index, Value).
 
 -spec bind_blob(Statement, Index, Value) -> BindResult
     when Statement :: esqlite3_stmt(),
@@ -629,10 +650,5 @@ props_to_prepare_flag(Props) ->
         true -> Flag bor ?SQLITE_PREPARE_PERSISTENT;
         false -> Flag
     end.
-
-
-
-
-
 
 

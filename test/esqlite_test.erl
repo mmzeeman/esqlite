@@ -64,12 +64,8 @@ column_names_test() ->
 
 column_decltypes_test() ->
     {ok, C} = esqlite3:open(":memory:"),
-
     {ok, Stmt} = esqlite3:prepare(C, "select 1, 2, 3"),
-
     ?assertEqual([undefined, undefined, undefined], esqlite3:column_decltypes(Stmt)),
-
-    %% Need to be able to define tables.
 
     ok.
 
@@ -197,7 +193,7 @@ prepare2_test() ->
     ok = esqlite3:exec(Db, "insert into test_table values('hello4', 13);"),
 
     %% Check if the values are there.
-    %% [{<<"one">>, 2}, {<<"hello4">>, 13}] = esqlite3:q(Db, "select * from test_table order by two"),
+    [[<<"one">>, 2], [<<"hello4">>, 13]] = esqlite3:q(Db, "select * from test_table order by two"),
     esqlite3:exec(Db, "commit;"),
     esqlite3:close(Db),
 
@@ -266,94 +262,91 @@ prepare2_test() ->
 %
 %    ok.
 
-%bind_for_queries_test() ->
-%    {ok, Db} = esqlite3:open(":memory:"),
-%
-%    ok = esqlite3:exec("begin;", Db),
-%    ok = esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
-%    ok = esqlite3:exec("commit;", Db),
+bind_for_queries_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
 
-%    ?assertEqual([{1}], esqlite3:q(<<"SELECT count(type) FROM sqlite_master WHERE type='table' AND name=?;">>,
-%                [test_table], Db)),
-%    ?assertEqual([{1}], esqlite3:q(<<"SELECT count(type) FROM sqlite_master WHERE type='table' AND name=?;">>,
-%                ["test_table"], Db)),
-%    ?assertEqual([{1}], esqlite3:q(<<"SELECT count(type) FROM sqlite_master WHERE type='table' AND name=?;">>,
-%                [<<"test_table">>], Db)),
-%    ?assertEqual([{1}], esqlite3:q(<<"SELECT count(type) FROM sqlite_master WHERE type='table' AND name=?;">>,
-%                [[<<"test_table">>]], Db)),
-%
-%    ok.
+    ok = esqlite3:exec(Db, "begin;"),
+    ok = esqlite3:exec(Db, "create table test_table(one varchar(10), two int);"),
+    ok = esqlite3:exec(Db, "commit;"),
 
-%column_names_test() ->
-%    {ok, Db} = esqlite3:open(":memory:"),
-%    ok = esqlite3:exec("begin;", Db),
-%    ok = esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
-%    ok = esqlite3:exec("insert into test_table values('hello1', 10);", Db),
-%    ok = esqlite3:exec("insert into test_table values('hello2', 20);", Db),
-%    ok = esqlite3:exec("commit;", Db),
+    ?assertEqual([[1]], esqlite3:q(Db, <<"SELECT count(type) FROM sqlite_master WHERE type='table' AND name=?;">>,
+                                   [test_table])),
+    ?assertEqual([[1]], esqlite3:q(Db, <<"SELECT count(type) FROM sqlite_master WHERE type='table' AND name=?;">>,
+                                   ["test_table"])),
+    ?assertEqual([[1]], esqlite3:q(Db, <<"SELECT count(type) FROM sqlite_master WHERE type='table' AND name=?;">>,
+                                   [<<"test_table">>])),
+    ?assertEqual([[1]], esqlite3:q(Db, <<"SELECT count(type) FROM sqlite_master WHERE type='table' AND name=?;">>,
+                                   [[<<"test_table">>]])),
+
+    ok.
+
+column_names2_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+    ok = esqlite3:exec(Db, "begin;"),
+    ok = esqlite3:exec(Db, "create table test_table(one varchar(10), two int);"),
+    ok = esqlite3:exec(Db, "insert into test_table values('hello1', 10);"),
+    ok = esqlite3:exec(Db, "insert into test_table values('hello2', 20);"),
+    ok = esqlite3:exec(Db, "commit;"),
 
     %% All columns
-%    {ok, Stmt} = esqlite3:prepare("select * from test_table", Db),
-%    {one, two} =  esqlite3:column_names(Stmt),
-%    {row, {<<"hello1">>, 10}} = esqlite3:step(Stmt),
-%    {one, two} =  esqlite3:column_names(Stmt),
-%    {row, {<<"hello2">>, 20}} = esqlite3:step(Stmt),
-%    {one, two} =  esqlite3:column_names(Stmt),
-%    '$done' = esqlite3:step(Stmt),
-%    {one, two} =  esqlite3:column_names(Stmt),
+    {ok, Stmt} = esqlite3:prepare(Db, "select * from test_table"),
+    [<<"one">>, <<"two">>] =  esqlite3:column_names(Stmt),
+    [<<"hello1">>, 10] = esqlite3:step(Stmt),
+    [<<"one">>, <<"two">>] =  esqlite3:column_names(Stmt),
+    [<<"hello2">>, 20] = esqlite3:step(Stmt),
+    [<<"one">>, <<"two">>] =  esqlite3:column_names(Stmt),
+    '$done' = esqlite3:step(Stmt),
+    [<<"one">>, <<"two">>] =  esqlite3:column_names(Stmt),
 
     %% One column
-%    {ok, Stmt2} = esqlite3:prepare("select two from test_table", Db),
-%    {two} =  esqlite3:column_names(Stmt2),
-%    {row, {10}} = esqlite3:step(Stmt2),
-%    {two} =  esqlite3:column_names(Stmt2),
-%    {row, {20}} = esqlite3:step(Stmt2),
-%    {two} =  esqlite3:column_names(Stmt2),
-%    '$done' = esqlite3:step(Stmt2),
-%    {two} =  esqlite3:column_names(Stmt2),
+    {ok, Stmt2} = esqlite3:prepare(Db, "select two from test_table"),
+    [<<"two">>] =  esqlite3:column_names(Stmt2),
+    [10] = esqlite3:step(Stmt2),
+    [<<"two">>] =  esqlite3:column_names(Stmt2),
+    [20] = esqlite3:step(Stmt2),
+    [<<"two">>] =  esqlite3:column_names(Stmt2),
+    '$done' = esqlite3:step(Stmt2),
+    [<<"two">>] =  esqlite3:column_names(Stmt2),
 
     %% No columns
-%    {ok, Stmt3} = esqlite3:prepare("values(1);", Db),
-%    {column1} =  esqlite3:column_names(Stmt3),
-%    {row, {1}} = esqlite3:step(Stmt3),
-%    {column1} =  esqlite3:column_names(Stmt3),
+    {ok, Stmt3} = esqlite3:prepare(Db, "values(1);"),
+    [<<"column1">>] =  esqlite3:column_names(Stmt3),
+    [1] = esqlite3:step(Stmt3),
+    [<<"column1">>] =  esqlite3:column_names(Stmt3),
 
     %% Things get a bit weird when you retrieve the column name
     %% when calling an aggragage function.
-%%    {ok, Stmt4} = esqlite3:prepare("select date('now');", Db),
-%    {'date(\'now\')'} =  esqlite3:column_names(Stmt4),
-%    {row, {Date}} = esqlite3:step(Stmt4),
-%    true = is_binary(Date),
+    {ok, Stmt4} = esqlite3:prepare(Db, "select date('now');"),
+    [<<"date(\'now\')">>] =  esqlite3:column_names(Stmt4),
+    [Date] = esqlite3:step(Stmt4),
+    true = is_binary(Date),
 
     %% Some statements have no column names
-%    {ok, Stmt5} = esqlite3:prepare("create table dummy(a, b, c);", Db),
-%    {} = esqlite3:column_names(Stmt5),
-%
-%    ok.
+    {ok, Stmt5} = esqlite3:prepare(Db, "create table dummy(a, b, c);"),
+    [] = esqlite3:column_names(Stmt5),
 
-%column_types_test() ->
-%    {ok, Db} = esqlite3:open(":memory:"),
-%    ok = esqlite3:exec("begin;", Db),
-%    ok = esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
-%    ok = esqlite3:exec("insert into test_table values('hello1', 10);", Db),
-%    ok = esqlite3:exec("insert into test_table values('hello2', 20);", Db),
-%    ok = esqlite3:exec("commit;", Db),
-%
+    ok.
+
+column_types_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+    ok = esqlite3:exec(Db, "begin;"),
+    ok = esqlite3:exec(Db, "create table test_table(one varchar(10), two int);"),
+    ok = esqlite3:exec(Db, "insert into test_table values('hello1', 10);"),
+    ok = esqlite3:exec(Db, "insert into test_table values('hello2', 20);"),
+    ok = esqlite3:exec(Db, "commit;"),
+
     %% All columns
-%    {ok, Stmt} = esqlite3:prepare("select * from test_table", Db),
-%    ?assertEqual({'varchar(10)', 'INT'}, esqlite3:column_types(Stmt)),
-%    {row, {<<"hello1">>, 10}} = esqlite3:step(Stmt),
-%    {'varchar(10)', 'INT'} =  esqlite3:column_types(Stmt),
-%    {row, {<<"hello2">>, 20}} = esqlite3:step(Stmt),
-%    {'varchar(10)', 'INT'} =  esqlite3:column_types(Stmt),
-%    '$done' = esqlite3:step(Stmt),
-%    {'varchar(10)', 'INT'} =  esqlite3:column_types(Stmt),
-%
-%    %% Some statements have no column types
-%    {ok, Stmt2} = esqlite3:prepare("create table dummy(a, b, c);", Db),
-%    {} = esqlite3:column_types(Stmt2),
-%
-%    ok.
+    {ok, Stmt} = esqlite3:prepare(Db, "select * from test_table"),
+    ?assertEqual([<<"varchar(10)">>, <<"INT">>], esqlite3:column_decltypes(Stmt)),
+
+    %% Some statements have no column types
+    {ok, Stmt2} = esqlite3:prepare(Db, "create table dummy(a, b, c);"),
+    [] = esqlite3:column_decltypes(Stmt2),
+
+    {ok, Stmt3} = esqlite3:prepare(Db, "select 1, 2, 3;"),
+    [undefined, undefined, undefined] = esqlite3:column_decltypes(Stmt3),
+
+    ok.
 
 nil_column_decltypes_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
@@ -636,27 +629,26 @@ sqlite_source_id_test() ->
 %            end
 %    end.
 
-%garbage_collect_test() ->
-%    F = fun() ->
-%                {ok, Db} = esqlite3:open(":memory:"),
-%                [] = esqlite3:q("create table test(one, two, three)", Db),
-%                [] = esqlite3:q("insert into test values(1, '2', 3.0)", Db), 
-%                {ok, Stmt} = esqlite3:prepare("select * from test", Db),
-%                {row, {1, <<"2">>, 3.0}} = esqlite3:step(Stmt),
-%                '$done' = esqlite3:step(Stmt),
-%                ok = esqlite3:close(Db)
-%        end,
-%
-%    [spawn(F) || _X <- lists:seq(0,30)],
-%    receive after 500 -> ok end,
-%    erlang:garbage_collect(),
-%
-%    [spawn(F) || _X <- lists:seq(0,30)],
-%    receive after 500 -> ok end,
-%    erlang:garbage_collect(),
+garbage_collect_test() ->
+    F = fun() ->
+                {ok, Db} = esqlite3:open(":memory:"),
+                [] = esqlite3:q(Db, "create table test(one, two, three)"),
+                [] = esqlite3:q(Db, "insert into test values(1, '2', 3.0)"), 
+                {ok, Stmt} = esqlite3:prepare(Db, "select * from test"),
+                [1, <<"2">>, 3.0] = esqlite3:step(Stmt),
+                '$done' = esqlite3:step(Stmt),
+                ok = esqlite3:close(Db)
+        end,
 
+    [spawn(F) || _X <- lists:seq(0,30)],
+    receive after 500 -> ok end,
+    erlang:garbage_collect(),
 
-%    ok.
+    [spawn(F) || _X <- lists:seq(0,30)],
+    receive after 500 -> ok end,
+    erlang:garbage_collect(),
+
+    ok.
 
 %%
 %% Helpers

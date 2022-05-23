@@ -815,7 +815,7 @@ esqlite_bind_text(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
         return enif_make_badarg(env);
     }
 
-    if(!enif_inspect_iolist_as_binary(env, argv[1], &text)) {
+    if(!enif_inspect_iolist_as_binary(env, argv[2], &text)) {
         return enif_make_badarg(env);
     }
 

@@ -141,10 +141,10 @@ bind_int64(_Statement, _Index, _Value) ->
 bind_double(_Statement, _Index, _Value) ->
     erlang:nif_error(nif_library_not_loaded).
 
-bind_blob(_Statement, _Index, _Value) ->
+bind_text(_Statement, _Index, _Value) ->
     erlang:nif_error(nif_library_not_loaded).
 
-bind_text(_Statement, _Index, _Value) ->
+bind_blob(_Statement, _Index, _Value) ->
     erlang:nif_error(nif_library_not_loaded).
 
 bind_null(_Statement, _Index) ->
@@ -155,27 +155,6 @@ step(_Statement) ->
 
 reset(_Statement) ->
     erlang:nif_error(nif_library_not_loaded).
-
-
-%% @doc Exec the query.
-%%
-%% Sends an asynchronous exec command over the connection and returns
-%% ok immediately.
-%%
-%% When the statement is executed Dest will receive message {Ref, answer()}
-%% with answer() integer | {error, reason()}
-%%
-%-spec exec(esqlite3(), reference(), pid(), sql()) -> ok | {error, _}.
-%%exec(_Db, _Ref, _Dest, _Sql) ->
-%    erlang:nif_error(nif_library_not_loaded).
-
-%% @doc Get the number of affected rows of last statement
-%%
-%% When the statement is executed Dest will receive message {Ref, answer()}
-%% with answer() integer | {error, reason()}
-%-spec changes(esqlite3(), reference(), pid()) -> ok | {error, _}.
-%changes(_Db, _Ref, _Dest) ->
-%    erlang:nif_error(nif_library_not_loaded).
 
 %% @doc
 %%
@@ -193,12 +172,6 @@ reset(_Statement) ->
 %%
 %-spec finalize(esqlite3(), esqlite3_stmt(), reference(), pid()) -> ok | {error, _}.
 %finalize(_Db, _Stmt, _Ref, _Dest) ->
-%    erlang:nif_error(nif_library_not_loaded).
-
-%% @doc Bind parameters to a prepared statement.
-%%
-%-spec bind(esqlite3(), esqlite3_stmt(), reference(), pid(), list(any())) -> ok | {error, _}.
-%bind(_Db, _Stmt, _Ref, _Dest, _Args) ->
 %    erlang:nif_error(nif_library_not_loaded).
 
 %% @doc Retrieve the column names of the prepared statement
