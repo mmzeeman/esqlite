@@ -199,68 +199,67 @@ prepare2_test() ->
 
     ok.
 
-%bind_test() ->
-%    {ok, Db} = esqlite3:open(":memory:"),
-%
-%    ok = esqlite3:exec("begin;", Db),
-%    ok = esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
-%    ok = esqlite3:exec("commit;", Db),
-%
-%    %% Create a prepared statement
-%    {ok, Statement} = esqlite3:prepare("insert into test_table values(?1, ?2)", Db),
-%%    esqlite3:bind(Statement, [one, 2]),
-%    esqlite3:step(Statement),
-%    esqlite3:bind(Statement, ["three", 4]),
-%    esqlite3:step(Statement),
-%    esqlite3:bind(Statement, ["five", 6]),
-%    esqlite3:step(Statement),
-%    esqlite3:bind(Statement, [[<<"se">>, $v, "en"], 8]), % iolist bound as text
-%    esqlite3:step(Statement),
-%    esqlite3:bind(Statement, [<<"nine">>, 10]), % iolist bound as text
-%    esqlite3:step(Statement),
-%    esqlite3:bind(Statement, [{blob, [<<"eleven">>, 0]}, 12]), % iolist bound as blob with trailing eos.
-%    esqlite3:step(Statement),
-%    esqlite3:bind(Statement, ["empty", undefined]), % 'undefined' is converted to SQL null
-%    esqlite3:step(Statement),
+bind_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+
+    ok = esqlite3:exec(Db, "begin;"),
+    ok = esqlite3:exec(Db, "create table test_table(one varchar(10), two int);"),
+    ok = esqlite3:exec(Db, "commit;"),
+
+    %% Create a prepared statement
+    {ok, Statement} = esqlite3:prepare(Db, "insert into test_table values(?1, ?2)"),
+    esqlite3:bind(Statement, [one, 2]),
+    esqlite3:step(Statement),
+    esqlite3:bind(Statement, ["three", 4]),
+    esqlite3:step(Statement),
+    esqlite3:bind(Statement, ["five", 6]),
+    esqlite3:step(Statement),
+    esqlite3:bind(Statement, [[<<"se">>, $v, "en"], 8]), % iolist bound as text
+    esqlite3:step(Statement),
+    esqlite3:bind(Statement, [<<"nine">>, 10]), % iolist bound as text
+    esqlite3:step(Statement),
+    esqlite3:bind(Statement, [{blob, [<<"eleven">>, 0]}, 12]), % iolist bound as blob with trailing eos.
+    esqlite3:step(Statement),
+    esqlite3:bind(Statement, ["empty", undefined]), % 'undefined' is converted to SQL null
+    esqlite3:step(Statement),
 
     %% int64
-%    esqlite3:bind(Statement, [int64, 308553449069486081]),
-%    esqlite3:step(Statement),
+    esqlite3:bind(Statement, [int64, 308553449069486081]),
+    esqlite3:step(Statement),
 %
     %% negative int64
-%    esqlite3:bind(Statement, [negative_int64, -308553449069486081]),
-%    esqlite3:step(Statement),
-
-
-    %% utf-8
-%    esqlite3:bind(Statement, [[<<228,184,138,230,181,183>>], 100]),
-%    esqlite3:step(Statement),
-
-%    ?assertEqual([{<<"one">>, 2}],
-%        esqlite3:q("select one, two from test_table where two = '2'", Db)),
-%    ?assertEqual([{<<"three">>, 4}],
-%        esqlite3:q("select one, two from test_table where two = 4", Db)),
-%    ?assertEqual([{<<"five">>, 6}],
-%        esqlite3:q("select one, two from test_table where two = 6", Db)),
-%    ?assertEqual([{<<"seven">>, 8}],
-%        esqlite3:q("select one, two from test_table where two = 8", Db)),
-%    ?assertEqual([{<<"nine">>, 10}],
-%        esqlite3:q("select one, two from test_table where two = 10", Db)),
-%    ?assertEqual([{{blob, <<$e,$l,$e,$v,$e,$n,0>>}, 12}],
-%        esqlite3:q("select one, two from test_table where two = 12", Db)),
-%    ?assertEqual([{<<"empty">>, undefined}], 
-%        esqlite3:q("select one, two from test_table where two is null", Db)),
-
-%    ?assertEqual([{<<"int64">>, 308553449069486081}],
-%        esqlite3:q("select one, two from test_table where one = 'int64';", Db)),
-%    ?assertEqual([{<<"negative_int64">>, -308553449069486081}],
-%        esqlite3:q("select one, two from test_table where one = 'negative_int64';", Db)),
+    esqlite3:bind(Statement, [negative_int64, -308553449069486081]),
+    esqlite3:step(Statement),
 
     %% utf-8
-%    ?assertEqual([{<<228,184,138,230,181,183>>, 100}],
-%        esqlite3:q("select one, two from test_table where two = 100", Db)),
-%
-%    ok.
+    esqlite3:bind(Statement, [[<<228,184,138,230,181,183>>], 100]),
+    esqlite3:step(Statement),
+
+    ?assertEqual([[<<"one">>, 2]],
+        esqlite3:q(Db, "select one, two from test_table where two = '2'")),
+    ?assertEqual([[<<"three">>, 4]],
+        esqlite3:q(Db, "select one, two from test_table where two = 4")),
+    ?assertEqual([[<<"five">>, 6]],
+        esqlite3:q(Db, "select one, two from test_table where two = 6")),
+    ?assertEqual([[<<"seven">>, 8]],
+        esqlite3:q(Db, "select one, two from test_table where two = 8")),
+    ?assertEqual([[<<"nine">>, 10]],
+        esqlite3:q(Db, "select one, two from test_table where two = 10")),
+    ?assertEqual([[<<$e,$l,$e,$v,$e,$n,0>>, 12]],
+        esqlite3:q(Db, "select one, two from test_table where two = 12")),
+    ?assertEqual([[<<"empty">>, undefined]], 
+        esqlite3:q(Db, "select one, two from test_table where two is null")),
+
+    ?assertEqual([[<<"int64">>, 308553449069486081]],
+        esqlite3:q(Db, "select one, two from test_table where one = 'int64';")),
+    ?assertEqual([[<<"negative_int64">>, -308553449069486081]],
+        esqlite3:q(Db, "select one, two from test_table where one = 'negative_int64';")),
+
+    %% utf-8
+    ?assertEqual([[<<228,184,138,230,181,183>>, 100]],
+        esqlite3:q(Db, "select one, two from test_table where two = 100")),
+
+    ok.
 
 bind_for_queries_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
