@@ -208,31 +208,31 @@ bind_test() ->
 
     %% Create a prepared statement
     {ok, Statement} = esqlite3:prepare(Db, "insert into test_table values(?1, ?2)"),
-    esqlite3:bind(Statement, [one, 2]),
+    ok = esqlite3:bind(Statement, [one, 2]),
+    '$done' = esqlite3:step(Statement),
+    ok = esqlite3:bind(Statement, ["three", 4]),
     esqlite3:step(Statement),
-    esqlite3:bind(Statement, ["three", 4]),
+    ok = esqlite3:bind(Statement, ["five", 6]),
     esqlite3:step(Statement),
-    esqlite3:bind(Statement, ["five", 6]),
+    ok = esqlite3:bind(Statement, [[<<"se">>, $v, "en"], 8]), % iolist bound as text
     esqlite3:step(Statement),
-    esqlite3:bind(Statement, [[<<"se">>, $v, "en"], 8]), % iolist bound as text
+    ok = esqlite3:bind(Statement, [<<"nine">>, 10]), % iolist bound as text
     esqlite3:step(Statement),
-    esqlite3:bind(Statement, [<<"nine">>, 10]), % iolist bound as text
+    ok = esqlite3:bind(Statement, [{blob, [<<"eleven">>, 0]}, 12]), % iolist bound as blob with trailing eos.
     esqlite3:step(Statement),
-    esqlite3:bind(Statement, [{blob, [<<"eleven">>, 0]}, 12]), % iolist bound as blob with trailing eos.
-    esqlite3:step(Statement),
-    esqlite3:bind(Statement, ["empty", undefined]), % 'undefined' is converted to SQL null
+    ok = esqlite3:bind(Statement, ["empty", undefined]), % 'undefined' is converted to SQL null
     esqlite3:step(Statement),
 
     %% int64
-    esqlite3:bind(Statement, [int64, 308553449069486081]),
+    ok = esqlite3:bind(Statement, [int64, 308553449069486081]),
     esqlite3:step(Statement),
 %
     %% negative int64
-    esqlite3:bind(Statement, [negative_int64, -308553449069486081]),
+    ok = esqlite3:bind(Statement, [negative_int64, -308553449069486081]),
     esqlite3:step(Statement),
 
     %% utf-8
-    esqlite3:bind(Statement, [[<<228,184,138,230,181,183>>], 100]),
+    ok = esqlite3:bind(Statement, [[<<228,184,138,230,181,183>>], 100]),
     esqlite3:step(Statement),
 
     ?assertEqual([[<<"one">>, 2]],

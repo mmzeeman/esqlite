@@ -856,7 +856,7 @@ esqlite_bind_blob(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
         return enif_make_badarg(env);
     }
 
-    if(!enif_inspect_iolist_as_binary(env, argv[1], &blob)) {
+    if(!enif_inspect_iolist_as_binary(env, argv[2], &blob)) {
         return enif_make_badarg(env);
     }
 
@@ -926,8 +926,13 @@ esqlite_step(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
                 return row;
             }
         case SQLITE_DONE:
-            /* since  3.6.23.1 it is no longer required to do an explict reset.
+            /*
+             * Automatically reset the statement after a done so
+             * column_names will work after the statement is done.
+             *
+             * Not resetting the statement can lead to vm crashes.
              */
+            sqlite3_reset(stmt->statement);
             return make_atom(env, "$done");
         case SQLITE_BUSY:
             return make_atom(env, "$busy");

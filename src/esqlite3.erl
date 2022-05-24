@@ -43,9 +43,11 @@
     bind_int/3,
     bind_int64/3,
     bind_double/3,
-    % bind_text/3,
+    bind_text/3,
     bind_blob/3,
     bind_null/2,
+
+    bind/2,
 
     step/1,
     reset/1,
@@ -301,7 +303,9 @@ fetchall1(Statement, Acc) ->
             E
     end.
 
-bind(Statement, Args) ->
+%% @doc Bind an array of values to a prepared statement
+%%
+bind(#esqlite3_stmt{}=Statement, Args) when is_list(Args) ->
     bind1(Statement, 1, Args).
 
 bind1(_Statement, _Column, []) ->
@@ -310,7 +314,7 @@ bind1(Statement, Column, [Arg | Args]) ->
     bind_arg(Statement, Column, Arg),
     bind1(Statement, Column + 1, Args).
 
-% Do automatic conversion
+% Bind with automatic tyoe conversion
 bind_arg(Statement, Column, undefined) ->
     bind_null(Statement, Column);
 bind_arg(Statement, Column, null) ->
@@ -324,7 +328,19 @@ bind_arg(Statement, Column, Float) when is_float(Float) ->
 bind_arg(Statement, Column, Bin) when is_binary(Bin) ->
     bind_text(Statement, Column, Bin);
 bind_arg(Statement, Column, String) when is_list(String) ->
-    bind_text(Statement, Column, String).
+    bind_text(Statement, Column, String);
+%% Explicit type binds.
+bind_arg(Statement, Column, {int, Value}) ->
+    bind_int(Statement, Column, Value);
+bind_arg(Statement, Column, {int64, Value}) ->
+    bind_int64(Statement, Column, Value);
+bind_arg(Statement, Column, {float, Value}) ->
+    bind_double(Statement, Column, Value);
+bind_arg(Statement, Column, {text, Value}) ->
+    bind_text(Statement, Column, Value);
+bind_arg(Statement, Column, {blob, Value}) ->
+    bind_blob(Statement, Column, Value).
+
 
 
 %% @doc Get the last insert rowid.
