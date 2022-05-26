@@ -51,6 +51,7 @@
 
     step/1,
     reset/1,
+    interrupt/1,
 
     q/2, q/3,
 
@@ -146,6 +147,11 @@ close(#esqlite3{db=Connection}) ->
 error_info(#esqlite3{db=Connection}) ->
     esqlite3_nif:error_info(Connection).
 
+-spec interrupt(Connection) -> Result 
+    when Connection :: esqlite3(),
+         Result:: ok | {error, _}.
+interrupt(#esqlite3{db=Db}) ->
+    esqlite3_nif:interrupt(Db).
 
 %% @doc Subscribe to database notifications. When rows are inserted deleted
 %% or updates, the process will receive messages:
@@ -384,6 +390,7 @@ step(#esqlite3_stmt{stmt=Stmt}) ->
          ResetResult:: ok | {error, _}.
 reset(#esqlite3_stmt{stmt=Stmt}) ->
     esqlite3_nif:reset(Stmt).
+
 
 %% @doc Return the column names of the prepared statement.
 %%

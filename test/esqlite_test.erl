@@ -497,26 +497,37 @@ sqlite_source_id_test() ->
                  esqlite3:step(Stmt)),
     ok.
 
-%interrupt_on_timeout_test() ->
-%    {ok, Db} = esqlite3:open(":memory:"),
-%    CreateTableQuery = "CREATE TABLE all_numbers_in_the_world (number int not null);",
-%    ok = esqlite3:exec(CreateTableQuery, Db),
-%    VeryLongQuery = "
-%         WITH RECURSIVE
-%         for(i) AS (VALUES(1) UNION ALL SELECT i+1 FROM for WHERE i < 10000000)
-%             INSERT INTO all_numbers_in_the_world SELECT i FROM for;
-%     ",
-%    try
-%        ok = esqlite3:exec(VeryLongQuery, [], Db, 10)
-%    catch
-%        {error, timeout, _} ->
-%            ?assertMatch([{0}], esqlite3:q("SELECT COUNT(*) FROM all_numbers_in_the_world", Db)),
-%            %% There is now a stale answer, because the recursive query was interrupted.
-%            receive 
-%                {esqlite3, _, {error, {interrupt, "interrupted"}}} ->
-%                    ok
-%            end
-%    end.
+interrupt_on_timeout_test() ->
+    {ok, Db1} = esqlite3:open("file:memdb1?mode=memory&cache=shared"),
+    % {ok, Db2} = esqlite3:open("file:memdb1?mode=memory&cache=shared"),
+
+    Self = self(),
+
+    F = fun() ->
+                CreateTableQuery = "CREATE TABLE all_numbers_in_the_world (number int not null);",
+                ok = esqlite3:exec(Db1, CreateTableQuery),
+                VeryLongQuery = "
+                    WITH RECURSIVE
+                    for(i) AS (VALUES(1) UNION ALL SELECT i+1 FROM for WHERE i < 10000000)
+                    INSERT INTO all_numbers_in_the_world SELECT i FROM for;
+               ",
+
+               %% The query was interrupted
+               Self ! {msg, esqlite3:exec(Db1, VeryLongQuery)}
+        end,
+
+    spawn(F),
+    timer:sleep(10),
+    ok = esqlite3:interrupt(Db1),
+
+    %% The query was interrupted, so no result
+    ?assertEqual([[0]], esqlite3:q(Db1, "SELECT COUNT(*) FROM all_numbers_in_the_world")),
+
+    %% We should have gotten an interrupt error.
+    Msg =  receive {msg, M} -> M end,
+    ?assertEqual({error, 9}, Msg),
+    
+    ok.
 
 garbage_collect_test() ->
     F = fun() ->

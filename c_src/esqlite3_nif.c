@@ -1196,7 +1196,7 @@ static ErlNifFunc nif_funcs[] = {
      */
     {"set_update_hook", 2, esqlite_set_update_hook},
 
-    {"exec", 2, esqlite_exec},
+    {"exec", 2, esqlite_exec, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"prepare", 3, esqlite_prepare},
 
     {"column_names", 1, esqlite_column_names},
@@ -1220,8 +1220,8 @@ static ErlNifFunc nif_funcs[] = {
     {"backup_init", 4, esqlite_backup_init, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"backup_remaining", 1, esqlite_backup_remaining},
     {"backup_pagecount", 1, esqlite_backup_pagecount},
-    {"backup_step", 2, esqlite_backup_step},
-    {"backup_finish", 1, esqlite_backup_finish},
+    {"backup_step", 2, esqlite_backup_step, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"backup_finish", 1, esqlite_backup_finish, ERL_NIF_DIRTY_JOB_IO_BOUND},
 
     {"memory_stats", 1, esqlite_memory_stats},
     {"status", 2, esqlite_status}
