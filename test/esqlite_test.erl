@@ -384,41 +384,40 @@ reset_test() ->
 
     ok.
 
-%error1_msg_test() ->
-%    {ok, Db} = esqlite3:open(":memory:"),
-%
-    %% Not sql.
-%    {error, {sqlite_error, _Msg1}} = esqlite3:exec("dit is geen sql", Db),
-%
-%    %% Database test does not exist.
-%    {error, {sqlite_error, _Msg2}} = esqlite3:exec("select * from test;", Db),
-%
-%    %% Opening non-existant database.
-%    {error, {cantopen, _Msg3}} = esqlite3:open("/dit/bestaat/niet"),
-%
-%    ok.
+error1_msg_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
 
-%prepare_and_close_connection_test() ->
-%    {ok, Db} = esqlite3:open(":memory:"),
-%
-%    [] = esqlite3:q("create table test(one, two, three)", Db),
-%    ok = esqlite3:exec(["insert into test values(1,2,3);"], Db),
-%    {ok, Stmt} = esqlite3:prepare("select * from test", Db),
-%
-%    %% The prepated statment works.
-%    {row, {1,2,3}} = esqlite3:step(Stmt),
-%    '$done' = esqlite3:step(Stmt),
-%
-%    ok = esqlite3:close(Db),
-%
-%    ok = esqlite3:reset(Stmt),
-%
+    %% Not sql.
+    {error, 1} = esqlite3:exec(Db, "dit is geen sql"),
+
+    %% Database test does not exist.
+    {error, 1} = esqlite3:exec(Db, "select * from test;"),
+
+    %% Opening non-existant database.
+    {error, 14} = esqlite3:open("/dit/bestaat/niet"),
+
+    ok.
+
+prepare_and_close_connection_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+
+    [] = esqlite3:q(Db, "create table test(one, two, three)"),
+    ok = esqlite3:exec(Db, ["insert into test values(1,2,3);"]),
+    {ok, Stmt} = esqlite3:prepare(Db, "select * from test"),
+
+    %% The prepated statment works.
+    [1,2,3] = esqlite3:step(Stmt),
+    '$done' = esqlite3:step(Stmt),
+
+    ok = esqlite3:close(Db),
+    ok = esqlite3:reset(Stmt),
+
     %% Internally sqlite3_close_v2 is used by the nif. This will destruct the
     %% connection when the last perpared statement is finalized
-%    {row, {1,2,3}} = esqlite3:step(Stmt),
-%    '$done' = esqlite3:step(Stmt),
+    [1,2,3] = esqlite3:step(Stmt),
+    '$done' = esqlite3:step(Stmt),
 
-%    ok.
+    ok.
 
 backup_test() ->
     cleanup(),
