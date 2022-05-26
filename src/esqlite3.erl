@@ -55,16 +55,14 @@
     q/2, q/3,
 
     fetchone/1,
-    fetchall/1
-%
-%    backup_init/4, backup_init/5,
-%    backup_finish/1, backup_finish/2,
-%    backup_remaining/1, backup_remaining/2,
-%    backup_pagecount/1, backup_pagecount/2, 
-%    backup_step/2, backup_step/3, 
-]).
+    fetchall/1,
 
-% -export([q/2, q/3, q/4, map/3, map/4, foreach/3, foreach/4]).
+    backup_init/4,
+    backup_remaining/1,
+    backup_pagecount/1,
+    backup_step/2,
+    backup_finish/1
+]).
 
 -define(DEFAULT_TIMEOUT, infinity).
 -define(DEFAULT_CHUNK_SIZE, 5000).
@@ -81,14 +79,13 @@
     stmt :: esqlite3_nif:esqlite3_stmt()
 }).
 
-%-%record(esqlite3_backup, {
-%    db :: esqlite3_nif:esqlite3(),
-%    backup :: esqlite3_nif:esqlite3_backup()
-%}).
+-record(esqlite3_backup, {
+    backup :: esqlite3_nif:esqlite3_backup()
+}).
 
 -type esqlite3() :: #esqlite3{}. 
 -type esqlite3_stmt() :: #esqlite3_stmt{}.
-%-type esqlite3_backup() :: #esqlite3_backup{}.
+-type esqlite3_backup() :: #esqlite3_backup{}.
 -type sql() :: esqlite3_nif:sql().
 
 -type prepare_flags() :: persistent | no_vtab.
@@ -107,7 +104,7 @@
 -type row() :: tuple(). % tuple of cell_type
 -type cell_type() :: undefined | integer() | binary() | float(). 
 
--export_type([esqlite3/0, esqlite3_stmt/0, prepare_flags/0, sql/0, row/0, rowid/0, cell_type/0]).
+-export_type([esqlite3/0, esqlite3_stmt/0, esqlite3_backup/0, prepare_flags/0, sql/0, row/0, rowid/0, cell_type/0]).
 
 %% @doc Opens a sqlite3 database mentioned in Filename.
 %%
@@ -195,81 +192,6 @@ q(Connection, Sql, Args) ->
             Error
     end.
 
-%%%
-%% map
-%%%
-%
-%%% @doc Execute statement and return a list with the result of F for each row.
-%-spec map(Fun, sql(), connection()) -> list(Type) when
-%      Fun :: fun((Row) -> Type) | fun((ColumnNames, Row) -> Type),
-%      Row :: row(),
-%      ColumnNames :: tuple(),
-%      Type :: any().
-%map(Fun, Sql, Connection) ->
-%    case prepare(Sql, Connection) of
-%        {ok, Statement} ->
-%            map_s(Fun, Statement);
-%        {error, _Msg}=Error ->
-%            Error
-%    end.
-%
-%%% @doc Execute statement, bind args and return a list with the result of F for each row.
-%-spec map(F, sql(), list(), connection()) -> list(Type) when
-%      F :: fun((Row) -> Type) | fun((ColumnNames, Row) -> Type),
-%      Row :: tuple(),
-%      ColumnNames :: tuple(),
-%      Type :: any().
-%map(Fun, Sql, [], Connection) ->
-%    map(Fun, Sql, Connection);
-%map(Fun, Sql, Args, Connection) ->
-%    case prepare(Sql, Connection) of
-%        {ok, Statement} ->
-%            case bind(Statement, Args) of
-%                ok ->
-%                    map_s(Fun, Statement);
-%%                {error, _}=Error ->
-%                    Error
-%            end;
-%        {error, _Msg}=Error ->
-%%            Error
-%    end.
-
-%%
-%% foreach
-%%
-
-%% @doc Execute statement and call F with each row.
-%-spec foreach(Fun, sql(), connection()) -> ok when
-%      Fun :: fun((Row) -> any()) | fun((ColumnNames, Row) -> any()),
-%      Row :: tuple(),
-%      ColumnNames :: tuple().
-%foreach(Fun, Sql, Connection) ->
-%    case prepare(Sql, Connection) of
-%        {ok, Statement} ->
-%            foreach_s(Fun, Statement);
-%        {error, _Msg}=Error ->
-%            Error
-%    end.
-
-%% @doc Execute statement, bind args and call F with each row.
-%-spec foreach(Fun, sql(), list(), connection()) -> ok when
-%      Fun :: fun((Row) -> any()) | fun((ColumnNames, Row) -> any()),
-%      Row :: row(),
-%      ColumnNames :: tuple().
-%foreach(F, Sql, [], Connection) ->
-%    foreach(F, Sql, Connection);
-%foreach(F, Sql, Args, Connection) ->
-%    case prepare(Sql, Connection) of
-%        {ok, Statement} ->
-%            case bind(Statement, Args) of
-%%                ok ->
-%                    foreach_s(F, Statement);
-%                {error, _Msg}=Error ->
-%                    Error
-%            end;
-%        {error, _Msg}=Error ->
-%            Error
-%    end.
 
 %%
 %% fetchall
@@ -340,7 +262,6 @@ bind_arg(Statement, Column, {text, Value}) ->
     bind_text(Statement, Column, Value);
 bind_arg(Statement, Column, {blob, Value}) ->
     bind_blob(Statement, Column, Value).
-
 
 
 %% @doc Get the last insert rowid.
@@ -486,172 +407,34 @@ column_decltypes(#esqlite3_stmt{stmt=Stmt}) ->
 
 % @doc Initialize a backup procedure. 
 %%
-%-spec backup_init(connection(), string(), connection(), string()) -> {ok, backup()} | {error, _}.
-%backup_init(Dest, DestName, Src, SrcName) ->
-%    backup_init(Dest, DestName, Src, SrcName, ?DEFAULT_TIMEOUT).
-%
-%% @doc Like backup_init/4, but with an extra timeout value.
-%%
-%-spec backup_init(connection(), string(), connection(), string(), timeout()) -> {ok, backup()} | {error, _}.
-%backup_init(#connection{raw_connection=Dest}, DestName, #connection{raw_connection=Src}, SrcName, Timeout) ->
-%    Ref = make_ref(),
-%    ok = esqlite3_nif:backup_init(Dest, DestName, Src, SrcName, Ref, self()),
-%    case receive_answer(Dest, Ref, Timeout) of
-%        {ok, RawBackup} when is_reference(RawBackup) ->
-%            {ok, #backup{raw_connection=Dest, raw_backup=RawBackup}};
-%        {error, _} = Error ->
-%            Error
-%    end.
-
+-spec backup_init(esqlite3(), iodata(), esqlite3(), iodata()) -> {ok, esqlite3_backup()} | {error, _}.
+backup_init(#esqlite3{db=Dest}, DestName, #esqlite3{db=Src}, SrcName) ->
+    case esqlite3_nif:backup_init(Dest, DestName, Src, SrcName) of
+        {ok, BackupRef} ->
+            {ok, #esqlite3_backup{backup=BackupRef}};
+        {error, _}=Error ->
+            Error
+    end.
 
 %% @doc Release the resources held by the backup.
-%-spec backup_finish(backup()) -> ok | {error, _}.
-%backup_finish(Backup) ->
-%    backup_finish(Backup, ?DEFAULT_TIMEOUT).
-%%% @doc Like backup_finish/1, but with an extra timeout.    
-%-spec backup_finish(backup(), timeout()) -> ok | {error, _}.
-%backup_finish(#backup{raw_connection=Conn, raw_backup=Back}, Timeout) ->
-%    Ref = make_ref(),
-%    ok = esqlite3_nif:backup_finish(Conn, Back, Ref, self()),
-%    receive_answer(Conn, Ref, Timeout).
+-spec backup_finish(esqlite3_backup()) -> ok | {error, _}.
+backup_finish(#esqlite3_backup{backup=Backup}) ->
+    esqlite3_nif:backup_finish(Backup).
 
 %% @doc Do a backup step. 
-%-spec backup_step(backup(), integer()) -> ok | {error, _}.
-%backup_step(Backup, NPage) ->
-%    backup_step(Backup, NPage, ?DEFAULT_TIMEOUT).
-
-%% @doc Do a backup step. 
-%-spec backup_step(backup(), integer(), timeout()) -> ok | {error, _}.
-%backup_step(#backup{raw_connection=Conn, raw_backup=Back}, NPage, Timeout) ->
-%    Ref = make_ref(),
-%    ok = esqlite3_nif:backup_step(Conn, Back, NPage, Ref, self()),
-%    receive_answer(Conn, Ref, Timeout).
-
+-spec backup_step(esqlite3_backup(), integer()) -> ok | {error, _}.
+backup_step(#esqlite3_backup{backup=Backup}, NPage) ->
+    esqlite3_nif:backup_step(Backup, NPage).
 
 %% @doc Get the remaining number of pages which need to be backed up.
-%-spec backup_remaining(backup()) -> {ok, pos_integer()} | {error, _}.
-%backup_remaining(Backup) ->
-%    backup_remaining(Backup, ?DEFAULT_TIMEOUT).
+-spec backup_remaining(esqlite3_backup()) -> pos_integer().
+backup_remaining(#esqlite3_backup{backup=Backup}) ->
+    esqlite3_nif:backup_remaining(Backup).
 
 %% @doc Get the remaining number of pages which need to be backed up.
-%-spec backup_remaining(backup(), timeout()) -> {ok, pos_integer()} | {error, _}.
-%backup_remaining(#backup{raw_connection=Conn, raw_backup=Back}, Timeout) ->
-%    Ref = make_ref(),
-%    ok = esqlite3_nif:backup_remaining(Conn, Back, Ref, self()),
-%    case receive_answer(Conn, Ref, Timeout) of
-%        {ok, R} when is_integer(R) ->
-%            {ok, R};
-%        {error, _}=E ->
-%            E
-%    end.
-%%
-%% @doc Get the remaining number of pages which need to be backed up.
-%-spec backup_pagecount(backup()) -> {ok, pos_integer()} | {error, _}.
-%backup_pagecount(Backup) ->
-%    backup_pagecount(Backup, ?DEFAULT_TIMEOUT).
-%
-%% @doc Get the remaining number of pages which need to be backed up.
-%-spec backup_pagecount(backup(), timeout()) -> {ok, pos_integer()} | {error, _}.
-%backup_pagecount(#backup{raw_connection=Conn, raw_backup=Back}, Timeout) ->
-%    Ref = make_ref(),
-%    ok = esqlite3_nif:backup_pagecount(Conn, Back, Ref, self()),
-%    case receive_answer(Conn, Ref, Timeout) of
-%        {ok, R} when is_integer(R) ->
-%            {ok, R};
-%        {error, _}=E ->
-%            E
-%    end.
-
-%%
-%% Helpers
-%%
-
-%-spec foreach_s(Fun, statement()) -> ok when
-%      Fun :: fun((Row) -> any()) | fun((ColumnNames, Row) -> any()),
-%      Row :: row(),
-%      ColumnNames :: tuple().
-%foreach_s(Fun, Statement) when is_function(Fun, 1) ->
-%    case try_multi_step(Statement, 1, [], 0) of
-%        {'$done', []} ->
-%%            ok;
-%        {error, _} = Error ->
-%            Error;
-%        {rows, [Row | []]} ->
-%            Fun(Row),
-%            foreach_s(Fun, Statement)
-%    end;
-%foreach_s(Fun, Statement) when is_function(Fun, 2) ->
-%    ColumnNames = column_names(Statement),
-%    case try_multi_step(Statement, 1, [], 0) of
-%        {'$done', []} ->
-%            ok;
-%        {error, _} = Error ->
-%            Error;
-%        {rows, [Row | []]} ->
-%            Fun(ColumnNames, Row),
-%            foreach_s(Fun, Statement)
-%    end.
-
-%-spec map_s(Fun, statement()) -> list(Type) when
-%%      Fun :: fun((Row) -> Type) | fun((ColumnNames, Row) -> Type),
-%      Row :: row(),
-%      ColumnNames :: tuple(),
-%      Type :: term().
-%map_s(Fun, Statement) when is_function(Fun, 1) ->
-%    case try_multi_step(Statement, 1, [], 0) of
-%        {'$done', []} ->
-%            [];
-%        {error, _} = Error ->
-%            Error;
-%        {rows, [Row | []]} ->
-%            [Fun(Row) | map_s(Fun, Statement)]
-%    end;
-%map_s(Fun, Statement) when is_function(Fun, 2) ->
-%    ColumnNames = column_names(Statement),
-%    case try_multi_step(Statement, 1, [], 0) of
-%        {'$done', []} ->
-%            [];
-%        {error, _} = Error ->
-%            Error;
-%        {rows, [Row | []]} ->
-%            [Fun(ColumnNames, Row) | map_s(Fun, Statement)]
-%    end.
-
-%% return rows in reverse order
-%-spec fetchall_internal(statement(), pos_integer(), list(row()), timeout()) ->
-%                {'$done', list(row())} |
-%                {error, _}.
-%fetchall_internal(Statement, ChunkSize, Rest, Timeout) ->
-%    case try_multi_step(Statement, ChunkSize, Rest, 0, Timeout) of
-%        {rows, Rows} -> fetchall_internal(Statement, ChunkSize, Rows, Timeout);
-%        Else -> Else
-%    end.
-
-%% Try a number of steps, when the database is busy,
-%%% return rows in revers order
-%try_multi_step(Statement, ChunkSize, Rest, Tries) ->
-%    try_multi_step(Statement, ChunkSize, Rest, Tries, ?DEFAULT_TIMEOUT).
-
-%% Try a number of steps, when the database is busy,
-%% return rows in revers order
-%-spec try_multi_step(statement(), pos_integer(), list(tuple()), non_neg_integer(), timeout()) ->
-%                {rows, list(tuple())} |
-%                {'$done', list(tuple())} |
-%                {error, term()}.
-%try_multi_step(_Statement, _ChunkSize, _Rest, Tries, _Timeout) when Tries > 5 ->
-%    throw(too_many_tries);
-%try_multi_step(Statement, ChunkSize, Rest, Tries, Timeout) ->
-%    case multi_step(Statement, ChunkSize, Timeout) of
-%        {'$busy', Rows} -> %% core can fetch a number of rows (rows < ChunkSize) per 'multi_step' call and then get busy...
-%            erlang:display({"busy", Tries}),
-%            timer:sleep(100 * Tries),
-%            try_multi_step(Statement, ChunkSize, Rows ++ Rest, Tries + 1, Timeout);
-%        {rows, Rows} ->
-%            {rows, Rows ++ Rest};
-%        {'$done', Rows} ->
-%            {'$done', Rows ++ Rest};
-%        Else -> Else
-%    end.
+-spec backup_pagecount(esqlite3_backup()) -> pos_integer().
+backup_pagecount(#esqlite3_backup{backup=Backup}) ->
+    esqlite3_nif:backup_pagecount(Backup).
 
 %%
 %% Helpers

@@ -48,11 +48,11 @@
 
     interrupt/1,
     
-%    backup_init/6,
-%    backup_step/5,
-%    backup_remaining/4,
-%    backup_pagecount/4,
-%    backup_finish/4,
+    backup_init/4,
+    backup_remaining/1,
+    backup_pagecount/1, 
+    backup_step/2,
+    backup_finish/1,
 
     memory_stats/1,
     status/2
@@ -60,11 +60,10 @@
 
 -type esqlite3() :: reference().
 -type esqlite3_stmt() :: reference().
-%-type esqlite3_backup() :: reference().
+-type esqlite3_backup() :: reference().
 -type sql() :: iodata(). 
 
--export_type([esqlite3/0, esqlite3_stmt/0, sql/0]).
-%-export_type([esqlite3_backup/0]).
+-export_type([esqlite3/0, esqlite3_stmt/0, esqlite3_backup/0, sql/0]).
 
 -on_load(init/0).
 
@@ -156,24 +155,6 @@ step(_Statement) ->
 reset(_Statement) ->
     erlang:nif_error(nif_library_not_loaded).
 
-%% @doc
-%%
-%-spec multi_step(esqlite3(), esqlite3_stmt(), pos_integer(), reference(), pid()) -> ok | {error, _}.
-%multi_step(_Db, _Stmt, _Chunk_Size, _Ref, _Dest) ->
-%    erlang:nif_error(nif_library_not_loaded).
-
-%% @doc
-%%
-%-spec reset(esqlite3(), esqlite3_stmt(), reference(), pid()) -> ok | {error, _}.
-%reset(_Db, _Stmt, _Ref, _Dest) ->
-%    erlang:nif_error(nif_library_not_loaded).
-
-%% @doc
-%%
-%-spec finalize(esqlite3(), esqlite3_stmt(), reference(), pid()) -> ok | {error, _}.
-%finalize(_Db, _Stmt, _Ref, _Dest) ->
-%    erlang:nif_error(nif_library_not_loaded).
-
 %% @doc Retrieve the column names of the prepared statement
 %%
 -spec column_names(esqlite3_stmt()) -> list(binary()) | {error, _}.
@@ -188,29 +169,28 @@ column_decltypes(_Stmt) ->
 
 
 %% @doc Initialize a backup procedure of a database.
-%-spec backup_init(esqlite3(), string(), esqlite3_stmt(), string(), reference(), pid()) -> ok | {error, _}.
-%backup_init(_DestDb, _DestName, _SourceDb, _SourceName, _Ref, _Dest) ->
 %    erlang:nif_error(nif_library_not_loaded).
+-spec backup_init(Destination, DestinationName, Source, SourceName) -> InitResult when
+      Destination :: esqlite3(),
+      DestinationName :: iodata(),
+      Source :: esqlite3(),
+      SourceName :: iodata(),
+      InitResult :: {ok, esqlite3_backup()} | {error, _}.
+backup_init(_Dest, _DestName, _Src, _SrcName) ->
+    erlang:nif_error(nif_library_not_loaded).
 
-%% @doc Do a backup step.
-%-spec backup_step(esqlite3(), esqlite3_backup(), integer(), reference(), pid()) -> ok | {error, _}.
-%backup_step(_Db, _Backup, _NPages, _Ref, _Dest) ->
-%    erlang:nif_error(nif_library_not_loaded).
 
-%% @doc Get the amount of remaining pages which need to be backed up.
-%-spec backup_remaining(esqlite3(), esqlite3_backup(), reference(), pid()) -> ok | {error, _}.
-%backup_remaining(_Db, _Backup, _Ref, _Dest) ->
-%    erlang:nif_error(nif_library_not_loaded).
+backup_remaining(_Backup) ->
+    erlang:nif_error(nif_library_not_loaded).
 
-%% @doc Get the total number of pages which need to be backed up.
-%-spec backup_pagecount(esqlite3(), esqlite3_backup(), reference(), pid()) -> ok | {error, _}.
-%backup_pagecount(_Db, _Backup, _Ref, _Dest) ->
-%    erlang:nif_error(nif_library_not_loaded).
+backup_pagecount(_Backup) ->
+    erlang:nif_error(nif_library_not_loaded).
 
-%% @doc Finish the backup.
-%-spec backup_finish(esqlite3(), esqlite3_backup(), reference(), pid()) -> ok | {error, _}.
-%backup_finish(_Db, _Backup, _Ref, _Dest) ->
-%    erlang:nif_error(nif_library_not_loaded).
+backup_step(_Backup, _PageCount) ->
+    erlang:nif_error(nif_library_not_loaded).
+
+backup_finish(_Backup) ->
+    erlang:nif_error(nif_library_not_loaded).
 
 %% @doc Interrupt all active queries.
 -spec interrupt(esqlite3()) -> ok.

@@ -25,7 +25,7 @@ CFlags =
 [
     {minimum_otp_vsn, "22.0"},
 
-    {erl_opts, [debug_info, warnings_as_errors]},
+    {erl_opts, [debug_info]},
 
     {xref_checks, [undefined_function_calls,
                    undefined_functions,

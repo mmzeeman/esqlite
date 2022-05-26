@@ -383,119 +383,6 @@ reset_test() ->
     [1] = esqlite3:step(Stmt),
 
     ok.
-%
-%foreach_test() ->
-%    {ok, Db} = esqlite3:open(":memory:"),
-
-%    ok = esqlite3:exec("begin;", Db),
-%    ok = esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
-%
-%    ok = esqlite3:exec("insert into test_table values('hello1', 10);", Db),
-%    ok = esqlite3:exec("insert into test_table values('hello2', 11);", Db),
-%    ok = esqlite3:exec("insert into test_table values('hello3', 12);", Db),
-%    ok = esqlite3:exec("insert into test_table values('hello4', 13);", Db),
-%
-%    ok = esqlite3:exec("commit;", Db),
-
-%    F = fun(Row) ->
-%		case Row of
-%		    {Key, Value} ->
-%			put(Key, Value);
-%		    _ ->
-%			ok
-%		end
-%	end,
-%
-%    esqlite3:foreach(F, "select * from test_table;", Db),
-%
-%    10 = get(<<"hello1">>),
-%    11 = get(<<"hello2">>),
-%    12 = get(<<"hello3">>),
-%    13 = get(<<"hello4">>),
-%
-%    ok.
-%
-%bind_for_foreach_test() ->
-%    {ok, Db} = esqlite3:open(":memory:"),
-%
-%    ok = esqlite3:exec("begin;", Db),
-%    ok = esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
-%    ok = esqlite3:exec("insert into test_table values('hello1', 10);", Db),
-%    ok = esqlite3:exec("insert into test_table values('hello2', 11);", Db),
-%    ok = esqlite3:exec("insert into test_table values('hello3', 12);", Db),
-%    ok = esqlite3:exec("insert into test_table values('hello4', 13);", Db),
-%    ok = esqlite3:exec("commit;", Db),
-
-%    F = fun(Row) ->
-%		case Row of
-%		    {Key, Value} ->
-%			put(Key, Value);
-%%		    _ ->
-%			ok
-%		end
-%	end,
-
-%    esqlite3:foreach(F, "select * from test_table where one = ?;", ["hello1"], Db),
-%
-%    10 = get(<<"hello1">>),
-%
-%    ok.
-
-%map_test() ->
-%    {ok, Db} = esqlite3:open(":memory:"),
-%
-%    ok = esqlite3:exec("begin;", Db),
-%    ok = esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
-%%    ok = esqlite3:exec("insert into test_table values('hello1', 10);", Db),
-%    ok = esqlite3:exec("insert into test_table values('hello2', 11);", Db),
-%    ok = esqlite3:exec("insert into test_table values('hello3', 12);", Db),
-%    ok = esqlite3:exec("insert into test_table values('hello4', 13);", Db),
-%    ok = esqlite3:exec("commit;", Db),
-
-%    F = fun(Row) -> Row end,
-%
-%    [{<<"hello1">>,10},
-%     {<<"hello2">>,11},
-%     {<<"hello3">>,12},
-%     {<<"hello4">>,13}] = esqlite3:map(F, "select * from test_table", Db),
-
-    %% Test that when the row-names are added..
-%    Assoc = fun(Names, Row) ->
-%                    lists:zip(tuple_to_list(Names), tuple_to_list(Row))
-%            end,
-%
-%    [[{one,<<"hello1">>},{two,10}],
-%     [{one,<<"hello2">>},{two,11}],
-%     [{one,<<"hello3">>},{two,12}],
-%     [{one,<<"hello4">>},{two,13}]]  = esqlite3:map(Assoc, "select * from test_table", Db),
-%
-%    ok.
-
-%bind_for_map_test() ->
-%    {ok, Db} = esqlite3:open(":memory:"),
-%
-%    ok = esqlite3:exec("begin;", Db),
-%    ok = esqlite3:exec("create table test_table(one varchar(10), two int);", Db),
-%    ok = esqlite3:exec("insert into test_table values('hello1', 10);", Db),
-%    ok = esqlite3:exec("insert into test_table values('hello2', 11);", Db),
-%    ok = esqlite3:exec("insert into test_table values('hello3', 12);", Db),
-%    ok = esqlite3:exec("insert into test_table values('hello4', 13);", Db),
-%    ok = esqlite3:exec("commit;", Db),
-
-%    F = fun(Row) -> Row end,
-%
-%    [{<<"hello1">>,10}]
-%        = esqlite3:map(F, "select * from test_table where one = ?", ["hello1"], Db),
-%
-%    %% Test that when the row-names are added..
-%    Assoc = fun(Names, Row) ->
-%		    lists:zip(tuple_to_list(Names), tuple_to_list(Row))
-%	    end,
-%
-%    [[{one,<<"hello1">>},{two,10}]]  = esqlite3:map(Assoc, "select * from test_table where one = ?", ["hello1"], Db),
-%
-%    ok.
-
 
 %error1_msg_test() ->
 %    {ok, Db} = esqlite3:open(":memory:"),
@@ -533,63 +420,66 @@ reset_test() ->
 
 %    ok.
 
-%backup_test() ->
-%    cleanup(),
-%
-%    {ok, Dest} = esqlite3:open(?DB1),
-%    {ok, Source} = esqlite3:open(?DB2),
-%
-%    {ok, Backup} = esqlite3:backup_init(Dest, "main", Source, "main"),
-%    {ok, 0} = esqlite3:backup_remaining(Backup),
-%    {ok, 0} = esqlite3:backup_pagecount(Backup),
-%    done = esqlite3:backup_step(Backup, 1),
-%
-%    cleanup(),
-%
-%    ok.
+backup_test() ->
+    cleanup(),
 
-%backup1_test() ->
-%    cleanup(),
-%
-%    {ok, Dest} = esqlite3:open(?DB1),
-%    {ok, Source} = esqlite3:open(?DB2),
+    {ok, Dest} = esqlite3:open(?DB1),
+    {ok, Source} = esqlite3:open(?DB2),
 
-%    [] = esqlite3:q("create table test(one, two)", Source),
-%    [] = esqlite3:q("begin;", Source),
-%    [] = esqlite3:q("insert into test values(randomblob(10000), randomblob(10000));", Source),
-%    [] = esqlite3:q("insert into test values(randomblob(10000), randomblob(10000));", Source),
-%    [] = esqlite3:q("insert into test values(randomblob(10000), randomblob(10000));", Source),
-%    [] = esqlite3:q("insert into test values(randomblob(10000), randomblob(10000));", Source),
-%    [] = esqlite3:q("insert into test values(randomblob(10000), randomblob(10000));", Source),
-%    [] = esqlite3:q("commit;", Source),
-%    
-%    [{5}] = esqlite3:q("select count(*) from test", Source),
-%    {error, {sqlite_error, "no such table: test"}} = esqlite3:q("select count(*) from test", Dest),
+    {ok, Backup} = esqlite3:backup_init(Dest, <<"main">>, Source, <<"main">>),
 
-%    {ok, Backup} = esqlite3:backup_init(Dest, "main", Source, "main"),
+    0 = esqlite3:backup_remaining(Backup),
+    0 = esqlite3:backup_pagecount(Backup),
 
-%    {ok, 0} = esqlite3:backup_remaining(Backup),
-%    {ok, 0} = esqlite3:backup_pagecount(Backup),
+    done = esqlite3:backup_step(Backup, 1),
+
+    cleanup(),
+
+    ok.
+
+backup1_test() ->
+    cleanup(),
+
+    {ok, Dest} = esqlite3:open(?DB1),
+    {ok, Source} = esqlite3:open(?DB2),
+
+    [] = esqlite3:q(Source, "create table test(one, two)"),
+    [] = esqlite3:q(Source, "begin;"),
+    [] = esqlite3:q(Source, "insert into test values(randomblob(10000), randomblob(10000));"),
+    [] = esqlite3:q(Source, "insert into test values(randomblob(10000), randomblob(10000));"),
+    [] = esqlite3:q(Source, "insert into test values(randomblob(10000), randomblob(10000));"),
+    [] = esqlite3:q(Source, "insert into test values(randomblob(10000), randomblob(10000));"),
+    [] = esqlite3:q(Source, "insert into test values(randomblob(10000), randomblob(10000));"),
+    [] = esqlite3:q(Source, "commit;"),
+    
+    [[5]] = esqlite3:q(Source, "select count(*) from test"),
+    {error, 1} = esqlite3:q(Dest, "select count(*) from test"),
+    #{ errmsg := <<"no such table: test">> }  = esqlite3:error_info(Dest),
+
+    {ok, Backup} = esqlite3:backup_init(Dest, "main", Source, "main"),
+
+    0 = esqlite3:backup_remaining(Backup),
+    0 = esqlite3:backup_pagecount(Backup),
 
     %% Backup 1 page.
-%    ok = esqlite3:backup_step(Backup, 1),
-%
-%    {ok, 26} = esqlite3:backup_remaining(Backup),
-%    {ok, 27} = esqlite3:backup_pagecount(Backup),
+    ok = esqlite3:backup_step(Backup, 1),
+
+    26 = esqlite3:backup_remaining(Backup),
+    27 = esqlite3:backup_pagecount(Backup),
 
     %% Do all the remaining pages.
-%%    done = esqlite3:backup_step(Backup, -1),
+    done = esqlite3:backup_step(Backup, -1),
 
-%    {ok, 0} = esqlite3:backup_remaining(Backup),
-%    {ok, 27} = esqlite3:backup_pagecount(Backup),
+    0 = esqlite3:backup_remaining(Backup),
+    27 = esqlite3:backup_pagecount(Backup),
 
-%    ok = esqlite3:backup_finish(Backup),
-%
-%    [{5}] = esqlite3:q("select count(*) from test", Dest),
-%
-%    cleanup(),
-%
-%    ok.
+    ok = esqlite3:backup_finish(Backup),
+
+    [[5]] = esqlite3:q(Dest, "select count(*) from test"),
+
+    cleanup(),
+
+    ok.
     
 
 sqlite_version_test() ->
