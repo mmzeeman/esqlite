@@ -68,6 +68,7 @@ CFlags =
     ]},
 
     {edoc_opts, [{preprocess, true},
+                 {stylesheet, "style.css"},
                  {sort_functions, false}]},
 
     {hex, [{doc, edoc}]}

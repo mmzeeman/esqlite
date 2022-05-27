@@ -102,8 +102,8 @@
 %% binary() -> text
 
 -type rowid() :: integer().
--type row() :: tuple(). % tuple of cell_type
--type cell_type() :: undefined | integer() | binary() | float(). 
+-type cell_type() :: undefined | integer() | binary() | float().
+-type row() :: list(cell_type()). % tuple of cell_type
 
 -export_type([esqlite3/0, esqlite3_stmt/0, esqlite3_backup/0, prepare_flags/0, sql/0, row/0, rowid/0, cell_type/0]).
 
