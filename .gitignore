@@ -11,3 +11,7 @@ _build
 c_src/**/*.d
 erl_crash.dump
 tags
+doc/*
+!doc/style.css
+!doc/overview.edoc
+!doc/SQLite370.svg
