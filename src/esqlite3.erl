@@ -59,7 +59,9 @@
 
     bind/2,
     q/2, q/3,
-    fetchall/1
+    fetchall/1,
+
+    status/0, status/1, status/2
 ]).
 
 -define(DEFAULT_TIMEOUT, infinity).
@@ -86,6 +88,15 @@
 -type sql() :: esqlite3_nif:sql().
 
 -type prepare_flags() :: persistent | no_vtab.
+
+-type status_info() :: #{ memory_used => stats(),
+                          pagecache_used => stats(),
+                          pagecache_overflow => stats(),
+                          malloc_size := stats(),
+                          parser_stack := stats(),
+                          pagecache_size := stats(),
+                          malloc_count := stats() }.
+-type stats() :: #{ used := non_neg_integer(), highwater := non_neg_integer() }.
 
 %% erlang -> sqlite type conversions
 %%
@@ -299,12 +310,11 @@ prepare(Connection, Sql) ->
 
 %% @doc Compile a SQL statement. Returns a cached compiled statement which can be used in
 %% queries.
-%%
--spec prepare(Connection, Sql, PrepareFlags) -> PrepareResult
-    when Connection :: esqlite3(),
-         Sql ::  sql(),
-         PrepareFlags :: list(prepare_flags()),
-         PrepareResult :: {ok, esqlite3_stmt()} | {error, _}.
+-spec prepare(Connection, Sql, PrepareFlags) -> PrepareResult when
+      Connection :: esqlite3(),
+      Sql ::  sql(),
+      PrepareFlags :: list(prepare_flags()),
+      PrepareResult :: {ok, esqlite3_stmt()} | {error, _}.
 prepare(#esqlite3{db=Connection}, Sql, PrepareFlags) ->
     case esqlite3_nif:prepare(Connection, Sql, props_to_prepare_flag(PrepareFlags)) of
         {ok, Stmt} ->
@@ -313,19 +323,19 @@ prepare(#esqlite3{db=Connection}, Sql, PrepareFlags) ->
             Error
     end.
 
--spec bind_int(Statement, Index, Value) -> BindResult
-    when Statement :: esqlite3_stmt(),
-         Index :: integer(),
-         Value :: integer(),
-         BindResult :: ok | {error, _}.
+-spec bind_int(Statement, Index, Value) -> BindResult when
+      Statement :: esqlite3_stmt(),
+      Index :: integer(),
+      Value :: integer(),
+      BindResult :: ok | {error, _}.
 bind_int(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
     esqlite3_nif:bind_int(Stmt, Index, Value).
 
--spec bind_int64(Statement, Index, Value) -> BindResult
-    when Statement :: esqlite3_stmt(),
-         Index :: integer(),
-         Value :: integer(),
-         BindResult :: ok | {error, _}.
+-spec bind_int64(Statement, Index, Value) -> BindResult when
+      Statement :: esqlite3_stmt(),
+      Index :: integer(),
+      Value :: integer(),
+      BindResult :: ok | {error, _}.
 bind_int64(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
     esqlite3_nif:bind_int64(Stmt, Index, Value).
 
@@ -424,9 +434,51 @@ backup_remaining(#esqlite3_backup{backup=Backup}) ->
 backup_pagecount(#esqlite3_backup{backup=Backup}) ->
     esqlite3_nif:backup_pagecount(Backup).
 
+
+%% @doc Get all internal status information from sqlite.
+%%
+-spec status() -> StatusInfo when
+      StatusInfo :: status_info().
+status() ->
+    status(false).
+
+%% @doc Specify which internal status information you need, when <code>true</code>
+%%      is passed, the <code>highwater</code> information from the status information
+%%      will be reset.
+-spec status(ArgsOrResetHighWater) -> Status when
+      ArgsOrResetHighWater :: list(atom()) | boolean(),
+      Status :: status_info().
+status(Args) when is_list(Args) ->
+    status(Args, false);
+status(ResetHighWater) when ResetHighWater =:= true orelse ResetHighWater =:= false ->
+    status([memory_used,pagecache_used, pagecache_overflow, malloc_size,
+            parser_stack, pagecache_size, malloc_count], ResetHighWater);
+status(Op) when is_atom(Op) -> 
+    status(Op, false).
+
+status(Args, ResetHighWater) when is_list(Args) ->
+    status1(Args, #{}, ResetHighWater);
+status(Op, ResetHighWater) ->
+    esqlite3_nif:status(op_arg(Op), reset_arg(ResetHighWater)).
+
 %%
 %% Helpers
 %%
+
+status1([], Acc, _ResetArg) -> Acc;
+status1([S|Rest], Acc, ResetArg) ->
+    status1(Rest, Acc#{ S => status(S, ResetArg)}, ResetArg).
+
+reset_arg(true) -> 1;
+reset_arg(false) -> 0.
+
+op_arg(memory_used) -> 0;
+op_arg(pagecache_used) -> 1;
+op_arg(pagecache_overflow) -> 2;
+op_arg(malloc_size) -> 5;
+op_arg(parser_stack) -> 6;
+op_arg(pagecache_size) -> 7;
+op_arg(malloc_count) -> 8.
 
 props_to_prepare_flag(Props) ->
     Flag = case proplists:get_value(no_vtab, Props, false) of
