@@ -148,12 +148,13 @@ close(#esqlite3{db=Connection}) ->
     esqlite3_nif:close(Connection).
 
 %% @doc Return a description of the last occurred error. 
--spec error_info(Connection) -> ErrorMsg 
+-spec error_info(Connection) -> ErrorInfo
     when Connection :: esqlite3(),
-         ErrorMsg :: undefined | binary().
+         ErrorInfo :: map().
 error_info(#esqlite3{db=Connection}) ->
     esqlite3_nif:error_info(Connection).
 
+%% @doc Interrupt a long running query. See [https://sqlite.org/c3ref/interrupt.html] for more details.
 -spec interrupt(Connection) -> Result 
     when Connection :: esqlite3(),
          Result:: ok | {error, _}.
@@ -161,7 +162,7 @@ interrupt(#esqlite3{db=Db}) ->
     esqlite3_nif:interrupt(Db).
 
 %% @doc Subscribe to database notifications. When rows are inserted deleted
-%% or updates, the process will receive messages:
+%% or updates, the registered process will receive messages:
 %% ```{insert, binary(), binary(), rowid()}'''
 %% When a new row has been inserted.
 %% ```{delete, binary(), binary(), rowid()}''' 
@@ -177,13 +178,20 @@ set_update_hook(#esqlite3{db=Connection}, MaybePid) when is_pid(MaybePid) orelse
 %%% q
 %%%
 
-%%% @doc Execute a sql statement, returns a list with tuples.
-%-spec q(sql(), connection()) -> list(row()) | {error, _}.
+%% @doc Execute a sql statement, returns the result as list rows.
+-spec q(Connection, Sql) -> Result when
+      Connection :: esqlite3(),
+      Sql :: sql(),
+      Result :: list(row()) | {error, _}.
 q(Connection, Sql) ->
     q(Connection, Sql, []).
 
-%% @doc Execute statement, bind args and return a list with tuples as result restricted by timeout.
-%-spec q(sql(), list(), connection(), timeout()) -> list(row()) | {error, _}.
+%% @doc Execute statement, bind args and return a list rows.
+-spec q(Connection, Sql, Args) -> Result when
+      Connection :: esqlite3(),
+      Sql :: sql(),
+      Args :: list(), 
+      Result :: list(row()) | {error, _}.
 q(Connection, Sql, []) ->
     case prepare(Connection, Sql) of
         {ok, Statement} ->
@@ -191,7 +199,6 @@ q(Connection, Sql, []) ->
         {error, _Msg}=Error ->
             Error
     end;
-
 q(Connection, Sql, Args) ->
     case prepare(Connection, Sql) of
         {ok, Statement} ->
@@ -221,6 +228,71 @@ fetchall1(Statement, Acc) ->
             lists:reverse(Acc);
         {error, _} = E ->
             E
+    end.
+
+%% @doc Get the last inserted rowid.
+%%      See [https://sqlite.org/c3ref/set_last_insert_rowid.html] for more details.
+-spec last_insert_rowid(Connection) -> RowidResult when
+      Connection :: esqlite3(),
+      RowidResult :: integer() | {error, closed}.
+last_insert_rowid(#esqlite3{db=Connection}) ->
+    esqlite3_nif:last_insert_rowid(Connection).
+
+%% @doc Get the number of changes in the most recent INSERT, UPDATE or DELETE.
+%%      See [https://sqlite.org/c3ref/changes.html] for more details.
+-spec changes(Connection) -> ChangesResult
+    when Connection :: esqlite3(),
+         ChangesResult :: integer() | {error, closed}.
+changes(#esqlite3{db=Connection}) ->
+    esqlite3_nif:changes(Connection).
+
+
+%% @doc Check if the connection is in auto-commit mode.
+%%      See: [https://sqlite.org/c3ref/get_autocommit.html] for more details.
+%%
+-spec get_autocommit(Connection) -> AutocommitResult
+    when Connection :: esqlite3(),
+         AutocommitResult ::  true | false | {error, closed}.
+get_autocommit(#esqlite3{db=Connection}) ->
+    esqlite3_nif:get_autocommit(Connection).
+
+%% @doc Compile a SQL statement. Returns a cached compiled statement which can be used in
+%% queries.
+%%
+-spec exec(Connection, Sql) -> ExecResult
+    when Connection :: esqlite3(),
+         Sql ::  sql(),
+         ExecResult :: ok | {error, _}.
+exec(#esqlite3{db=Connection}, Sql) ->
+    esqlite3_nif:exec(Connection, Sql).
+
+%%
+%% Prepared Statements
+%%
+
+%% @doc Compile a SQL statement. Returns a cached compiled statement which can be used in
+%% queries.
+%%
+-spec prepare(Connection, Sql) -> PrepareResult
+    when Connection :: esqlite3(),
+         Sql ::  sql(),
+         PrepareResult :: {ok, esqlite3_stmt()} | {error, _}.
+prepare(Connection, Sql) ->
+    prepare(Connection, Sql, []).
+
+%% @doc Compile a SQL statement. Returns a cached compiled statement which can be used in
+%% queries.
+-spec prepare(Connection, Sql, PrepareFlags) -> PrepareResult when
+      Connection :: esqlite3(),
+      Sql ::  sql(),
+      PrepareFlags :: list(prepare_flags()),
+      PrepareResult :: {ok, esqlite3_stmt()} | {error, _}.
+prepare(#esqlite3{db=Connection}, Sql, PrepareFlags) ->
+    case esqlite3_nif:prepare(Connection, Sql, props_to_prepare_flag(PrepareFlags)) of
+        {ok, Stmt} ->
+            {ok, #esqlite3_stmt{stmt=Stmt}};
+        {error, _}=Error ->
+            Error
     end.
 
 %% @doc Bind an array of values to a prepared statement
@@ -260,68 +332,6 @@ bind_arg(Statement, Column, {text, Value}) ->
     bind_text(Statement, Column, Value);
 bind_arg(Statement, Column, {blob, Value}) ->
     bind_blob(Statement, Column, Value).
-
-
-%% @doc Get the last insert rowid.
-%%
--spec last_insert_rowid(Connection) -> RowidResult when
-      Connection :: esqlite3(),
-      RowidResult :: integer() | {error, closed}.
-last_insert_rowid(#esqlite3{db=Connection}) ->
-    esqlite3_nif:last_insert_rowid(Connection).
-
-%% @doc Get the number of changes in the most recent INSERT, UPDATE or DELETE.
-%%
--spec changes(Connection) -> ChangesResult
-    when Connection :: esqlite3(),
-         ChangesResult :: integer() | {error, closed}.
-changes(#esqlite3{db=Connection}) ->
-    esqlite3_nif:changes(Connection).
-
-
-%% @doc Check if the connection is in auto-commit mode.
-%% See: [https://sqlite.org/c3ref/get_autocommit.html] for more details.
-%%
--spec get_autocommit(Connection) -> AutocommitResult
-    when Connection :: esqlite3(),
-         AutocommitResult ::  true | false | {error, closed}.
-get_autocommit(#esqlite3{db=Connection}) ->
-    esqlite3_nif:get_autocommit(Connection).
-
-%% @doc Compile a SQL statement. Returns a cached compiled statement which can be used in
-%% queries.
-%%
--spec exec(Connection, Sql) -> ExecResult
-    when Connection :: esqlite3(),
-         Sql ::  sql(),
-         ExecResult :: ok | {error, _}.
-exec(#esqlite3{db=Connection}, Sql) ->
-    esqlite3_nif:exec(Connection, Sql).
-
-%% @doc Compile a SQL statement. Returns a cached compiled statement which can be used in
-%% queries.
-%%
--spec prepare(Connection, Sql) -> PrepareResult
-    when Connection :: esqlite3(),
-         Sql ::  sql(),
-         PrepareResult :: {ok, esqlite3_stmt()} | {error, _}.
-prepare(Connection, Sql) ->
-    prepare(Connection, Sql, []).
-
-%% @doc Compile a SQL statement. Returns a cached compiled statement which can be used in
-%% queries.
--spec prepare(Connection, Sql, PrepareFlags) -> PrepareResult when
-      Connection :: esqlite3(),
-      Sql ::  sql(),
-      PrepareFlags :: list(prepare_flags()),
-      PrepareResult :: {ok, esqlite3_stmt()} | {error, _}.
-prepare(#esqlite3{db=Connection}, Sql, PrepareFlags) ->
-    case esqlite3_nif:prepare(Connection, Sql, props_to_prepare_flag(PrepareFlags)) of
-        {ok, Stmt} ->
-            {ok, #esqlite3_stmt{stmt=Stmt}};
-        {error, _}=Error ->
-            Error
-    end.
 
 -spec bind_int(Statement, Index, Value) -> BindResult when
       Statement :: esqlite3_stmt(),
@@ -404,7 +414,7 @@ column_decltypes(#esqlite3_stmt{stmt=Stmt}) ->
 %%
 
 % @doc Initialize a backup procedure. 
-%%
+%      See [https://sqlite.org/backup.html] for more details on the backup api.
 -spec backup_init(esqlite3(), iodata(), esqlite3(), iodata()) -> {ok, esqlite3_backup()} | {error, _}.
 backup_init(#esqlite3{db=Dest}, DestName, #esqlite3{db=Src}, SrcName) ->
     case esqlite3_nif:backup_init(Dest, DestName, Src, SrcName) of
@@ -434,6 +444,9 @@ backup_remaining(#esqlite3_backup{backup=Backup}) ->
 backup_pagecount(#esqlite3_backup{backup=Backup}) ->
     esqlite3_nif:backup_pagecount(Backup).
 
+%%
+%% Status
+%%
 
 %% @doc Get all internal status information from sqlite.
 %%
