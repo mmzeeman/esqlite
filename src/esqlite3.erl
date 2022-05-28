@@ -157,7 +157,7 @@ error_info(#esqlite3{db=Connection}) ->
 %% @doc Interrupt a long running query. See [https://sqlite.org/c3ref/interrupt.html] for more details.
 -spec interrupt(Connection) -> Result 
     when Connection :: esqlite3(),
-         Result:: ok | {error, _}.
+         Result:: ok.
 interrupt(#esqlite3{db=Db}) ->
     esqlite3_nif:interrupt(Db).
 
@@ -170,9 +170,12 @@ interrupt(#esqlite3{db=Db}) ->
 %% ```{update, binary(), binary(), rowid()}''' 
 %% When a row has been updated.
 %%
--spec set_update_hook(esqlite3(), pid() | undefined) -> ok | {error, term()}.
-set_update_hook(#esqlite3{db=Connection}, MaybePid) when is_pid(MaybePid) orelse MaybePid =:= undefined ->
-    esqlite3_nif:set_update_hook(Connection, MaybePid).
+-spec set_update_hook(Connection, Pid) -> Result when
+      Connection :: esqlite3(),
+      Pid :: pid(),
+      Result :: ok | {error, closed}. 
+set_update_hook(#esqlite3{db=Connection}, Pid) ->
+    esqlite3_nif:set_update_hook(Connection, Pid).
 
 %%%
 %%% q
@@ -217,6 +220,10 @@ q(Connection, Sql, Args) ->
 %% fetchall
 %%
 
+% @doc Fetch all rows from the prepared statement.
+-spec fetchall(Statement) -> Result when
+      Statement :: esqlite3_stmt(),
+      Result :: list(row()) | {error, _}.
 fetchall(Statement) ->
     fetchall1(Statement, []).
 
@@ -295,16 +302,23 @@ prepare(#esqlite3{db=Connection}, Sql, PrepareFlags) ->
             Error
     end.
 
-%% @doc Bind an array of values to a prepared statement
-%%
+%% @doc Bind an array of values as parameters of a prepared statement
+-spec bind(Statement, Args) -> Result when
+      Statement :: esqlite3_stmt(),
+      Args :: list(),
+      Result :: ok | {error, _}.
 bind(#esqlite3_stmt{}=Statement, Args) when is_list(Args) ->
     bind1(Statement, 1, Args).
 
 bind1(_Statement, _Column, []) ->
     ok;
 bind1(Statement, Column, [Arg | Args]) ->
-    bind_arg(Statement, Column, Arg),
-    bind1(Statement, Column + 1, Args).
+    case bind_arg(Statement, Column, Arg) of
+        ok ->
+            bind1(Statement, Column + 1, Args);
+        {error, _}=Error ->
+            Error
+    end.
 
 % Bind with automatic tyoe conversion
 bind_arg(Statement, Column, undefined) ->
@@ -382,7 +396,7 @@ bind_null(#esqlite3_stmt{stmt=Stmt}, Index) ->
 
 -spec step(Statement) -> StepResult 
     when Statement :: esqlite3_stmt(),
-         StepResult:: ok | {error, _}.
+         StepResult:: row() | '$done' | {error, _}.
 step(#esqlite3_stmt{stmt=Stmt}) ->
     esqlite3_nif:step(Stmt).
 

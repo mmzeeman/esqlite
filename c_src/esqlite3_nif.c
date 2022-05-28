@@ -1009,7 +1009,7 @@ esqlite_interrupt(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
     esqlite3 *db = (esqlite3 *) conn;
     if(db->db == NULL) {
-        return make_error_tuple(env, "closed");
+        return make_atom(env, "ok");
     }
 
     sqlite3_interrupt(db->db);

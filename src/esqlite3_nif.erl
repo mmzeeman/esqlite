@@ -106,7 +106,7 @@ error_info(_Db) ->
 -spec set_update_hook(Connection, Pid) -> Result
     when Connection :: esqlite3(),
          Pid :: pid(),
-         Result :: ok | {error, _}.
+         Result :: ok | {error, closed}.
 set_update_hook(_Db, _Pid) ->
     erlang:nif_error(nif_library_not_loaded).
 
