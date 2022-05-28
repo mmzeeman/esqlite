@@ -25,7 +25,6 @@
 #include <sqlite3.h>
 
 #define MAX_ATOM_LENGTH 255         /* from atom.h, not exposed in erlang include */
-#define MAX_SQLITE_NAME_LENGTH  255 /* Maximum name length. Using longer will return misuse */
 #define MAX_PATHNAME 512            /* unfortunately not in sqlite.h. */
 
 static ErlNifResourceType *esqlite3_type = NULL;
@@ -77,12 +76,6 @@ static ERL_NIF_TERM
 make_error_tuple(ErlNifEnv *env, const char *reason)
 {
     return enif_make_tuple2(env, make_atom(env, "error"), make_atom(env, reason));
-}
-
-static ERL_NIF_TERM
-make_row_tuple(ErlNifEnv *env, ERL_NIF_TERM value)
-{
-    return enif_make_tuple2(env, make_atom(env, "row"), value);
 }
 
 static ERL_NIF_TERM

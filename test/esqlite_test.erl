@@ -35,7 +35,7 @@ close_test() ->
 
 prepare_test() ->
     {ok, C} = esqlite3:open(":memory:"),
-    ?assertMatch({ok, {esqlite3_stmt, _, _}}, esqlite3:prepare(C, "select 1")),
+    ?assertMatch({ok, {esqlite3_stmt, _}}, esqlite3:prepare(C, "select 1")),
     ok = esqlite3:close(C),
     ok.
 

@@ -47,22 +47,19 @@
     bind_blob/3,
     bind_null/2,
 
-    bind/2,
-
     step/1,
     reset/1,
     interrupt/1,
-
-    q/2, q/3,
-
-    fetchone/1,
-    fetchall/1,
 
     backup_init/4,
     backup_remaining/1,
     backup_pagecount/1,
     backup_step/2,
-    backup_finish/1
+    backup_finish/1,
+
+    bind/2,
+    q/2, q/3,
+    fetchall/1
 ]).
 
 -define(DEFAULT_TIMEOUT, infinity).
@@ -76,7 +73,6 @@
 }).
 
 -record(esqlite3_stmt, {
-    db :: esqlite3_nif:esqlite3(),
     stmt :: esqlite3_nif:esqlite3_stmt()
 }).
 
@@ -203,21 +199,6 @@ q(Connection, Sql, Args) ->
 %% fetchall
 %%
 
-%%
-%-spec fetchone(statement()) -> tuple().
-fetchone(Statement) ->
-    case step(Statement) of
-        Row when is_list(Row) ->
-            Row;
-        '$done' ->
-            ok;
-        {error, _} = E ->
-            E
-    end.
-%
-%%% @doc Fetch all records
-%%% @param Statement is prepared sql statement
-%-spec fetchall(statement()) -> list(row()) | {error, _}.
 fetchall(Statement) ->
     fetchall1(Statement, []).
 
@@ -327,7 +308,7 @@ prepare(Connection, Sql) ->
 prepare(#esqlite3{db=Connection}, Sql, PrepareFlags) ->
     case esqlite3_nif:prepare(Connection, Sql, props_to_prepare_flag(PrepareFlags)) of
         {ok, Stmt} ->
-            {ok, #esqlite3_stmt{db=Connection, stmt=Stmt}};
+            {ok, #esqlite3_stmt{stmt=Stmt}};
         {error, _}=Error ->
             Error
     end.
