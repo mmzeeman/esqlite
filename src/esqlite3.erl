@@ -71,15 +71,15 @@
 -define(SQLITE_PREPARE_NO_VTAB, 16#04).
 
 -record(esqlite3, {
-    db :: esqlite3_nif:esqlite3()
+    db :: esqlite3_nif:esqlite3_ref()
 }).
 
 -record(esqlite3_stmt, {
-    stmt :: esqlite3_nif:esqlite3_stmt()
+    stmt :: esqlite3_nif:esqlite3_stmt_ref()
 }).
 
 -record(esqlite3_backup, {
-    backup :: esqlite3_nif:esqlite3_backup()
+    backup :: esqlite3_nif:esqlite3_backup_ref()
 }).
 
 -type esqlite3() :: #esqlite3{}. 
@@ -131,12 +131,12 @@
 %%
 -spec open(Filename) -> OpenResult
     when Filename :: string(),
-         OpenResult ::  {ok, esqlite3()} | {error, _}.
+         OpenResult ::  {ok, esqlite3()} | esqlite3_nif:error().
 open(Filename) ->
     case esqlite3_nif:open(Filename) of
         {ok, Connection} ->
             {ok, #esqlite3{db=Connection}};
-        {error, _Msg}=Error ->
+        {error, _}=Error ->
             Error
     end.
 
@@ -150,7 +150,7 @@ close(#esqlite3{db=Connection}) ->
 %% @doc Return a description of the last occurred error. 
 -spec error_info(Connection) -> ErrorInfo
     when Connection :: esqlite3(),
-         ErrorInfo :: map().
+         ErrorInfo :: esqlite3_nif:error_info().
 error_info(#esqlite3{db=Connection}) ->
     esqlite3_nif:error_info(Connection).
 
@@ -173,7 +173,7 @@ interrupt(#esqlite3{db=Db}) ->
 -spec set_update_hook(Connection, Pid) -> Result when
       Connection :: esqlite3(),
       Pid :: pid(),
-      Result :: ok | {error, closed}. 
+      Result :: ok. 
 set_update_hook(#esqlite3{db=Connection}, Pid) ->
     esqlite3_nif:set_update_hook(Connection, Pid).
 
@@ -241,7 +241,7 @@ fetchall1(Statement, Acc) ->
 %%      See [https://sqlite.org/c3ref/set_last_insert_rowid.html] for more details.
 -spec last_insert_rowid(Connection) -> RowidResult when
       Connection :: esqlite3(),
-      RowidResult :: integer() | {error, closed}.
+      RowidResult :: integer().
 last_insert_rowid(#esqlite3{db=Connection}) ->
     esqlite3_nif:last_insert_rowid(Connection).
 
@@ -249,7 +249,7 @@ last_insert_rowid(#esqlite3{db=Connection}) ->
 %%      See [https://sqlite.org/c3ref/changes.html] for more details.
 -spec changes(Connection) -> ChangesResult
     when Connection :: esqlite3(),
-         ChangesResult :: integer() | {error, closed}.
+         ChangesResult :: integer().
 changes(#esqlite3{db=Connection}) ->
     esqlite3_nif:changes(Connection).
 
@@ -259,7 +259,7 @@ changes(#esqlite3{db=Connection}) ->
 %%
 -spec get_autocommit(Connection) -> AutocommitResult
     when Connection :: esqlite3(),
-         AutocommitResult ::  true | false | {error, closed}.
+         AutocommitResult ::  true | false.
 get_autocommit(#esqlite3{db=Connection}) ->
     esqlite3_nif:get_autocommit(Connection).
 

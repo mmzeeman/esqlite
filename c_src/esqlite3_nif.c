@@ -282,7 +282,7 @@ esqlite_error_info(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
         enif_make_badarg(env);
     }
 
-    int code = sqlite3_extended_errcode(conn->db);
+    int code = sqlite3_errcode(conn->db);
     int extended_code = sqlite3_extended_errcode(conn->db);
     const char *errstr = sqlite3_errstr(extended_code);
     const char *errmsg = sqlite3_errmsg(conn->db);
@@ -350,14 +350,13 @@ esqlite_set_update_hook(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     }
 
     if(!conn->db) {
-        return make_error_tuple(env, "closed");
+        return enif_raise_exception(env, make_atom(env, "closed"));
     }
 
     if(enif_is_atom(env, argv[1])) {
-        /* Assume this is undefined, reset the connection */
+        /* Reset the hook when an atom is passed */
         sqlite3_update_hook(conn->db, NULL, NULL);
     } else {
-        /* [todo] passing undefined resets the hook? */
         if(!enif_get_local_pid(env, argv[1], &conn->update_hook_pid)) {
             return enif_make_badarg(env);
         }
@@ -1009,7 +1008,7 @@ esqlite_interrupt(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
     esqlite3 *db = (esqlite3 *) conn;
     if(db->db == NULL) {
-        return make_atom(env, "ok");
+        return enif_raise_exception(env, make_atom(env, "closed"));
     }
 
     sqlite3_interrupt(db->db);
@@ -1030,7 +1029,7 @@ esqlite_get_autocommit(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     esqlite3 *db = (esqlite3 *) conn;
 
     if(db->db == NULL) {
-        return make_error_tuple(env, "closed");
+        return enif_raise_exception(env, make_atom(env, "closed"));
     }
 
     if(sqlite3_get_autocommit(db->db)) {
@@ -1054,7 +1053,7 @@ esqlite_last_insert_rowid(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     esqlite3 *db = (esqlite3 *) conn;
 
     if(db->db == NULL) {
-        return make_error_tuple(env, "closed");
+        return enif_raise_exception(env, make_atom(env, "closed"));
     }
 
     sqlite3_int64 last_rowid = sqlite3_last_insert_rowid(db->db);
@@ -1075,7 +1074,7 @@ esqlite_changes(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     esqlite3 *db = (esqlite3 *) conn;
 
     if(db->db == NULL) {
-        return make_error_tuple(env, "closed");
+        return enif_raise_exception(env, make_atom(env, "closed"));
     }
 
     sqlite3_int64 changes = sqlite3_changes64(db->db);
