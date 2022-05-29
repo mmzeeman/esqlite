@@ -13,10 +13,9 @@ in the nif library or the sqlite database can crash the entire Erlang
 VM. If you do not want to take this risk, it is always possible to
 access the sqlite nif from a separate erlang node.
 
-Special care has been taken not to block the scheduler of the calling
-process. This is done by handling all commands from erlang within a
-lightweight thread. The erlang scheduler will get control back when
-the command has been added to the command-queue of the thread.
+Special care has been taken not to block the normal erlang scheduler
+of the calling process. This is done by handling neccesary commands
+from erlang by using a dirty scheduler.
 
 SQLite Compile Options
 ----------------------
@@ -65,4 +64,21 @@ INSERT INTO table VALUES("abcd", 1234);
 
 Will not work, because it sees the value 'abcd' as a SQL object
 value, and not a string literal.
+
+Version 0.8.0
+-------------
+
+This version is a major derivation from previous versions. When 
+I started with this library it was implemented by using a separate
+os level thread per connection. At the time this was the only way
+to use functions in C which take longer to process than 1ms. 
+A lot has changed since then. The VM now has dirty schedulers 
+which make it possible to remove the thread per connection.
+This makes it possible to open a lot more connections. On the
+SQLite side some things have also changed. Extended error codes,
+introspection into the internals. This release modernizes the
+integration. In some places the API is no longer compatible and
+will require small changes. In order to ease this process the 
+library now has typespecs, and the documentation was extended.
+
 

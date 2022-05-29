@@ -1,10 +1,10 @@
 @author Maas-Maarten Zeeman <mmzeeman@xs4all.nl>
 
-@title eSqlite Documentation
+@title ESQLite Documentation
 
 @doc
 
-eSqlite is a library which makes it possible to use sqlite databases in erlang. It is implemented
+ESQLite is a library which makes it possible to use sqlite databases in erlang. It is implemented
 as a NIF, which means that the sqlite database engine is linked to the erlang virtual machine.
 
 <hr />
