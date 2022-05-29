@@ -78,6 +78,7 @@ This makes it possible to open a lot more connections. On the
 SQLite side some things have also changed. Extended error codes,
 introspection into the internals. This release modernizes the
 integration. In some places the API is no longer compatible and
-will require small changes. 
+will require small changes. In order to ease this process the 
+library now has typespecs, and the documentation was extended.
 
 
