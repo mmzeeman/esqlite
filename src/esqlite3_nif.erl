@@ -112,7 +112,6 @@ error_info(_Db) ->
 
 
 %% @doc Set an update hook
-%%
 -spec set_update_hook(Connection, Pid) -> Result
     when Connection :: esqlite3_ref(),
          Pid :: pid(),
@@ -122,40 +121,73 @@ set_update_hook(_Db, _Pid) ->
 
 
 %% @doc Execute a sql statement
-%%
 -spec exec(Connection, Sql) -> ExecResult 
     when Connection :: esqlite3_ref(),
          Sql :: sql(),
-         ExecResult :: ok | {error, _}.
+         ExecResult :: ok | error().
 exec(_Connection, _Sql) ->
     erlang:nif_error(nif_library_not_loaded).
 
 
 %% @doc Compile a sql statement. 
-%%
 -spec prepare(Connection, Sql, PrepareFlags) -> PrepareResult
     when Connection :: esqlite3_ref(),
          Sql :: sql(),
          PrepareFlags :: non_neg_integer(),
-         PrepareResult :: {ok, esqlite3_stmt_ref()} | {error, _}.
+         PrepareResult :: {ok, esqlite3_stmt_ref()} | error().
 prepare(_Connection, _Sql, _PrepareFlags) ->
     erlang:nif_error(nif_library_not_loaded).
 
+% @doc Bind an integer to a position in a prepared statement.
+-spec bind_int(Statement, Index, Value) -> Result when
+      Statement :: esqlite3_stmt_ref(),
+      Index :: integer(),
+      Value :: integer(), %% [todo] Should be a 32 bit integer range.
+      Result :: ok | error().
 bind_int(_Statement, _Index, _Value) ->
     erlang:nif_error(nif_library_not_loaded).
 
+% @doc Bind a 64 bit integer to a position in a prepared statement.
+-spec bind_int64(Statement, Index, Value) -> Result when
+      Statement :: esqlite3_stmt_ref(),
+      Index :: integer(),
+      Value :: integer(), %% [todo] Should be a 64 bit integer range.
+      Result :: ok | error().
 bind_int64(_Statement, _Index, _Value) ->
     erlang:nif_error(nif_library_not_loaded).
 
+% @doc Bind an double/float to a position in a prepared statement.
+-spec bind_double(Statement, Index, Value) -> Result when
+      Statement :: esqlite3_stmt_ref(),
+      Index :: integer(),
+      Value :: float(), %% [todo] Should be a 64 bit integer range.
+      Result :: ok | error().
 bind_double(_Statement, _Index, _Value) ->
     erlang:nif_error(nif_library_not_loaded).
 
+% @doc Bind a utf-8 string to a position in a prepared statement.
+-spec bind_text(Statement, Index, Value) -> Result when
+      Statement :: esqlite3_stmt_ref(),
+      Index :: integer(),
+      Value :: iodata(), %% [todo] Should be a utf-8 iodata.
+      Result :: ok | error().
 bind_text(_Statement, _Index, _Value) ->
     erlang:nif_error(nif_library_not_loaded).
 
+% @doc Bind a blob to a position in a prepared statement.
+-spec bind_blob(Statement, Index, Value) -> Result when
+      Statement :: esqlite3_stmt_ref(),
+      Index :: integer(),
+      Value :: iodata(),
+      Result :: ok | error().
 bind_blob(_Statement, _Index, _Value) ->
     erlang:nif_error(nif_library_not_loaded).
 
+% @doc Bind a null to a position in a prepared statement.
+-spec bind_null(Statement, Index) -> Result when
+      Statement :: esqlite3_stmt_ref(),
+      Index :: integer(),
+      Result :: ok | error().
 bind_null(_Statement, _Index) ->
     erlang:nif_error(nif_library_not_loaded).
 
@@ -188,7 +220,6 @@ column_decltypes(_Stmt) ->
       InitResult :: {ok, esqlite3_backup_ref()} | {error, _}.
 backup_init(_Dest, _DestName, _Src, _SrcName) ->
     erlang:nif_error(nif_library_not_loaded).
-
 
 backup_remaining(_Backup) ->
     erlang:nif_error(nif_library_not_loaded).
@@ -249,7 +280,7 @@ memory_stats(_Flag) ->
 -spec status(Op, HighwaterResetFlag) -> Stats when 
       Op :: integer(),
       HighwaterResetFlag :: integer(),
-      Stats :: #{ used := integer(), highwater := integer() }.
+      Stats :: #{ used := non_neg_integer(), highwater := non_neg_integer() }.
 status(_Op, _Flag) ->
     erlang:nif_error(nif_library_not_loaded).
 

@@ -269,7 +269,7 @@ get_autocommit(#esqlite3{db=Connection}) ->
 -spec exec(Connection, Sql) -> ExecResult
     when Connection :: esqlite3(),
          Sql ::  sql(),
-         ExecResult :: ok | {error, _}.
+         ExecResult :: ok | esqlite3_nif:error().
 exec(#esqlite3{db=Connection}, Sql) ->
     esqlite3_nif:exec(Connection, Sql).
 
@@ -283,7 +283,7 @@ exec(#esqlite3{db=Connection}, Sql) ->
 -spec prepare(Connection, Sql) -> PrepareResult
     when Connection :: esqlite3(),
          Sql ::  sql(),
-         PrepareResult :: {ok, esqlite3_stmt()} | {error, _}.
+         PrepareResult :: {ok, esqlite3_stmt()} | esqlite3_nif:error().
 prepare(Connection, Sql) ->
     prepare(Connection, Sql, []).
 
@@ -351,15 +351,15 @@ bind_arg(Statement, Column, {blob, Value}) ->
       Statement :: esqlite3_stmt(),
       Index :: integer(),
       Value :: integer(),
-      BindResult :: ok | {error, _}.
+      BindResult :: ok | esqlite3_nif:error().
 bind_int(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
     esqlite3_nif:bind_int(Stmt, Index, Value).
 
 -spec bind_int64(Statement, Index, Value) -> BindResult when
       Statement :: esqlite3_stmt(),
-      Index :: integer(),
+      Index :: non_neg_integer(),
       Value :: integer(),
-      BindResult :: ok | {error, _}.
+      BindResult :: ok | esqlite3_nif:error().
 bind_int64(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
     esqlite3_nif:bind_int64(Stmt, Index, Value).
 
@@ -367,7 +367,7 @@ bind_int64(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
     when Statement :: esqlite3_stmt(),
          Index :: integer(),
          Value :: float(),
-         BindResult :: ok | {error, _}.
+         BindResult :: ok | esqlite3_nif:error().
 bind_double(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
     esqlite3_nif:bind_double(Stmt, Index, Value).
 
@@ -375,7 +375,7 @@ bind_double(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
     when Statement :: esqlite3_stmt(),
          Index :: integer(),
          Value :: iodata(),
-         BindResult :: ok | {error, _}.
+         BindResult :: ok | esqlite3_nif:error().
 bind_text(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
     esqlite3_nif:bind_text(Stmt, Index, Value).
 
@@ -383,14 +383,14 @@ bind_text(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
     when Statement :: esqlite3_stmt(),
          Index :: integer(),
          Value :: iodata(),
-         BindResult :: ok | {error, _}.
+         BindResult :: ok | esqlite3_nif:error().
 bind_blob(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
     esqlite3_nif:bind_blob(Stmt, Index, Value).
 
 -spec bind_null(Statement, Index) -> BindResult
     when Statement :: esqlite3_stmt(),
          Index :: integer(),
-         BindResult :: ok | {error, _}.
+         BindResult :: ok | esqlite3_nif:error().
 bind_null(#esqlite3_stmt{stmt=Stmt}, Index) ->
     esqlite3_nif:bind_null(Stmt, Index).
 
