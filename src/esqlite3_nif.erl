@@ -63,6 +63,9 @@
 -type esqlite3_stmt_ref() :: reference().   % Reference to a prepared statement object. See [https://sqlite.org/c3ref/stmt.html] for more details.
 -type esqlite3_backup_ref() :: reference(). % Reference to a online backup object. See [https://sqlite.org/c3ref/backup.html] for more details.
 -type sql() :: iodata().                % Make sure the iodata contains utf-8 encoded data.
+-type rowid() :: integer().
+-type cell() :: undefined | integer() | float() | binary().
+-type row() :: list(cell()).
 -type extended_errcode() :: integer().  % Extended sqlite3 error code. See [https://sqlite.org/rescode.html] for more details.
 -type error() :: {error, extended_errcode()}.
 -type error_info() :: #{ errcode := integer(),  
@@ -72,7 +75,7 @@
                          error_offset := integer()               % The byte offset to the token in the input sql.
                        }.  % See: [https://sqlite.org/c3ref/errcode.html] for more information.
 
--export_type([esqlite3_ref/0, esqlite3_stmt_ref/0, esqlite3_backup_ref/0, sql/0, error/0, error_info/0]).
+-export_type([esqlite3_ref/0, esqlite3_stmt_ref/0, esqlite3_backup_ref/0, sql/0, rowid/0, cell/0, row/0, error/0, error_info/0]).
 
 -on_load(init/0).
 
@@ -191,21 +194,31 @@ bind_blob(_Statement, _Index, _Value) ->
 bind_null(_Statement, _Index) ->
     erlang:nif_error(nif_library_not_loaded).
 
+-spec step(Statement) -> StepResult when
+      Statement :: esqlite3_stmt_ref(),
+      StepResult :: row() | '$done' | error().
 step(_Statement) ->
     erlang:nif_error(nif_library_not_loaded).
 
+-spec reset(Statement) -> ResetResult when
+      Statement :: esqlite3_stmt_ref(),
+      ResetResult :: ok | error().
 reset(_Statement) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @doc Retrieve the column names of the prepared statement
 %%
--spec column_names(esqlite3_stmt_ref()) -> list(binary()) | {error, _}.
+-spec column_names(Statement) -> Names when
+      Statement :: esqlite3_stmt_ref(),
+      Names :: list(unicode:unicode_binary()).
 column_names(_Stmt) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @doc Retrieve the declared datatypes of all columns.
 %%
--spec column_decltypes(esqlite3_stmt_ref()) -> list(undefined | binary()) | {error, _}.
+-spec column_decltypes(Statement) -> Types when
+      Statement :: esqlite3_stmt_ref(),
+      Types :: list(undefined | unicode:unicode_binary()).
 column_decltypes(_Stmt) ->
     erlang:nif_error(nif_library_not_loaded).
 
@@ -240,7 +253,7 @@ interrupt(_Db) ->
 
 %% @doc Get the last insert rowid.
 %%
--spec last_insert_rowid(esqlite3_ref()) -> integer().
+-spec last_insert_rowid(esqlite3_ref()) -> rowid().
 last_insert_rowid(_Connection) ->
     erlang:nif_error(nif_library_not_loaded).
 

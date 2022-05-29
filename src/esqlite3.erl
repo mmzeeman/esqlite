@@ -97,22 +97,12 @@
                           pagecache_size := stats(),
                           malloc_count := stats() }.
 -type stats() :: #{ used := non_neg_integer(), highwater := non_neg_integer() }.
+-type rowid() :: esqlite3_nif:rowid().
+-type cell() :: esqlite3_nif:cell().
+-type row() :: esqlite3_nif:row().
+-type error() :: esqlite3_nif:error().
 
-%% erlang -> sqlite type conversions
-%%
-%% 'undefined' -> null
-%% 'null' -> null
-%% atom() -> text
-%% int() -> int or int64
-%% float() -> double
-%% string() -> text
-%% binary() -> text
-
--type rowid() :: integer().
--type cell_type() :: undefined | integer() | binary() | float().
--type row() :: list(cell_type()). % tuple of cell_type
-
--export_type([esqlite3/0, esqlite3_stmt/0, esqlite3_backup/0, prepare_flags/0, sql/0, row/0, rowid/0, cell_type/0]).
+-export_type([esqlite3/0, esqlite3_stmt/0, esqlite3_backup/0, prepare_flags/0, sql/0, row/0, rowid/0, cell/0]).
 
 %% @doc Opens a sqlite3 database mentioned in Filename.
 %%
@@ -121,7 +111,7 @@
 %% information about this can be found here: [https://sqlite.org/uri.html] 
 %%
 %% Example:
-%%
+%
 %% ```open("file:data.db")'''
 %%     Opens "data.db" in the current working directory
 %% ```open("file:data.db?mode=ro&cache=private")''' 
@@ -131,7 +121,7 @@
 %%
 -spec open(Filename) -> OpenResult
     when Filename :: string(),
-         OpenResult ::  {ok, esqlite3()} | esqlite3_nif:error().
+         OpenResult ::  {ok, esqlite3()} | error().
 open(Filename) ->
     case esqlite3_nif:open(Filename) of
         {ok, Connection} ->
@@ -185,7 +175,7 @@ set_update_hook(#esqlite3{db=Connection}, Pid) ->
 -spec q(Connection, Sql) -> Result when
       Connection :: esqlite3(),
       Sql :: sql(),
-      Result :: list(row()) | {error, _}.
+      Result :: list(row()) | error().
 q(Connection, Sql) ->
     q(Connection, Sql, []).
 
@@ -194,7 +184,7 @@ q(Connection, Sql) ->
       Connection :: esqlite3(),
       Sql :: sql(),
       Args :: list(), 
-      Result :: list(row()) | {error, _}.
+      Result :: list(row()) | error().
 q(Connection, Sql, []) ->
     case prepare(Connection, Sql) of
         {ok, Statement} ->
@@ -223,7 +213,7 @@ q(Connection, Sql, Args) ->
 % @doc Fetch all rows from the prepared statement.
 -spec fetchall(Statement) -> Result when
       Statement :: esqlite3_stmt(),
-      Result :: list(row()) | {error, _}.
+      Result :: list(row()) | error().
 fetchall(Statement) ->
     fetchall1(Statement, []).
 
@@ -269,7 +259,7 @@ get_autocommit(#esqlite3{db=Connection}) ->
 -spec exec(Connection, Sql) -> ExecResult
     when Connection :: esqlite3(),
          Sql ::  sql(),
-         ExecResult :: ok | esqlite3_nif:error().
+         ExecResult :: ok | error().
 exec(#esqlite3{db=Connection}, Sql) ->
     esqlite3_nif:exec(Connection, Sql).
 
@@ -283,7 +273,7 @@ exec(#esqlite3{db=Connection}, Sql) ->
 -spec prepare(Connection, Sql) -> PrepareResult
     when Connection :: esqlite3(),
          Sql ::  sql(),
-         PrepareResult :: {ok, esqlite3_stmt()} | esqlite3_nif:error().
+         PrepareResult :: {ok, esqlite3_stmt()} | error().
 prepare(Connection, Sql) ->
     prepare(Connection, Sql, []).
 
@@ -351,7 +341,7 @@ bind_arg(Statement, Column, {blob, Value}) ->
       Statement :: esqlite3_stmt(),
       Index :: integer(),
       Value :: integer(),
-      BindResult :: ok | esqlite3_nif:error().
+      BindResult :: ok | error().
 bind_int(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
     esqlite3_nif:bind_int(Stmt, Index, Value).
 
@@ -359,7 +349,7 @@ bind_int(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
       Statement :: esqlite3_stmt(),
       Index :: non_neg_integer(),
       Value :: integer(),
-      BindResult :: ok | esqlite3_nif:error().
+      BindResult :: ok | error().
 bind_int64(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
     esqlite3_nif:bind_int64(Stmt, Index, Value).
 
@@ -367,7 +357,7 @@ bind_int64(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
     when Statement :: esqlite3_stmt(),
          Index :: integer(),
          Value :: float(),
-         BindResult :: ok | esqlite3_nif:error().
+         BindResult :: ok | error().
 bind_double(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
     esqlite3_nif:bind_double(Stmt, Index, Value).
 
@@ -375,7 +365,7 @@ bind_double(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
     when Statement :: esqlite3_stmt(),
          Index :: integer(),
          Value :: iodata(),
-         BindResult :: ok | esqlite3_nif:error().
+         BindResult :: ok | error().
 bind_text(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
     esqlite3_nif:bind_text(Stmt, Index, Value).
 
@@ -383,26 +373,27 @@ bind_text(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
     when Statement :: esqlite3_stmt(),
          Index :: integer(),
          Value :: iodata(),
-         BindResult :: ok | esqlite3_nif:error().
+         BindResult :: ok | error().
 bind_blob(#esqlite3_stmt{stmt=Stmt}, Index, Value) ->
     esqlite3_nif:bind_blob(Stmt, Index, Value).
 
 -spec bind_null(Statement, Index) -> BindResult
     when Statement :: esqlite3_stmt(),
          Index :: integer(),
-         BindResult :: ok | esqlite3_nif:error().
+         BindResult :: ok | error().
 bind_null(#esqlite3_stmt{stmt=Stmt}, Index) ->
     esqlite3_nif:bind_null(Stmt, Index).
 
 -spec step(Statement) -> StepResult 
     when Statement :: esqlite3_stmt(),
-         StepResult:: row() | '$done' | {error, _}.
+         StepResult:: row() | '$done' | error().
 step(#esqlite3_stmt{stmt=Stmt}) ->
     esqlite3_nif:step(Stmt).
 
+% @doc Reset the prepared statement.
 -spec reset(Statement) -> ResetResult 
     when Statement :: esqlite3_stmt(),
-         ResetResult:: ok | {error, _}.
+         ResetResult:: ok | error().
 reset(#esqlite3_stmt{stmt=Stmt}) ->
     esqlite3_nif:reset(Stmt).
 
