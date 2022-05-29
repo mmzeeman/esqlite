@@ -430,22 +430,28 @@ backup_init(#esqlite3{db=Dest}, DestName, #esqlite3{db=Src}, SrcName) ->
     end.
 
 %% @doc Release the resources held by the backup.
--spec backup_finish(esqlite3_backup()) -> ok | {error, _}.
+-spec backup_finish(Backup) -> Result when
+      Backup :: esqlite3_backup(),
+      Result :: ok | error().
 backup_finish(#esqlite3_backup{backup=Backup}) ->
     esqlite3_nif:backup_finish(Backup).
 
 %% @doc Do a backup step. 
--spec backup_step(esqlite3_backup(), integer()) -> ok | {error, _}.
+-spec backup_step(esqlite3_backup(), integer()) -> ok | '$done' | error().
 backup_step(#esqlite3_backup{backup=Backup}, NPage) ->
     esqlite3_nif:backup_step(Backup, NPage).
 
 %% @doc Get the remaining number of pages which need to be backed up.
--spec backup_remaining(esqlite3_backup()) -> pos_integer().
+-spec backup_remaining(Backup) -> Remaining when
+      Backup :: esqlite3_backup(),
+      Remaining :: integer().
 backup_remaining(#esqlite3_backup{backup=Backup}) ->
     esqlite3_nif:backup_remaining(Backup).
 
 %% @doc Get the remaining number of pages which need to be backed up.
--spec backup_pagecount(esqlite3_backup()) -> pos_integer().
+-spec backup_pagecount(Backup) -> Pagecount when
+      Backup :: esqlite3_backup(),
+      Pagecount :: integer().
 backup_pagecount(#esqlite3_backup{backup=Backup}) ->
     esqlite3_nif:backup_pagecount(Backup).
 

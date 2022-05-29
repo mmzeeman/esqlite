@@ -943,7 +943,7 @@ esqlite_backup_step(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
     int rc = sqlite3_backup_step(backup->backup, n_page);
     if(rc == SQLITE_DONE) {
-        return make_atom(env, "done");
+        return make_atom(env, "$done");
     }  
 
     if(rc != SQLITE_OK) {

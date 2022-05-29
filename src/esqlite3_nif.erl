@@ -224,25 +224,37 @@ column_decltypes(_Stmt) ->
 
 
 %% @doc Initialize a backup procedure of a database.
-%    erlang:nif_error(nif_library_not_loaded).
 -spec backup_init(Destination, DestinationName, Source, SourceName) -> InitResult when
       Destination :: esqlite3_ref(),
       DestinationName :: iodata(),
       Source :: esqlite3_ref(),
       SourceName :: iodata(),
-      InitResult :: {ok, esqlite3_backup_ref()} | {error, _}.
+      InitResult :: {ok, esqlite3_backup_ref()} | error().
 backup_init(_Dest, _DestName, _Src, _SrcName) ->
     erlang:nif_error(nif_library_not_loaded).
 
+-spec backup_remaining(Backup) -> Remaining when
+      Backup :: esqlite3_backup_ref(),
+      Remaining :: integer().
 backup_remaining(_Backup) ->
     erlang:nif_error(nif_library_not_loaded).
 
+-spec backup_pagecount(Backup) -> Pagecount when
+      Backup :: esqlite3_backup_ref(),
+      Pagecount :: integer().
 backup_pagecount(_Backup) ->
     erlang:nif_error(nif_library_not_loaded).
 
+-spec backup_step(Backup, NPage) -> Result when
+      Backup :: esqlite3_backup_ref(),
+      NPage :: integer(),
+      Result :: ok | '$done' | error().
 backup_step(_Backup, _PageCount) ->
     erlang:nif_error(nif_library_not_loaded).
 
+-spec backup_finish(Backup) -> Result when
+      Backup :: esqlite3_backup_ref(),
+      Result :: ok | error().
 backup_finish(_Backup) ->
     erlang:nif_error(nif_library_not_loaded).
 

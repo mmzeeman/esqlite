@@ -430,7 +430,7 @@ backup_test() ->
     0 = esqlite3:backup_remaining(Backup),
     0 = esqlite3:backup_pagecount(Backup),
 
-    done = esqlite3:backup_step(Backup, 1),
+    '$done' = esqlite3:backup_step(Backup, 1),
 
     cleanup(),
 
@@ -467,7 +467,7 @@ backup1_test() ->
     27 = esqlite3:backup_pagecount(Backup),
 
     %% Do all the remaining pages.
-    done = esqlite3:backup_step(Backup, -1),
+    '$done' = esqlite3:backup_step(Backup, -1),
 
     0 = esqlite3:backup_remaining(Backup),
     27 = esqlite3:backup_pagecount(Backup),
