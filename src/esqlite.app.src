@@ -1,7 +1,7 @@
 {application, esqlite,
  [
   {description, "sqlite nif interface"},
-  {vsn, "0.8.1"},
+  {vsn, "0.8.2"},
   {modules, [esqlite3, esqlite3_nif]},
   {registered, []},
   {licenses, ["Apache"]},

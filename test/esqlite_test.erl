@@ -184,16 +184,18 @@ simple_query_test() ->
 prepare2_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
     esqlite3:exec(Db, "begin;"),
-    esqlite3:exec(Db, "create table test_table(one varchar(10), two int);"),
-    {ok, Statement} = esqlite3:prepare(Db, "insert into test_table values('one', 2)"),
+    esqlite3:exec(Db, "create table test_table(one varchar(10), two integer);"),
+    {ok, Statement} = esqlite3:prepare(Db, "insert into test_table values('one', 1)"),
 
     '$done' = esqlite3:step(Statement),
     1 = esqlite3:changes(Db),
 
-    ok = esqlite3:exec(Db, "insert into test_table values('hello4', 13);"),
+    ok = esqlite3:exec(Db, "insert into test_table values('two', 2);"),
 
     %% Check if the values are there.
-    [[<<"one">>, 2], [<<"hello4">>, 13]] = esqlite3:q(Db, "select * from test_table order by two"),
+    ?assertEqual([[<<"one">>, 1],
+                  [<<"two">>, 2]],
+                 esqlite3:q(Db, "select one, two from test_table order by two asc")),
     esqlite3:exec(Db, "commit;"),
     esqlite3:close(Db),
 

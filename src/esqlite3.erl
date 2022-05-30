@@ -222,8 +222,7 @@ fetchall1(Statement, Acc) ->
         Row when is_list(Row) ->
             fetchall1(Statement, [Row|Acc]);
         '$done' -> 
-            Acc;
-            %% lists:reverse(Acc);
+            lists:reverse(Acc);
         {error, _} = E ->
             E
     end.
