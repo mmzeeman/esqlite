@@ -333,6 +333,8 @@ update_callback(void *arg, int sqlite_operation_type, char const *sqlite_databas
     if(!enif_send(NULL, &conn->update_hook_pid, msg_env, msg)) {
         sqlite3_update_hook(conn->db, NULL, NULL);
     }
+
+    enif_free_env(msg_env);
 }
 
 
