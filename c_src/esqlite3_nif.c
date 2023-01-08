@@ -754,6 +754,38 @@ esqlite_bind_null(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 }
 
 static ERL_NIF_TERM
+esqlite_bind_parameter_index(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    esqlite3_stmt *stmt;
+    ErlNifBinary bin;
+    int index;
+    ERL_NIF_TERM eos = enif_make_int(env, 0);
+
+    if(argc != 2) {
+        return enif_make_badarg(env);
+    }
+
+    if(!enif_get_resource(env, argv[0], esqlite3_stmt_type, (void **) &stmt)) {
+        return enif_make_badarg(env);
+    }
+
+    if(!stmt->statement) {
+        return enif_raise_exception(env, make_atom(env, "no_prepared_statement"));   
+    }
+
+    if(!enif_inspect_iolist_as_binary(env, enif_make_list2(env, argv[1], eos), &bin)) {
+        return enif_make_badarg(env);
+    }
+
+    index = sqlite3_bind_parameter_index(stmt->statement, bin.data);
+    if(index == 0) {
+        return enif_make_atom(env, "error");
+    }
+
+    return make_ok_tuple(env, enif_make_int(env, index));
+}
+
+static ERL_NIF_TERM
 esqlite_step(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
     esqlite3_stmt *stmt;
@@ -1202,6 +1234,7 @@ static ErlNifFunc nif_funcs[] = {
     {"bind_text", 3, esqlite_bind_text},
     {"bind_blob", 3, esqlite_bind_blob},
     {"bind_null", 2, esqlite_bind_null},
+    {"bind_parameter_index", 2, esqlite_bind_parameter_index},
 
     {"step", 1, esqlite_step, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"reset", 1, esqlite_reset},

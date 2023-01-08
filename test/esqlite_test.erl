@@ -281,6 +281,26 @@ bind_for_queries_test() ->
 
     ok.
 
+named_bind_for_queries_test() ->
+    {ok, Db} = esqlite3:open(":memory:"),
+
+    ok = esqlite3:exec(Db, "begin;"),
+    ok = esqlite3:exec(Db, "create table test_table(one varchar(10), two int);"),
+    ok = esqlite3:exec(Db, "commit;"),
+
+    ?assertEqual([[1]], esqlite3:q(Db, <<"SELECT count(type) FROM sqlite_master WHERE type='table' AND name=:name;">>,
+                                   [{<<":name">>, "test_table"}])),
+    ?assertEqual([[1]], esqlite3:q(Db, <<"SELECT count(type) FROM sqlite_master WHERE type='table' AND name=$name;">>,
+                                   [{"$name", test_table}])),
+    ?assertEqual([[1]], esqlite3:q(Db, <<"SELECT count(type) FROM sqlite_master WHERE type='table' AND name=@name;">>,
+                                   [{"@name", <<"test_table">>}])),
+    ?assertEqual([[1]], esqlite3:q(Db, <<"SELECT count(type) FROM sqlite_master WHERE type='table' AND name=:name;">>,
+                                   #{":name" => test_table})),
+    ?assertEqual([[1]], esqlite3:q(Db, <<"SELECT count(type) FROM sqlite_master WHERE type='table' AND name=:name;">>,
+                                   [{text, ":name", "test_table"}])),
+
+    ok.
+
 column_names2_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
     ok = esqlite3:exec(Db, "begin;"),
