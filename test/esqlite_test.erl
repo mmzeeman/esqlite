@@ -395,7 +395,7 @@ error1_msg_test() ->
     %% Database test does not exist.
     {error, 1} = esqlite3:exec(Db, "select * from test;"),
 
-    %% Opening non-existant database.
+    %% Opening non-existent database.
     {error, 14} = esqlite3:open("/dit/bestaat/niet"),
 
     ok.
@@ -407,7 +407,7 @@ prepare_and_close_connection_test() ->
     ok = esqlite3:exec(Db, ["insert into test values(1,2,3);"]),
     {ok, Stmt} = esqlite3:prepare(Db, "select * from test"),
 
-    %% The prepated statment works.
+    %% The prepared statement works.
     [1,2,3] = esqlite3:step(Stmt),
     '$done' = esqlite3:step(Stmt),
 

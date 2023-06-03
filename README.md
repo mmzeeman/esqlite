@@ -14,7 +14,7 @@ VM. If you do not want to take this risk, it is always possible to
 access the sqlite nif from a separate erlang node.
 
 Special care has been taken not to block the normal erlang scheduler
-of the calling process. This is done by handling neccesary commands
+of the calling process. This is done by handling necessary commands
 from erlang by using a dirty scheduler.
 
 SQLite Compile Options
@@ -45,7 +45,7 @@ SQLITE_ENABLE_GEOPOLY
 
 The use of flag `SQLITE_DQS=0` is new in version `0.7`. It can lead
 to incompatibilities with respect to the use of single and double 
-qouted values. Historically sqlite didn't differentiate between double
+quoted values. Historically sqlite didn't differentiate between double
 and single quoted values, but SQL does. In retrospect, the authors of 
 sqlite, think this was a mistake, and introduced this compile flag 
 to correct this mistake. It means that string literals **must** use 
