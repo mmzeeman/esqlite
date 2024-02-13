@@ -42,6 +42,7 @@
     bind_text/3,
     bind_blob/3,
     bind_null/2,
+    bind_parameter_index/2,
 
     step/1,
 
@@ -192,6 +193,13 @@ bind_blob(_Statement, _Index, _Value) ->
       Index :: integer(),
       Result :: ok | error().
 bind_null(_Statement, _Index) ->
+    erlang:nif_error(nif_library_not_loaded).
+
+-spec bind_parameter_index(Statement, ParameterName) -> Result when
+      Statement :: esqlite3_stmt_ref(),
+      ParameterName :: iodata(),
+      Result :: {ok, integer()} | error.
+bind_parameter_index(_Statement, _ParameterName) ->
     erlang:nif_error(nif_library_not_loaded).
 
 -spec step(Statement) -> StepResult when
