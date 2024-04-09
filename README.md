@@ -21,7 +21,7 @@ SQLite Compile Options
 ----------------------
 
 Esqlite contains an embedded version of sqlite3. Currently version
-`3.37.2` is embedded in the repositoy. It is also possible to use 
+`3.45.2` is embedded in the repositoy. It is also possible to use 
 sqlite provided by the system by using the `ESQLITE_USE_SYSTEM` 
 environment flag. 
 
