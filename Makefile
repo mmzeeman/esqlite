@@ -26,7 +26,7 @@ clean: $(REBAR3)
 distclean:
 	rm $(REBAR3)
 
-# dializer
+# dialyzer
 
 build-plt:
 	@$(DIALYZER) --build_plt --output_plt .$(PROJECT).plt \

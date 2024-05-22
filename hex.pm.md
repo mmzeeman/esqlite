@@ -3,8 +3,9 @@
 Releases of [esqlite on hex.pm](https://hex.pm/packages/esqlite) are managed by Connor Rigby ([@connorrigby](https://github.com/connorrigby)).
 
 ## Setup
-1. Install rebar3
-2. [Install hex plugin](https://hex.pm/docs/rebar3_usage#installation)
+
+1. Install rebar3.
+2. [Install hex plugin](https://hex.pm/docs/rebar3_usage#installation).
 3. Run `rebar3 update`.
 
 ## Make a Release
