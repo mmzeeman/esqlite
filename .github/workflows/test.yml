@@ -10,18 +10,18 @@ jobs:
   linux:
     name: Test on OTP ${{ matrix.otp_version }}
     runs-on: ${{ matrix.os }}
-    
+
     strategy:
       matrix:
-        otp_version: [22,23,24]
+        otp_version: [22,23,24,25,26,27]
         os: [ubuntu-latest]
-      
+
     container:
       image: erlang:${{ matrix.otp_version }}
-    
+
     steps:
       - uses: actions/checkout@v2
       - name: Compile
         run: make
       - name: Test
-        run: make test 
+        run: make test
