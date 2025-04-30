@@ -41,6 +41,9 @@ CFlags =
         {"solaris", "CFLAGS",
             "$CFLAGS -std=c99"},
 
+        {"android", "DRV_LDFLAGS",
+             "$DRV_LDFLAGS -lm"},
+
         {"linux", "CFLAGS",
             "$CFLAGS -std=c11"},
 
