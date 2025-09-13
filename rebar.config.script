@@ -34,9 +34,9 @@ CFlags =
                    deprecated_functions]},
 
     {port_env, [
-        %% Default darwin ldflags causes loading of system sqlite. Removed -bundle flag.
+        %% Default darwin ldflags causes loading of system sqlite. Build a dynamiclib.
         {"darwin", "DRV_LDFLAGS",
-            "-flat_namespace -undefined suppress $ERL_LDFLAGS"},
+            "-dynamiclib -undefined dynamic_lookup $ERL_LDFLAGS"},
 
         {"solaris", "CFLAGS",
             "$CFLAGS -std=c99"},
