@@ -507,15 +507,16 @@ sqlite_version_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
     {ok, Stmt} = esqlite3:prepare(Db, "select sqlite_version() as sqlite_version;"),
     [<<"sqlite_version">>] = esqlite3:column_names(Stmt),
-    ?assertEqual([<<"3.47.2">>], esqlite3:step(Stmt)),
+    ?assertEqual([<<"3.50.4">>], esqlite3:step(Stmt)),
     ok.
 
 sqlite_source_id_test() ->
     {ok, Db} = esqlite3:open(":memory:"),
     {ok, Stmt} = esqlite3:prepare(Db, "select sqlite_source_id() as sqlite_source_id;"),
     [<<"sqlite_source_id">>] = esqlite3:column_names(Stmt),
-    ?assertEqual([<<"2024-12-07 20:39:59 2aabe05e2e8cae4847a802ee2daddc1d7413d8fc560254d93ee3e72c14685b6c">>],
-                 esqlite3:step(Stmt)),
+    ?assertEqual(
+       [<<"2025-07-30 19:33:53 4d8adfb30e03f9cf27f800a2c1ba3c48fb4ca1b08b0f5ed59a4d5ecbf45e20a3">>],
+       esqlite3:step(Stmt)),
     ok.
 
 interrupt_on_timeout_test() ->
