@@ -422,7 +422,7 @@ bind_null(#esqlite3_stmt{stmt=Stmt}, Index) ->
 
 -spec step(Statement) -> StepResult 
     when Statement :: esqlite3_stmt(),
-         StepResult:: row() | '$done' | error().
+         StepResult:: row() | '$done' | '$busy' | error().
 step(#esqlite3_stmt{stmt=Stmt}) ->
     esqlite3_nif:step(Stmt).
 
