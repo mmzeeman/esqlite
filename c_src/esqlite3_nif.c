@@ -25,7 +25,6 @@
 #include <sqlite3.h>
 
 #define MAX_ATOM_LENGTH 255         /* from atom.h, not exposed in erlang include */
-#define MAX_PATHNAME 512            /* unfortunately not in sqlite.h. */
 
 static ErlNifResourceType *esqlite3_type = NULL;
 static ErlNifResourceType *esqlite3_stmt_type = NULL;
@@ -170,6 +169,10 @@ make_cell(ErlNifEnv *env, sqlite3_stmt *statement, unsigned int i)
     return enif_raise_exception(env, make_atom(env, "internal_error"));
 }
 
+static void cleanup_enif_free(void *p) {
+  enif_free(*(void **)p);
+}
+
 /*
  * Open the database
  */
@@ -177,7 +180,6 @@ static ERL_NIF_TERM
 esqlite_open(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
     esqlite3 *conn;
-    char filename[MAX_PATHNAME];
 
     if(argc != 1) {
         return enif_make_badarg(env);
@@ -187,9 +189,20 @@ esqlite_open(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
         return enif_raise_exception(env, make_atom(env, "not_thread_safe"));
     }
 
-    int size = enif_get_string(env, argv[0], filename, MAX_PATHNAME, ERL_NIF_LATIN1);
-    if(size <= 0) {
-        return make_error_tuple(env, "invalid_filename");
+    __attribute__((cleanup(cleanup_enif_free))) char *filename = NULL;
+    for(unsigned max = 256; ; max *= 2) {
+        enif_free(filename);
+        filename = enif_alloc(max);
+        if(!filename) {
+            return enif_raise_exception(env, make_atom(env, "no_memory"));
+        }
+
+        int size = enif_get_string(env, argv[0], filename, max, ERL_NIF_LATIN1);
+        if(size == 0) {
+            return make_error_tuple(env, "invalid_filename");
+        } else if(size > 0) {
+            break;
+        }
     }
 
     /* Initialize the resource */
