@@ -253,8 +253,7 @@ changes(#esqlite3{db=Connection}) ->
 get_autocommit(#esqlite3{db=Connection}) ->
     esqlite3_nif:get_autocommit(Connection).
 
-%% @doc Compile a SQL statement. Returns a cached compiled statement which can be used in
-%% queries.
+%% @doc Execute series of semicolon-delimited SQL statements.
 %%
 -spec exec(Connection, Sql) -> ExecResult
     when Connection :: esqlite3(),
@@ -346,7 +345,7 @@ bind2(#esqlite3_stmt{stmt=Stmt}=Statement, [{ParameterName, Value} | Args]) ->
             {error, named_parameter_not_found}
     end.
 
-% Bind with automatic tyoe conversion
+% Bind with automatic type conversion
 bind_arg(Statement, Column, undefined) ->
     bind_null(Statement, Column);
 bind_arg(Statement, Column, null) ->
