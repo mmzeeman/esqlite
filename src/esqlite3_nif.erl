@@ -31,6 +31,7 @@
     last_insert_rowid/1,
     changes/1,
     exec/2,
+    load_extension/2,
     prepare/3,
 
     column_names/1,
@@ -133,7 +134,20 @@ exec(_Connection, _Sql) ->
     erlang:nif_error(nif_library_not_loaded).
 
 
-%% @doc Compile a sql statement. 
+%% @doc Load a shared-library extension into this connection. Enables only
+%%      the C-API (sqlite3_db_config/SQLITE_DBCONFIG_ENABLE_LOAD_EXTENSION),
+%%      never the SQL-callable load_extension() function, and turns even
+%%      that back off again immediately after this one load — see the NIF
+%%      source for why.
+-spec load_extension(Connection, FilePath) -> Result
+    when Connection :: esqlite3_ref(),
+         FilePath :: iodata(),
+         Result :: ok | error().
+load_extension(_Connection, _FilePath) ->
+    erlang:nif_error(nif_library_not_loaded).
+
+
+%% @doc Compile a sql statement.
 -spec prepare(Connection, Sql, PrepareFlags) -> PrepareResult
     when Connection :: esqlite3_ref(),
          Sql :: sql(),
