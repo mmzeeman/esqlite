@@ -416,6 +416,56 @@ esqlite_exec(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
 
 /*
+ * Load a shared-library extension into this connection.
+ *
+ * Deliberately uses sqlite3_db_config(SQLITE_DBCONFIG_ENABLE_LOAD_EXTENSION)
+ * rather than sqlite3_enable_load_extension(): per sqlite3_load_extension()'s
+ * own doc comment, the db_config method enables only the C-API, leaving the
+ * SQL-callable load_extension() function disabled — so a SQL-injection bug
+ * elsewhere can never leverage this into loading an arbitrary shared library.
+ * The capability is turned back off immediately after the one load this call
+ * makes, successful or not; an already-loaded extension's registrations
+ * (tokenizers, functions, ...) are unaffected by that — only the ability to
+ * load another one goes away.
+ */
+static ERL_NIF_TERM
+esqlite_load_extension(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    esqlite3 *conn;
+    ErlNifBinary bin;
+    int rc;
+    ERL_NIF_TERM eos = enif_make_int(env, 0);
+
+    if(argc != 2) {
+        return enif_make_badarg(env);
+    }
+
+    if(!enif_get_resource(env, argv[0], esqlite3_type, (void **) &conn)) {
+        return enif_make_badarg(env);
+    }
+
+    if(!enif_inspect_iolist_as_binary(env, enif_make_list2(env, argv[1], eos), &bin)) {
+        return enif_make_badarg(env);
+    }
+
+    rc = sqlite3_db_config(conn->db, SQLITE_DBCONFIG_ENABLE_LOAD_EXTENSION, 1, NULL);
+    if(rc != SQLITE_OK) {
+        return make_sqlite3_error_tuple(env, rc);
+    }
+
+    rc = sqlite3_load_extension(conn->db, (char *) bin.data, NULL, NULL);
+
+    sqlite3_db_config(conn->db, SQLITE_DBCONFIG_ENABLE_LOAD_EXTENSION, 0, NULL);
+
+    if(rc != SQLITE_OK) {
+        return make_sqlite3_error_tuple(env, rc);
+    }
+
+    return make_atom(env, "ok");
+}
+
+
+/*
  * Prepare the sql statement
  */
 static ERL_NIF_TERM
@@ -1236,6 +1286,7 @@ static ErlNifFunc nif_funcs[] = {
     {"set_update_hook", 2, esqlite_set_update_hook},
 
     {"exec", 2, esqlite_exec, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"load_extension", 2, esqlite_load_extension, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"prepare", 3, esqlite_prepare},
 
     {"column_names", 1, esqlite_column_names},

@@ -33,6 +33,7 @@
 
     %% queries
     exec/2,
+    load_extension/2,
     prepare/2,
     prepare/3,
 
@@ -261,6 +262,17 @@ get_autocommit(#esqlite3{db=Connection}) ->
          ExecResult :: ok | error().
 exec(#esqlite3{db=Connection}, Sql) ->
     esqlite3_nif:exec(Connection, Sql).
+
+%% @doc Load a shared-library extension into this connection. Its own
+%%      SQL-callable load_extension() function stays disabled throughout
+%%      (see esqlite3_nif:load_extension/2's own doc), so this is the only
+%%      way to load one — no SQL statement can.
+-spec load_extension(Connection, FilePath) -> Result
+    when Connection :: esqlite3(),
+         FilePath :: iodata(),
+         Result :: ok | error().
+load_extension(#esqlite3{db=Connection}, FilePath) ->
+    esqlite3_nif:load_extension(Connection, FilePath).
 
 %%
 %% Prepared Statements
