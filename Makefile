@@ -2,13 +2,24 @@ PROJECT = esqlite
 DIALYZER = dialyzer
 
 ERL       ?= erl
-REBAR3 := $(shell which rebar3 2>/dev/null || echo ./rebar3)
+
+# Use a system-wide rebar3 if there is one, otherwise fall back to a local copy
+SYSTEM_REBAR3 := $(shell which rebar3 2>/dev/null)
+ifeq ($(SYSTEM_REBAR3),)
+REBAR3 := ./rebar3
+else
+REBAR3 := $(SYSTEM_REBAR3)
+endif
+
 REBAR3_VERSION := 3.27.3
 REBAR3_URL := https://github.com/erlang/rebar3/releases/download/$(REBAR3_VERSION)/rebar3
 REBAR_SHA256 := f1d87d78decfc56b87d971c75ee6355698ec0c49fadd57f2c056043b7ca291b5
 REBAR_STAMP := ./.rebar3-$(REBAR_SHA256)
 
 all: compile
+
+# Only download rebar3 when we have to install it in ./rebar3
+ifeq ($(REBAR3),./rebar3)
 
 $(REBAR_STAMP):
 	rm -f ./.rebar-*
@@ -17,6 +28,8 @@ $(REBAR_STAMP):
 
 $(REBAR3): $(REBAR_STAMP)
 	./tools/download.escript "$(REBAR3_URL)" "$(REBAR3)" --sha256 "$(REBAR_SHA256)" --executable $(PROXY_ARGS)
+
+endif
 
 compile: $(REBAR3)
 	$(REBAR3) compile
