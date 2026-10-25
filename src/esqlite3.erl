@@ -180,6 +180,8 @@ q(Connection, Sql) ->
     q(Connection, Sql, []).
 
 %% @doc Execute statement, bind args and return a list rows.
+%% The private statement is finalized before returning, including on errors.
+%% Unlike prepare/2, q does not transfer statement ownership to its caller.
 -spec q(Connection, Sql, Args) -> Result when
       Connection :: esqlite3(),
       Sql :: sql(),
@@ -188,22 +190,34 @@ q(Connection, Sql) ->
 q(Connection, Sql, []) ->
     case prepare(Connection, Sql) of
         {ok, Statement} ->
-            fetchall(Statement);
+            try fetchall(Statement)
+            after finalize_query_statement(Statement)
+            end;
         {error, _Msg}=Error ->
             Error
     end;
 q(Connection, Sql, Args) ->
     case prepare(Connection, Sql) of
         {ok, Statement} ->
-            case bind(Statement, Args) of
-                ok ->
-                    fetchall(Statement);
-                {error, _}=Error ->
-                    Error
+            try
+                case bind(Statement, Args) of
+                    ok ->
+                        fetchall(Statement);
+                    {error, _}=Error ->
+                        Error
+                end
+            after
+                finalize_query_statement(Statement)
             end;
         {error, _Msg}=Error ->
             Error
     end.
+
+%% Only q calls this helper: its statement never escapes to another process.
+%% Cleanup must preserve the result or exception from bind/fetchall, including
+%% a SQLite step error which sqlite3_finalize can report again.
+finalize_query_statement(#esqlite3_stmt{stmt=Stmt}) ->
+    esqlite3_nif:finalize_query_statement(Stmt).
 
 
 %%
@@ -548,5 +562,4 @@ props_to_prepare_flag(Props) ->
         true -> Flag bor ?SQLITE_PREPARE_PERSISTENT;
         false -> Flag
     end.
-
 

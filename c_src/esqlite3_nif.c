@@ -93,10 +93,11 @@ destruct_esqlite3(ErlNifEnv *env, void *arg)
     db->db = NULL;
 }
 
+/* q releases its private statement synchronously. The later resource
+ * destructor follows the same idempotent path without releasing twice. */
 static void
-destruct_esqlite3_stmt(ErlNifEnv *env, void *arg)
+release_statement(esqlite3_stmt *stmt)
 {
-    esqlite3_stmt *stmt = (esqlite3_stmt *) arg;
     sqlite3_finalize(stmt->statement);
     stmt->statement = NULL;
 
@@ -106,6 +107,28 @@ destruct_esqlite3_stmt(ErlNifEnv *env, void *arg)
         enif_release_resource(stmt->connection);
         stmt->connection = NULL;
     }
+}
+
+static void
+destruct_esqlite3_stmt(ErlNifEnv *env, void *arg)
+{
+    release_statement((esqlite3_stmt *) arg);
+}
+
+/* Internal to q: the statement has never escaped and has no concurrent user.
+ * Finalize may repeat the last step error, but cleanup must not replace the
+ * result or exception already produced by the query. */
+static ERL_NIF_TERM
+esqlite_finalize_query_statement(ErlNifEnv *env, int argc,
+                                const ERL_NIF_TERM argv[])
+{
+    esqlite3_stmt *stmt;
+    if(argc != 1 ||
+       !enif_get_resource(env, argv[0], esqlite3_stmt_type, (void **) &stmt)) {
+        return enif_make_badarg(env);
+    }
+    release_statement(stmt);
+    return make_atom(env, "ok");
 }
 
 static void
@@ -1237,6 +1260,8 @@ static ErlNifFunc nif_funcs[] = {
 
     {"exec", 2, esqlite_exec, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"prepare", 3, esqlite_prepare},
+    {"finalize_query_statement", 1, esqlite_finalize_query_statement,
+        ERL_NIF_DIRTY_JOB_IO_BOUND},
 
     {"column_names", 1, esqlite_column_names},
     {"column_decltypes", 1, esqlite_column_decltypes},

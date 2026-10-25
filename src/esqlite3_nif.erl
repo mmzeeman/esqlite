@@ -32,6 +32,7 @@
     changes/1,
     exec/2,
     prepare/3,
+    finalize_query_statement/1,
 
     column_names/1,
     column_decltypes/1,
@@ -214,6 +215,12 @@ step(_Statement) ->
 reset(_Statement) ->
     erlang:nif_error(nif_library_not_loaded).
 
+%% Internal q cleanup, not a general statement ownership API. The caller must
+%% exclusively own the statement and must never use it after this call.
+-spec finalize_query_statement(esqlite3_stmt_ref()) -> ok.
+finalize_query_statement(_Statement) ->
+    erlang:nif_error(nif_library_not_loaded).
+
 %% @doc Retrieve the column names of the prepared statement
 %%
 -spec column_names(Statement) -> Names when
@@ -316,4 +323,3 @@ memory_stats(_Flag) ->
       Stats :: #{ used := non_neg_integer(), highwater := non_neg_integer() }.
 status(_Op, _Flag) ->
     erlang:nif_error(nif_library_not_loaded).
-
