@@ -240,6 +240,7 @@ esqlite_open(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     if(rc != SQLITE_OK) {
         ERL_NIF_TERM error = make_sqlite3_error_tuple(env, rc);
         sqlite3_close_v2(conn->db);
+        conn->db = NULL;
         enif_release_resource(conn);
         return error;
     }

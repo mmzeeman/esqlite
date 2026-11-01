@@ -14,6 +14,16 @@ open_single_database_test() ->
     {ok, _C1} = esqlite3:open(?DB1),
     ok.
 
+failed_open_test() ->
+    %% A failed open must close the handle once; the resource destructor
+    %% closed it a second time before.
+    Results = [esqlite3:open("./test/dbs/missing_dir/x.db") || _ <- lists:seq(1, 1000)],
+    erlang:garbage_collect(),
+    ?assert(lists:all(fun({error, _}) -> true; (_) -> false end, Results)),
+    {ok, C} = esqlite3:open(":memory:"),
+    ?assertEqual([[1]], esqlite3:q(C, "select 1")),
+    ok.
+
 close_test() ->
     %% Open and close the database immediately
     {ok, C} = esqlite3:open(":memory:"),
